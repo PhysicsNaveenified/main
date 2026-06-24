@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gauss's Law — 3D Interactive Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg1:#0b1020; --bg2:#121a33; --panel:#161f3d; --accent:#5ee7ff;
+    --accent2:#ff6ec7; --text:#e8edff; --muted:#9aa6c7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 800px at 70% -10%, #1c2750 0%, var(--bg1) 60%);
+    color:var(--text); min-height:100vh;
+  }
+  header{ padding:18px 24px 6px; }
+  header h1{ margin:0; font-size:1.5rem; }
+  header p{ margin:4px 0 0; color:var(--muted); font-size:.9rem;}
+  .wrap{ display:flex; gap:18px; padding:0 24px 24px; flex-wrap:wrap; }
+  .panel{
+    background: linear-gradient(180deg, var(--panel), #101733);
+    border:1px solid #2a3563; border-radius:14px; padding:16px 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .controls{ flex:0 0 320px; }
+  .stage{ flex:1 1 600px; min-width:340px; position:relative; }
+  #three-canvas{
+    width:100%; height:560px; display:block; border-radius:12px; border:1px solid #2a3563;
+    background: radial-gradient(800px 500px at 50% 20%, #0e1530, #050810);
+    cursor:grab;
+  }
+  #three-canvas:active{ cursor:grabbing; }
+  h2{ font-size:1.05rem; margin:0 0 10px; color:var(--accent);}
+  label{ display:block; font-size:.85rem; color:var(--muted); margin:14px 0 6px;}
+  select, input[type=range]{ width:100%; }
+  select{ background:#0e1530; color:var(--text); border:1px solid #2a3563; border-radius:8px; padding:8px; font-size:.9rem;}
+  input[type=range]{ accent-color:var(--accent);}
+  .valbadge{ float:right; color:var(--accent); font-variant-numeric:tabular-nums; }
+  button{
+    background: linear-gradient(135deg, var(--accent), #3aa0ff); border:none; color:#031022;
+    font-weight:700; padding:9px 14px; border-radius:8px; cursor:pointer; margin-top:6px;
+  }
+  button.secondary{ background:#1d2750; color:var(--text); border:1px solid #2a3563; font-weight:600;}
+  .formula-box{ margin-top:14px; background:#0e1530; border:1px solid #2a3563; border-radius:10px; padding:14px; text-align:center;}
+  .formula-box .law{ font-size:.78rem; color:var(--muted); margin-bottom:6px;}
+  .formula-box .eqn{ font-size:1.2rem; color:var(--accent2); font-weight:700; letter-spacing:.4px;}
+  .formula-box .val{ margin-top:8px; font-size:1.02rem; color:var(--accent);}
+  .gaussinfo{ margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
+  .hint{ font-size:.76rem; color:var(--muted); margin-top:10px; line-height:1.5;}
+  .chargelist{ max-height:120px; overflow-y:auto; margin-top:8px;}
+  .chargelist div{ display:flex; justify-content:space-between; align-items:center; font-size:.8rem;
+    background:#0e1530; border:1px solid #2a3563; border-radius:6px; padding:5px 8px; margin-bottom:6px;}
+  .chargelist button{ padding:2px 8px; margin:0; background:#3a1d2c; color:#ff9bbd; font-weight:700;}
+  .colorbar{
+    position:absolute; right:14px; top:14px; width:18px; height:200px; border-radius:9px;
+    background: linear-gradient(to top, #2b6dff, #38e2c2, #ffe14d, #ff7a3d, #ff2e2e);
+    border:1px solid #2a3563; box-shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+  .colorbar-label{
+    position:absolute; right:36px; font-size:.68rem; color:var(--muted); white-space:nowrap;
+  }
+  .toolbar{ position:absolute; left:14px; top:14px; display:flex; gap:8px; }
+  .toolbar button{ padding:6px 10px; font-size:.75rem; margin:0; }
+  footer{ text-align:center; color:var(--muted); font-size:.74rem; padding:6px 0 24px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Gauss's Law — 3D Interactive Simulation</h1>
+  <p>Drag to rotate · scroll to zoom · arrow color &amp; length show field strength.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="panel controls">
+    <h2>Configuration</h2>
+    <label>Charge Distribution</label>
+    <select id="modeSelect">
+      <option value="point">Single Point Charge</option>
+      <option value="multi">Multiple Point Charges</option>
+      <option value="line">Infinite Line Charge</option>
+      <option value="sheet">Infinite Sheet of Charge</option>
+      <option value="shell">Charged Conducting Shell</option>
+    </select>
+
+    <div id="modeControls"></div>
+
+    <div class="formula-box">
+      <div class="law" id="lawText">Gauss's Law: ∮ E·dA = Q_enc / ε₀</div>
+      <div class="eqn" id="eqnText">E = kQ / r²</div>
+      <div class="val" id="valText">E = 0 N/C</div>
+    </div>
+
+    <div class="gaussinfo" id="gaussInfo"></div>
+    <div class="hint">In "Multiple Point Charges" mode, click the 3D scene to drop a new charge on the equatorial plane.</div>
+  </div>
+
+  <div class="panel stage">
+    <h2 style="margin-bottom:8px;">3D Visualization</h2>
+    <div style="position:relative;">
+      <canvas id="three-canvas"></canvas>
+      <div class="toolbar">
+        <button class="secondary" id="autoRotBtn">Auto-rotate: Off</button>
+        <button class="secondary" id="resetViewBtn">Reset view</button>
+      </div>
+      <div class="colorbar"></div>
+      <div class="colorbar-label" style="top:14px;">strong</div>
+      <div class="colorbar-label" style="top:204px;">weak</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>Field arrows are sampled on/around the Gaussian surface; length and hue both scale with |E| (blue → weak, red → strong).</footer>
+
+<script>
+/* ---------------- Three.js scene setup ---------------- */
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+let camDist = 9;
+camera.position.set(0,0,camDist);
+
+const world = new THREE.Group(); // rotated by drag
+scene.add(world);
+
+scene.add(new THREE.AmbientLight(0x8899ff, 0.7));
+const dl = new THREE.DirectionalLight(0xffffff, 0.9);
+dl.position.set(5,8,6);
+scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0x88aaff, 0.4);
+dl2.position.set(-6,-4,-5);
+scene.add(dl2);
+
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+/* drag-to-rotate & scroll-to-zoom */
+let dragging=false, lastX=0, lastY=0;
+let rotY = 0.5, rotX = -0.3;
+let autoRotate=false;
+canvas.addEventListener('pointerdown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY;});
+window.addEventListener('pointerup', ()=>dragging=false);
+window.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+  rotY += dx*0.006;
+  rotX += dy*0.006;
+  rotX = Math.max(-1.4, Math.min(1.4, rotX));
+});
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  camDist *= (1 + e.deltaY*0.001);
+  camDist = Math.max(3, Math.min(26, camDist));
+}, {passive:false});
+
+document.getElementById('autoRotBtn').addEventListener('click', e=>{
+  autoRotate = !autoRotate;
+  e.target.textContent = 'Auto-rotate: '+(autoRotate?'On':'Off');
+});
+document.getElementById('resetViewBtn').addEventListener('click', ()=>{
+  rotY=0.5; rotX=-0.3; camDist=9;
+});
+
+/* click to add charge (multi mode) */
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+canvas.addEventListener('click', e=>{
+  if(mode!=='multi') return;
+  const rect = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX-rect.left)/rect.width)*2-1,
+    -((e.clientY-rect.top)/rect.height)*2+1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(groundPlane, pt);
+  if(pt){
+    // un-rotate point into world's local space since 'world' group is rotated
+    const inv = world.quaternion.clone().invert();
+    pt.applyQuaternion(inv);
+    const q = (Math.random()>0.5?1:-1)*(2+Math.random()*5);
+    charges.push({x:pt.x, y:0, z:pt.z, q:+q.toFixed(1)});
+    refreshChargeList(); rebuildScene();
+  }
+});
+
+/* ---------------- physics & state ---------------- */
+const k = 8.99e9, eps0 = 8.85e-12;
+const UNIT = 1.2; // world units per meter (visual scale)
+let mode = 'point';
+let charges = [{x:0,y:0,z:0,q:5}];
+let lineLambda = 4;
+let sheetSigma = 3;
+let shellQ = 6;
+let shellR = 1.4;   // world units
+let gaussR = 2.6;   // world units
+
+function fmt(n,d=3){ return Number(n).toPrecision(d); }
+
+/* colormap: blue(weak) -> teal -> yellow -> orange -> red(strong) */
+function magColor(t){
+  t = Math.max(0, Math.min(1,t));
+  const stops = [
+    [0.17,0.43,1.0],
+    [0.22,0.89,0.76],
+    [1.0,0.88,0.30],
+    [1.0,0.48,0.24],
+    [1.0,0.18,0.18]
+  ];
+  const seg = t*(stops.length-1);
+  const i = Math.min(stops.length-2, Math.floor(seg));
+  const f = seg-i;
+  const c0=stops[i], c1=stops[i+1];
+  const r = c0[0]+(c1[0]-c0[0])*f;
+  const g = c0[1]+(c1[1]-c0[1])*f;
+  const b = c0[2]+(c1[2]-c0[2])*f;
+  return new THREE.Color(r,g,b);
+}
+
+/* ---------------- scene content group (rebuilt per mode) ---------------- */
+let content = new THREE.Group();
+world.add(content);
+function clearContent(){
+  world.remove(content);
+  content.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+  content = new THREE.Group();
+  world.add(content);
+}
+
+function addArrow(origin, dir, length, color){
+  if(length < 0.001 || !isFinite(length)) return;
+  const dirN = dir.clone().normalize();
+  const headLen = Math.min(0.28, length*0.35);
+  const headW = headLen*0.6;
+  const ah = new THREE.ArrowHelper(dirN, origin, length, color.getHex(), headLen, headW);
+  ah.line.material.linewidth = 2;
+  content.add(ah);
+}
+
+function makeChargeSphere(pos, q, radius=0.18){
+  const geo = new THREE.SphereGeometry(radius, 24, 18);
+  const color = q>=0 ? 0xff5c5c : 0x5c8dff;
+  const mat = new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:0.35, roughness:0.4, metalness:0.1});
+  const m = new THREE.Mesh(geo, mat);
+  m.position.copy(pos);
+  content.add(m);
+  return m;
+}
+
+function wireSphere(radius, color=0x5ee7ff, opacity=0.35){
+  const geo = new THREE.SphereGeometry(radius, 24, 18);
+  const mat = new THREE.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity});
+  content.add(new THREE.Mesh(geo, mat));
+}
+function wireCylinder(radius, height, color=0x5ee7ff, opacity=0.35){
+  const geo = new THREE.CylinderGeometry(radius, radius, height, 28, 1, true);
+  const mat = new THREE.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity});
+  const m = new THREE.Mesh(geo, mat);
+  content.add(m);
+}
+function wireBox(w,h,d, color=0x5ee7ff, opacity=0.35){
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const mat = new THREE.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity});
+  content.add(new THREE.Mesh(geo, mat));
+}
+
+function fibonacciSphere(n){
+  const pts=[];
+  const ga = Math.PI*(3-Math.sqrt(5));
+  for(let i=0;i<n;i++){
+    const y = 1-(i/(n-1))*2;
+    const r = Math.sqrt(1-y*y);
+    const theta = ga*i;
+    pts.push(new THREE.Vector3(Math.cos(theta)*r, y, Math.sin(theta)*r));
+  }
+  return pts;
+}
+
+/* ---------------- field builders per mode ---------------- */
+function buildPointField(centerArr, totalChargeFn){
+  // centerArr: list of {pos:THREE.Vector3, q}
+  const r = gaussR;
+  const shells = [r*0.55, r, r*1.55];
+  const samples = [];
+  shells.forEach((rad, si)=>{
+    const n = si===1? 60 : 34;
+    fibonacciSphere(n).forEach(dir=>{
+      const p = dir.clone().multiplyScalar(rad);
+      samples.push(p);
+    });
+  });
+  let maxE = 0;
+  const computed = samples.map(p=>{
+    let Ex=0,Ey=0,Ez=0;
+    centerArr.forEach(c=>{
+      const d = new THREE.Vector3().subVectors(p, c.pos);
+      const dist = Math.max(d.length(), 0.12);
+      const distM = dist/UNIT;
+      const Emag = k*Math.abs(c.q*1e-9)/(distM*distM);
+      const dirN = d.clone().normalize().multiplyScalar(c.q>=0?1:-1);
+      Ex += dirN.x*Emag; Ey += dirN.y*Emag; Ez += dirN.z*Emag;
+    });
+    const Evec = new THREE.Vector3(Ex,Ey,Ez);
+    const mag = Evec.length();
+    maxE = Math.max(maxE, mag);
+    return {p, Evec, mag};
+  });
+  computed.forEach(c=>{
+    const t = maxE>0 ? c.mag/maxE : 0;
+    const len = 0.22 + t*0.9;
+    addArrow(c.p, c.Evec.lengthSq()>0?c.Evec:new THREE.Vector3(1,0,0), len, magColor(t));
+  });
+  return maxE;
+}
+
+function buildLineField(){
+  const r = gaussR;
+  const radii = [r*0.55, r, r*1.55];
+  const zs = [-1.6,-0.8,0,0.8,1.6];
+  const samples=[];
+  radii.forEach(rad=>{
+    const n=10;
+    for(let i=0;i<n;i++){
+      const a=(i/n)*2*Math.PI;
+      zs.forEach(z=> samples.push(new THREE.Vector3(rad*Math.cos(a), z, rad*Math.sin(a))));
+    }
+  });
+  let maxE=0;
+  const computed = samples.map(p=>{
+    const rho = Math.hypot(p.x,p.z);
+    const rhoM = Math.max(rho/UNIT, 0.05);
+    const Emag = Math.abs(lineLambda*1e-9)/(2*Math.PI*eps0*rhoM);
+    maxE = Math.max(maxE, Emag);
+    const dir = new THREE.Vector3(p.x,0,p.z).normalize().multiplyScalar(lineLambda>=0?1:-1);
+    return {p, dir, Emag};
+  });
+  computed.forEach(c=>{
+    const t = maxE>0? c.Emag/maxE : 0;
+    const len = 0.18 + t*0.85;
+    addArrow(c.p, c.dir.lengthSq()>0?c.dir:new THREE.Vector3(1,0,0), len, magColor(t));
+  });
+  return maxE;
+}
+
+function buildSheetField(){
+  const r = gaussR;
+  const offsets = [r*0.5, r, r*1.5];
+  const grid = [-1.6,-0.8,0,0.8,1.6];
+  const samples=[];
+  offsets.forEach(off=>{
+    grid.forEach(x=> grid.forEach(z=>{
+      samples.push(new THREE.Vector3(x, off, z));
+      samples.push(new THREE.Vector3(x, -off, z));
+    }));
+  });
+  const Emag = Math.abs(sheetSigma*1e-9)/(2*eps0); // constant
+  samples.forEach(p=>{
+    const dir = new THREE.Vector3(0, p.y>=0?1:-1, 0).multiplyScalar(sheetSigma>=0?1:-1);
+    addArrow(p, dir, 0.55, magColor(0.75));
+  });
+  return Emag;
+}
+
+function buildShellField(){
+  const r = gaussR;
+  const outside = r >= shellR;
+  let maxE=0;
+  if(outside){
+    const shells = [Math.max(shellR*1.05,r*0.6), r, r*1.5];
+    const samples=[];
+    shells.forEach((rad,si)=>{
+      const n = si===1?60:30;
+      fibonacciSphere(n).forEach(dir=> samples.push(dir.clone().multiplyScalar(Math.max(rad, shellR*1.02))));
+    });
+    const computed = samples.map(p=>{
+      const dist = Math.max(p.length(),0.12);
+      const distM = dist/UNIT;
+      const Emag = shellQ===0?0:k*Math.abs(shellQ*1e-9)/(distM*distM);
+      maxE = Math.max(maxE, Emag);
+      return {p, dir:p.clone().normalize().multiplyScalar(shellQ>=0?1:-1), Emag};
+    });
+    computed.forEach(c=>{
+      const t = maxE>0? c.Emag/maxE : 0;
+      const len = 0.22+t*0.9;
+      addArrow(c.p, c.dir.lengthSq()>0?c.dir:new THREE.Vector3(1,0,0), len, magColor(t));
+    });
+  }
+  return {maxE, outside};
+}
+
+/* ---------------- per-mode rebuild ---------------- */
+function rebuildScene(){
+  clearContent();
+  const rm = gaussR/UNIT; // meters
+
+  if(mode==='point'){
+    wireSphere(gaussR);
+    const c = {pos:new THREE.Vector3(0,0,0), q:charges[0].q};
+    makeChargeSphere(c.pos, c.q, 0.22);
+    buildPointField([c]);
+    const E = charges[0].q===0?0:k*Math.abs(charges[0].q*1e-9)/(rm*rm);
+    eqnText.textContent = 'E = kQ / r²';
+    lawText.textContent = "Gauss's Law: E(4πr²) = Q_enc/ε₀";
+    valText.textContent = 'E ≈ '+fmt(E)+' N/C at r = '+fmt(rm,2)+' m, Q = '+charges[0].q+' nC';
+    gaussInfo.textContent = 'Gaussian sphere of radius r centered on the charge. By spherical symmetry, E is uniform in magnitude over the surface.';
+  }
+  else if(mode==='multi'){
+    wireSphere(gaussR);
+    const objs = charges.map(c=>{
+      const pos = new THREE.Vector3(c.x,c.y,c.z);
+      makeChargeSphere(pos, c.q, 0.16);
+      return {pos, q:c.q};
+    });
+    buildPointField(objs);
+    let qsum=0;
+    objs.forEach(o=>{ if(o.pos.length() <= gaussR-0.05) qsum += Number(o.q); });
+    const E = qsum===0?0:k*Math.abs(qsum*1e-9)/(rm*rm);
+    eqnText.textContent = 'E = k·Q_enc / r²';
+    lawText.textContent = "Gauss's Law: ∮E·dA = Q_enc/ε₀";
+    valText.textContent = 'E ≈ '+fmt(E)+' N/C at r = '+fmt(rm,2)+' m, Q_enc = '+fmt(qsum,3)+' nC';
+    gaussInfo.textContent = 'Only charges enclosed within the dashed-wire Gaussian sphere count toward Q_enc; charges outside contribute zero net flux.';
+  }
+  else if(mode==='line'){
+    wireCylinder(gaussR, 3.6);
+    const geo = new THREE.CylinderGeometry(0.05,0.05,4,16);
+    const mat = new THREE.MeshStandardMaterial({color: lineLambda>=0?0xff5c5c:0x5c8dff, emissive: lineLambda>=0?0xff5c5c:0x5c8dff, emissiveIntensity:0.3});
+    content.add(new THREE.Mesh(geo,mat));
+    buildLineField();
+    const rhoM = Math.max(rm,0.05);
+    const E = Math.abs(lineLambda*1e-9)/(2*Math.PI*eps0*rhoM);
+    eqnText.textContent = 'E = λ / (2πε₀ r)';
+    lawText.textContent = "Gauss's Law: E(2πrL) = λL/ε₀";
+    valText.textContent = 'E ≈ '+fmt(E)+' N/C at r = '+fmt(rm,2)+' m, λ = '+lineLambda+' nC/m';
+    gaussInfo.textContent = 'Coaxial Gaussian cylinder of radius r. Flux exits only the curved side; end-caps contribute nothing since E is parallel to them.';
+  }
+  else if(mode==='sheet'){
+    const planeGeo = new THREE.PlaneGeometry(3.4,3.4,1,1);
+    const planeMat = new THREE.MeshStandardMaterial({color: sheetSigma>=0?0xff5c5c:0x5c8dff, opacity:0.45, transparent:true, side:THREE.DoubleSide, emissive: sheetSigma>=0?0xff5c5c:0x5c8dff, emissiveIntensity:0.2});
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    plane.rotation.x = Math.PI/2;
+    content.add(plane);
+    wireBox(2.0, gaussR*2, 2.0);
+    buildSheetField();
+    const E = Math.abs(sheetSigma*1e-9)/(2*eps0);
+    eqnText.textContent = 'E = σ / (2ε₀)  (uniform, independent of r)';
+    lawText.textContent = "Gauss's Law: 2EA = σA/ε₀";
+    valText.textContent = 'E ≈ '+fmt(E)+' N/C (constant at any distance), σ = '+sheetSigma+' nC/m²';
+    gaussInfo.textContent = 'Gaussian pillbox straddles the sheet with two end-caps of area A. Moving it farther (slider) does not change E — note arrow length & color stay constant.';
+  }
+  else if(mode==='shell'){
+    const geo = new THREE.SphereGeometry(shellR, 32, 22);
+    const mat = new THREE.MeshStandardMaterial({color: shellQ>=0?0xff5c5c:0x5c8dff, transparent:true, opacity:0.35, emissive: shellQ>=0?0xff5c5c:0x5c8dff, emissiveIntensity:0.25, side:THREE.DoubleSide});
+    content.add(new THREE.Mesh(geo,mat));
+    wireSphere(gaussR, 0x5ee7ff, 0.4);
+    const res = buildShellField();
+    if(!res.outside){
+      eqnText.textContent = 'E = 0  (inside a charged shell)';
+      valText.textContent = 'E = 0 N/C (r < R, Q_enc = 0)';
+    } else {
+      const E = shellQ===0?0:k*Math.abs(shellQ*1e-9)/(rm*rm);
+      eqnText.textContent = 'E = kQ / r²  (acts like a point charge)';
+      valText.textContent = 'E ≈ '+fmt(E)+' N/C at r = '+fmt(rm,2)+' m, Q = '+shellQ+' nC';
+    }
+    lawText.textContent = "Gauss's Law: E(4πr²) = Q_enc/ε₀";
+    gaussInfo.textContent = 'If r<R: Q_enc=0 (all charge sits on the shell surface) ⇒ E=0. If r≥R: shell behaves exactly like a point charge at its center.';
+  }
+}
+
+/* ---------------- UI controls ---------------- */
+const modeControls = document.getElementById('modeControls');
+const eqnText = document.getElementById('eqnText');
+const valText = document.getElementById('valText');
+const lawText = document.getElementById('lawText');
+const gaussInfo = document.getElementById('gaussInfo');
+
+function buildControls(){
+  modeControls.innerHTML='';
+  if(mode==='point'){
+    modeControls.innerHTML = `
+      <label>Charge Q (nC) <span class="valbadge" id="qVal">${charges[0].q}</span></label>
+      <input type="range" id="qSlider" min="-10" max="10" step="0.5" value="${charges[0].q}">
+      <label>Gaussian Sphere Radius r <span class="valbadge" id="rVal">${gaussR.toFixed(2)}</span></label>
+      <input type="range" id="rSlider" min="0.8" max="5" step="0.05" value="${gaussR}">
+    `;
+    bind('qSlider', v=>{charges[0].q=v; rebuildScene();}, 'qVal');
+    bind('rSlider', v=>{gaussR=v; rebuildScene();}, 'rVal', 2);
+  } else if(mode==='multi'){
+    modeControls.innerHTML = `
+      <label>Gaussian Sphere Radius r <span class="valbadge" id="rVal">${gaussR.toFixed(2)}</span></label>
+      <input type="range" id="rSlider" min="0.8" max="5.5" step="0.05" value="${gaussR}">
+      <button id="addBtn" class="secondary">Add random charge</button>
+      <button id="clearBtn" class="secondary">Clear all</button>
+      <div class="chargelist" id="chargeList"></div>
+    `;
+    bind('rSlider', v=>{gaussR=v; rebuildScene();}, 'rVal', 2);
+    document.getElementById('addBtn').addEventListener('click', ()=>{
+      const a=Math.random()*2*Math.PI;
+      const rad=0.6+Math.random()*1.2;
+      charges.push({x:rad*Math.cos(a), y:(Math.random()-0.5)*1.2, z:rad*Math.sin(a), q:+(Math.random()*10-5).toFixed(1)});
+      refreshChargeList(); rebuildScene();
+    });
+    document.getElementById('clearBtn').addEventListener('click', ()=>{charges=[]; refreshChargeList(); rebuildScene();});
+    refreshChargeList();
+  } else if(mode==='line'){
+    modeControls.innerHTML = `
+      <label>Linear Density λ (nC/m) <span class="valbadge" id="lVal">${lineLambda}</span></label>
+      <input type="range" id="lSlider" min="-10" max="10" step="0.5" value="${lineLambda}">
+      <label>Gaussian Cylinder Radius r <span class="valbadge" id="rVal">${gaussR.toFixed(2)}</span></label>
+      <input type="range" id="rSlider" min="0.5" max="4.5" step="0.05" value="${gaussR}">
+    `;
+    bind('lSlider', v=>{lineLambda=v; rebuildScene();}, 'lVal');
+    bind('rSlider', v=>{gaussR=v; rebuildScene();}, 'rVal', 2);
+  } else if(mode==='sheet'){
+    modeControls.innerHTML = `
+      <label>Surface Density σ (nC/m²) <span class="valbadge" id="sVal">${sheetSigma}</span></label>
+      <input type="range" id="sSlider" min="-10" max="10" step="0.5" value="${sheetSigma}">
+      <label>Pillbox Half-Distance r <span class="valbadge" id="rVal">${gaussR.toFixed(2)}</span></label>
+      <input type="range" id="rSlider" min="0.4" max="3.5" step="0.05" value="${gaussR}">
+    `;
+    bind('sSlider', v=>{sheetSigma=v; rebuildScene();}, 'sVal');
+    bind('rSlider', v=>{gaussR=v; rebuildScene();}, 'rVal', 2);
+  } else if(mode==='shell'){
+    modeControls.innerHTML = `
+      <label>Total Charge Q (nC) <span class="valbadge" id="qVal">${shellQ}</span></label>
+      <input type="range" id="qSlider" min="-10" max="10" step="0.5" value="${shellQ}">
+      <label>Shell Radius R <span class="valbadge" id="shVal">${shellR.toFixed(2)}</span></label>
+      <input type="range" id="shSlider" min="0.6" max="2.2" step="0.05" value="${shellR}">
+      <label>Gaussian Sphere Radius r <span class="valbadge" id="rVal">${gaussR.toFixed(2)}</span></label>
+      <input type="range" id="rSlider" min="0.3" max="5" step="0.05" value="${gaussR}">
+    `;
+    bind('qSlider', v=>{shellQ=v; rebuildScene();}, 'qVal');
+    bind('shSlider', v=>{shellR=v; rebuildScene();}, 'shVal', 2);
+    bind('rSlider', v=>{gaussR=v; rebuildScene();}, 'rVal', 2);
+  }
+  rebuildScene();
+}
+
+function bind(id, fn, badgeId, dec=1){
+  const inp = document.getElementById(id);
+  const badge = document.getElementById(badgeId);
+  inp.addEventListener('input', e=>{
+    const v = +e.target.value;
+    if(badge) badge.textContent = dec===2? v.toFixed(2) : v;
+    fn(v);
+  });
+}
+
+function refreshChargeList(){
+  const list = document.getElementById('chargeList');
+  if(!list) return;
+  list.innerHTML = charges.map((c,i)=>`<div>Charge ${i+1}: ${c.q>0?'+':''}${c.q} nC <button data-i="${i}">✕</button></div>`).join('') || '<div style="color:#777">No charges yet — click the scene.</div>';
+  list.querySelectorAll('button').forEach(b=>b.addEventListener('click', e=>{
+    charges.splice(+e.target.dataset.i,1); refreshChargeList(); rebuildScene();
+  }));
+}
+
+document.getElementById('modeSelect').addEventListener('change', e=>{
+  mode = e.target.value;
+  if(mode==='point') charges=[{x:0,y:0,z:0,q:5}];
+  if(mode==='multi' && charges.length<2) charges=[{x:-0.9,y:0,z:0,q:4},{x:0.9,y:0,z:0,q:-3}];
+  buildControls();
+});
+
+/* ---------------- render loop ---------------- */
+function animate(){
+  requestAnimationFrame(animate);
+  if(autoRotate) rotY += 0.004;
+  world.rotation.set(rotX, rotY, 0);
+  camera.position.set(0,0,camDist);
+  camera.lookAt(0,0,0);
+  resize();
+  renderer.render(scene, camera);
+}
+buildControls();
+animate();
+</script>
+</body>
+</html>
