@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vertical Throw Simulator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #ffffff;
+    color: #222;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { margin: 6px 0 14px 0; font-size: 22px; }
+  .layout {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    max-width: 1100px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #canvasWrap {
+    background: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  canvas { display: block; background: #ffffff; }
+
+  .panel {
+    background: #f7f7f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    width: 300px;
+    flex-shrink: 0;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 10px 0; }
+  .group { margin-bottom: 14px; }
+  label { font-size: 13px; display: block; margin-bottom: 4px; color: #444; }
+  select, input[type=number] {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    margin-right: 6px;
+    margin-bottom: 8px;
+  }
+  #startBtn { background: #2e7d32; }
+  #pauseBtn { background: #ef6c00; }
+  #resetBtn { background: #757575; }
+  #pauseBtn:disabled, #startBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .readout {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout span.val { font-weight: 700; color: #1565c0; }
+  .readout span.up { color: #2e7d32; }
+  .readout span.down { color: #c62828; }
+  #speedLabel, #heightLabel, #velLabel { font-weight: 600; }
+  .hint { font-size: 11.5px; color: #777; margin-top: 4px;}
+  #status {
+    font-size: 13px;
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    background: #e8f0fe;
+    color: #1a3a7a;
+  }
+</style>
+</head>
+<body>
+
+<h1>🏀 Vertical Throw Simulator</h1>
+
+<div class="layout">
+
+  <div id="canvasWrap">
+    <canvas id="sim" width="560" height="520"></canvas>
+  </div>
+
+  <div class="panel">
+
+    <div class="group">
+      <h2>Scenario</h2>
+      <select id="scenario">
+        <option value="buildingThrow">Boy throws ball up from building roof — falls to ground</option>
+        <option value="groundThrow">Boy throws ball up from ground — falls back to ground</option>
+        <option value="buildingDrop">Ball dropped (no throw) from building — falls to ground</option>
+      </select>
+    </div>
+
+    <div class="group" id="heightGroup">
+      <label for="heightInput">Building height (m)</label>
+      <input type="number" id="heightInput" value="20" min="1" max="200" step="1">
+    </div>
+
+    <div class="group" id="velGroup">
+      <label for="velInput">Initial throw speed (m/s, upward)</label>
+      <input type="number" id="velInput" value="15" min="1" max="60" step="1">
+    </div>
+
+    <div class="group">
+      <label for="speedRange">Simulation speed: <span id="speedLabel">1.0x</span></label>
+      <input type="range" id="speedRange" min="0.1" max="3" step="0.1" value="1">
+    </div>
+
+    <div class="group">
+      <button id="startBtn">▶ Start</button>
+      <button id="pauseBtn" disabled>⏸ Pause</button>
+      <button id="resetBtn">⟲ Reset</button>
+      <div class="hint">Keyboard: press <b>Spacebar</b> to Pause/Resume.</div>
+    </div>
+
+    <div class="group">
+      <h2>Live readout</h2>
+      <div class="readout" id="readout">
+        Time: <span class="val" id="rTime">0.00</span> s<br>
+        Height above ground: <span class="val" id="rHeight">0.00</span> m<br>
+        Velocity: <span class="val" id="rVel">0.00</span> m/s
+        (<span id="rDir">—</span>)<br>
+        Max height reached: <span class="val" id="rMaxH">0.00</span> m<br>
+        Peak time: <span class="val" id="rPeakT">—</span> s
+      </div>
+      <div class="hint">Tip: click Pause anytime to freeze the ball and read its exact velocity & height at that instant. Press Start/Resume to continue.</div>
+    </div>
+
+    <div id="status">Choose a scenario and press Start.</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const groundY = H - 50;       // pixel y of ground line
+const pxPerMeter = 18;        // scale: pixels per metre (recomputed dynamically)
+
+let scenario = 'buildingThrow';
+let buildingHeight = 20;   // metres
+let v0 = 15;                // m/s
+let g = 9.8; // fixed
+let simSpeed = 1.0;
+
+let t = 0;
+let running = false;
+let paused = false;
+let finished = false;
+let animHandle = null;
+let lastTimestamp = null;
+
+let maxHeight = 0;
+let peakTime = null;
+
+// DOM refs
+const scenarioSel = document.getElementById('scenario');
+const heightInput = document.getElementById('heightInput');
+const velInput = document.getElementById('velInput');
+const heightGroup = document.getElementById('heightGroup');
+const velGroup = document.getElementById('velGroup');
+const speedRange = document.getElementById('speedRange');
+const speedLabel = document.getElementById('speedLabel');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusBox = document.getElementById('status');
+
+const rTime = document.getElementById('rTime');
+const rHeight = document.getElementById('rHeight');
+const rVel = document.getElementById('rVel');
+const rDir = document.getElementById('rDir');
+const rMaxH = document.getElementById('rMaxH');
+const rPeakT = document.getElementById('rPeakT');
+
+function updateScenarioUI(){
+  scenario = scenarioSel.value;
+  if(scenario === 'groundThrow'){
+    heightGroup.style.display = 'none';
+    velGroup.style.display = 'block';
+  } else if(scenario === 'buildingDrop'){
+    heightGroup.style.display = 'block';
+    velGroup.style.display = 'none';
+  } else { // buildingThrow
+    heightGroup.style.display = 'block';
+    velGroup.style.display = 'block';
+  }
+  resetSim();
+}
+
+scenarioSel.addEventListener('change', updateScenarioUI);
+heightInput.addEventListener('change', () => { buildingHeight = clampNum(heightInput.value,1,200); resetSim(); });
+velInput.addEventListener('change', () => { v0 = clampNum(velInput.value,1,60); resetSim(); });
+speedRange.addEventListener('input', () => { simSpeed = parseFloat(speedRange.value); speedLabel.textContent = simSpeed.toFixed(1)+'x'; });
+
+function clampNum(v,min,max){ v = parseFloat(v); if(isNaN(v)) v = min; return Math.min(max, Math.max(min, v)); }
+
+// physics: y0 = starting height above ground (m), initial velocity v (m/s, up positive)
+function startParams(){
+  buildingHeight = clampNum(heightInput.value,1,200);
+  v0 = clampNum(velInput.value,1,60);
+  let y0, vInit;
+  if(scenario === 'buildingThrow'){ y0 = buildingHeight; vInit = v0; }
+  else if(scenario === 'groundThrow'){ y0 = 0; vInit = v0; }
+  else { y0 = buildingHeight; vInit = 0; } // buildingDrop
+  return {y0, vInit};
+}
+
+function heightAt(time, y0, vInit){
+  return y0 + vInit*time - 0.5*g*time*time;
+}
+function velAt(time, vInit){
+  return vInit - g*time;
+}
+
+// find total flight time (time when height returns to 0), via quadratic formula
+function totalFlightTime(y0, vInit){
+  // 0 = y0 + v*t - 0.5*g*t^2  -> 0.5g t^2 - v t - y0 = 0
+  const a = 0.5*g, b = -vInit, c = -y0;
+  const disc = b*b - 4*a*c;
+  const t1 = (-b + Math.sqrt(disc)) / (2*a);
+  return t1;
+}
+
+let currentParams = startParams();
+let totalT = totalFlightTime(currentParams.y0, currentParams.vInit);
+
+function resetSim(){
+  cancelAnimationFrame(animHandle);
+  running = false; paused = false; finished = false;
+  t = 0; lastTimestamp = null;
+  maxHeight = 0; peakTime = null;
+  currentParams = startParams();
+  totalT = totalFlightTime(currentParams.y0, currentParams.vInit);
+  startBtn.disabled = false; startBtn.textContent = '▶ Start';
+  pauseBtn.disabled = true; pauseBtn.textContent = '⏸ Pause';
+  statusBox.textContent = 'Choose a scenario and press Start.';
+  updateReadout(0, currentParams.y0, currentParams.vInit);
+  draw(currentParams.y0, currentParams.vInit);
+}
+
+resetBtn.addEventListener('click', resetSim);
+
+startBtn.addEventListener('click', () => {
+  if(finished){ resetSim(); }
+  if(!running){
+    running = true; paused = false;
+    startBtn.textContent = '▶ Resume';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    lastTimestamp = null;
+    statusBox.textContent = 'Simulation running…';
+    animHandle = requestAnimationFrame(step);
+  }
+});
+
+pauseBtn.addEventListener('click', () => {
+  if(running && !paused){
+    paused = true; running = false;
+    cancelAnimationFrame(animHandle);
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ Resume';
+    pauseBtn.disabled = true;
+    statusBox.textContent = 'Paused — read velocity & height in the panel, then resume.';
+  }
+});
+
+function step(timestamp){
+  if(!running) return;
+  if(lastTimestamp === null) lastTimestamp = timestamp;
+  const dtReal = (timestamp - lastTimestamp) / 1000;
+  lastTimestamp = timestamp;
+  t += dtReal * simSpeed;
+
+  if(t >= totalT){
+    t = totalT;
+    finished = true;
+    running = false;
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ Restart';
+    pauseBtn.disabled = true;
+    statusBox.textContent = 'Ball has landed. Press Restart to simulate again.';
+  }
+
+  const h = Math.max(0, heightAt(t, currentParams.y0, currentParams.vInit));
+  const v = velAt(t, currentParams.vInit);
+  if(h > maxHeight){ maxHeight = h; peakTime = t; }
+  updateReadout(t, h, v);
+  draw(h, v);
+
+  if(running) animHandle = requestAnimationFrame(step);
+}
+
+function updateReadout(time, h, v){
+  rTime.textContent = time.toFixed(2);
+  rHeight.textContent = h.toFixed(2);
+  rVel.textContent = Math.abs(v).toFixed(2);
+  if(Math.abs(v) < 0.05){ rDir.textContent = 'momentary stop'; rDir.className=''; }
+  else if(v > 0){ rDir.textContent = 'moving up ↑'; rDir.className='up'; }
+  else { rDir.textContent = 'moving down ↓'; rDir.className='down'; }
+  rMaxH.textContent = maxHeight.toFixed(2);
+  rPeakT.textContent = peakTime === null ? '—' : peakTime.toFixed(2);
+}
+
+// ---------- Drawing ----------
+function metersToPx(scaleMax){
+  return (groundY - 60) / scaleMax;
+}
+
+function draw(hMeters, vNow){
+  ctx.clearRect(0,0,W,H);
+
+  // determine vertical scale based on max possible height of this scenario
+  const scaleMax = Math.max(currentParams.y0 + (currentParams.vInit*currentParams.vInit)/(2*g), currentParams.y0, 5) * 1.15;
+  const scale = metersToPx(scaleMax);
+
+  // ground
+  ctx.fillStyle = '#cfd8dc';
+  ctx.fillRect(0, groundY, W, H-groundY);
+  ctx.strokeStyle = '#8d6e63';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  const ballX = 330; // horizontal position the ball falls/rises along
+  let buildingTopY = groundY;
+  let boyX, boyFeetY, boyFacing; // facing: 1 = facing right (toward ballX), -1 = facing left
+
+  if(scenario === 'buildingThrow' || scenario === 'buildingDrop'){
+    const buildingX = 70, buildingW = ballX - buildingX + 30; // building edge close to ball's column
+    buildingTopY = groundY - buildingHeight*scale;
+    ctx.fillStyle = '#90a4ae';
+    ctx.fillRect(buildingX, buildingTopY, buildingW, groundY-buildingTopY);
+    // windows
+    ctx.fillStyle = '#eceff1';
+    for(let wy = buildingTopY+15; wy < groundY-15; wy += 28){
+      for(let wx = buildingX+12; wx < buildingX+buildingW-12; wx += 28){
+        ctx.fillRect(wx, wy, 14, 16);
+      }
+    }
+    // height label
+    ctx.fillStyle = '#444';
+    ctx.font = '12px Segoe UI';
+    ctx.fillText(buildingHeight.toFixed(0)+' m', buildingX+8, buildingTopY-8);
+
+    // boy stands right at the edge of the roof, facing outward (right) toward where ball falls
+    boyX = buildingX + buildingW - 22;
+    boyFeetY = buildingTopY;
+    boyFacing = 1;
+  } else {
+    // groundThrow: boy stands on the ground next to where ball goes up
+    boyX = ballX - 36;
+    boyFeetY = groundY;
+    boyFacing = 1;
+  }
+
+  // Has the ball left the boy's hand yet? While t is essentially 0 and ball hasn't moved (for throw scenarios)
+  // we keep ball glued to boy's hand for a beat at the start so it visually reads as "thrown".
+  const justStarted = (t <= 0.001);
+
+  drawBoy(boyX, boyFeetY, boyFacing, justStarted, scenario);
+
+  // ball position: pixel y based on height; pixel x glued near boy's hand at t=0, then moves to ballX path
+  const ballYpx = groundY - hMeters*scale;
+  const handOffsetX = boyFacing * 16;
+  const ballXpx = justStarted ? (boyX + handOffsetX) : ballX;
+
+  ctx.beginPath();
+  ctx.fillStyle = '#fb8c00';
+  ctx.arc(ballXpx, ballYpx, 11, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#e65100';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(ballXpx, ballYpx, 11, 0.3, Math.PI-0.3);
+  ctx.strokeStyle = '#e65100';
+  ctx.stroke();
+
+  // velocity + height label beside the ball, always visible
+  ctx.font = '12px Segoe UI';
+  const vLabel = (vNow >= 0 ? '↑ ' : '↓ ') + Math.abs(vNow).toFixed(1) + ' m/s';
+  const hLabel = hMeters.toFixed(1) + ' m';
+  ctx.fillStyle = vNow >= 0 ? '#2e7d32' : '#c62828';
+  ctx.fillText(vLabel, ballXpx+16, ballYpx-2);
+  ctx.fillStyle = '#1565c0';
+  ctx.fillText(hLabel, ballXpx+16, ballYpx+14);
+}
+
+function drawBoy(x, feetY, facing, justThrew, scenario){
+  // simple stick figure; arm extended toward the ball to sell "throwing/dropping" pose
+  const headY = feetY - 46;
+  ctx.strokeStyle = '#3e2723';
+  ctx.fillStyle = '#3e2723';
+  ctx.lineWidth = 3;
+  // head
+  ctx.beginPath();
+  ctx.arc(x, headY, 8, 0, Math.PI*2);
+  ctx.fill();
+  // body
+  ctx.beginPath();
+  ctx.moveTo(x, headY+8);
+  ctx.lineTo(x, feetY-14);
+  ctx.stroke();
+  // legs
+  ctx.beginPath();
+  ctx.moveTo(x, feetY-14);
+  ctx.lineTo(x-8, feetY);
+  ctx.moveTo(x, feetY-14);
+  ctx.lineTo(x+8, feetY);
+  ctx.stroke();
+  // back arm (small, tucked)
+  ctx.beginPath();
+  ctx.moveTo(x, headY+14);
+  ctx.lineTo(x - facing*10, feetY-20);
+  ctx.stroke();
+  // throwing arm: reaches out toward the ball's column, raised if it's a throw, lower/relaxed if a drop
+  const armUp = scenario !== 'buildingDrop';
+  ctx.beginPath();
+  ctx.moveTo(x, headY+14);
+  if(armUp){
+    ctx.lineTo(x + facing*22, headY-4); // raised arm, hand up near where ball launches
+  } else {
+    ctx.lineTo(x + facing*18, headY+22); // arm extended forward/down, releasing ball
+  }
+  ctx.stroke();
+}
+
+// init
+updateScenarioUI();
+speedLabel.textContent = simSpeed.toFixed(1)+'x';
+
+document.addEventListener('keydown', (e) => {
+  if(e.code === 'Space'){
+    e.preventDefault();
+    if(running && !paused){
+      pauseBtn.click();
+    } else {
+      startBtn.click();
+    }
+  }
+});
+</script>
+
+</body>
+</html>

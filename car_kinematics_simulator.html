@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Kinematics Simulator</title>
+<style>
+  :root{
+    --color-background-primary:#ffffff;
+    --color-background-secondary:#f1efe8;
+    --color-background-tertiary:#e8e6df;
+    --color-text-primary:#2c2c2a;
+    --color-text-secondary:#5f5e5a;
+    --color-text-tertiary:#888780;
+    --color-border-tertiary: rgba(0,0,0,0.15);
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --border-radius-md:8px;
+    --border-radius-lg:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --color-background-primary:#1c1c1a;
+      --color-background-secondary:#262624;
+      --color-background-tertiary:#3a3a38;
+      --color-text-primary:#f1efe8;
+      --color-text-secondary:#c2c0b6;
+      --color-text-tertiary:#9c9a92;
+      --color-border-tertiary: rgba(255,255,255,0.15);
+      --color-border-secondary: rgba(255,255,255,0.3);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--color-background-tertiary);
+    color: var(--color-text-primary);
+    margin:0; padding:24px;
+  }
+  .wrap{ max-width:760px; margin:0 auto; background:var(--color-background-primary); border-radius:var(--border-radius-lg); padding:24px; border:0.5px solid var(--color-border-tertiary); }
+  h1{ font-size:20px; font-weight:500; margin:0 0 16px; }
+  select, input[type=number], input[type=text]{
+    height:36px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary);
+    background:var(--color-background-primary); color:var(--color-text-primary); padding:0 8px; font-size:14px;
+  }
+  button{
+    height:36px; padding:0 14px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary);
+    background:transparent; color:var(--color-text-primary); cursor:pointer; font-size:14px;
+  }
+  button:hover{ background:var(--color-background-secondary); }
+  button:active{ transform:scale(0.98); }
+  input[type=range]{ height:4px; }
+  .t{ font-size:14px; fill:var(--color-text-primary); }
+  .ts{ font-size:12px; fill:var(--color-text-secondary); }
+  .th{ font-size:14px; font-weight:500; fill:var(--color-text-primary); }
+  .sr-only{ position:absolute; width:1px;height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h2 class="sr-only">Interactive car kinematics simulator showing speedometer, accelerometer, position, and graphs of position, velocity, and acceleration over time</h2>
+<h1>Car kinematics simulator</h1>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+  <select id="mode" style="width:auto;">
+    <option value="const_v">Constant velocity</option>
+    <option value="const_a">Constant acceleration</option>
+    <option value="eq_v">v(t) = equation</option>
+    <option value="eq_a">a(t) = equation</option>
+  </select>
+
+  <div id="ctrl_const_v" class="ctrl">
+    <label style="font-size:13px; color:var(--color-text-secondary);">Velocity (m/s)</label>
+    <input type="number" id="in_v" value="10" step="1" style="width:80px;">
+  </div>
+
+  <div id="ctrl_const_a" class="ctrl" style="display:none;">
+    <label style="font-size:13px; color:var(--color-text-secondary);">Initial v (m/s)</label>
+    <input type="number" id="in_v0" value="0" step="1" style="width:70px;">
+    <label style="font-size:13px; color:var(--color-text-secondary);">Accel (m/s&sup2;)</label>
+    <input type="number" id="in_a" value="2" step="0.5" style="width:70px;">
+  </div>
+
+  <div id="ctrl_eq_v" class="ctrl" style="display:none;">
+    <label style="font-size:13px; color:var(--color-text-secondary);">v(t) =</label>
+    <input type="text" id="in_eqv" value="5 + 2*t" style="width:140px;">
+  </div>
+
+  <div id="ctrl_eq_a" class="ctrl" style="display:none;">
+    <label style="font-size:13px; color:var(--color-text-secondary);">a(t) =</label>
+    <input type="text" id="in_eqa" value="1 + 0.2*t" style="width:120px;">
+    <label style="font-size:13px; color:var(--color-text-secondary);">Initial v</label>
+    <input type="number" id="in_eqa_v0" value="0" style="width:60px;">
+  </div>
+
+  <button id="btn_apply">Apply</button>
+  <button id="btn_play">Play</button>
+  <button id="btn_reset">Reset</button>
+</div>
+
+<div style="display:flex; gap:6px; align-items:center; margin-bottom:14px;">
+  <label style="font-size:13px; color:var(--color-text-secondary);">Sim speed</label>
+  <input type="range" id="speedMult" min="0.25" max="3" step="0.25" value="1" style="width:120px;">
+  <span id="speedMultOut" style="font-size:13px;">1x</span>
+  <label style="font-size:13px; color:var(--color-text-secondary); margin-left:12px;">Time t</label>
+  <span id="timeOut" style="font-size:13px; font-weight:500;">0.0 s</span>
+</div>
+
+<svg id="road" width="100%" viewBox="0 0 680 150" style="display:block; margin-bottom:14px;">
+  <rect x="0" y="0" width="680" height="150" fill="var(--color-background-secondary)" rx="8"/>
+  <rect x="0" y="95" width="680" height="40" fill="var(--color-border-tertiary)" opacity="0.5"/>
+  <line x1="0" y1="115" x2="680" y2="115" stroke="var(--color-background-primary)" stroke-width="2" stroke-dasharray="14 10" id="laneline"/>
+  <g id="carGroup" transform="translate(40,70)">
+    <rect x="-28" y="6" width="56" height="22" rx="6" fill="#378ADD"/>
+    <rect x="-18" y="-6" width="34" height="16" rx="4" fill="#85B7EB"/>
+    <circle cx="-15" cy="30" r="7" fill="#2C2C2A"/>
+    <circle cx="15" cy="30" r="7" fill="#2C2C2A"/>
+    <text class="th" x="0" y="-14" text-anchor="middle" id="carLabelV">v = 0 m/s</text>
+    <text class="ts" x="0" y="-2" text-anchor="middle" id="carLabelA">a = 0 m/s&sup2;</text>
+  </g>
+  <line x1="660" y1="40" x2="660" y2="135" stroke="var(--color-border-secondary)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <text class="ts" x="650" y="35" text-anchor="end">edge</text>
+</svg>
+
+<div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px; margin-bottom:16px;">
+  <div style="position:relative; height:160px;"><canvas id="gaugeSpeed"></canvas></div>
+  <div style="position:relative; height:160px;"><canvas id="gaugeAccel"></canvas></div>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:20px;">
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Speed</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_speed">0 m/s</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Velocity</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_vel">0 m/s</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Acceleration</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_acc">0 m/s&sup2;</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Displacement</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_disp">0 m</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Distance travelled</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_dist">0 m</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Avg velocity</p>
+    <p style="font-size:22px; font-weight:500; margin:0;" id="stat_avgv">0 m/s</p>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr; gap:18px;">
+  <div>
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Position vs time</p>
+    <div style="position:relative; height:140px;"><canvas id="chartX" role="img" aria-label="Position versus time graph">Position vs time chart</canvas></div>
+  </div>
+  <div>
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Velocity vs time</p>
+    <div style="position:relative; height:140px;"><canvas id="chartV" role="img" aria-label="Velocity versus time graph">Velocity vs time chart</canvas></div>
+  </div>
+  <div>
+    <p style="font-size:13px; color:var(--color-text-secondary); margin:0 0 4px;">Acceleration vs time</p>
+    <div style="position:relative; height:140px;"><canvas id="chartA" role="img" aria-label="Acceleration versus time graph">Acceleration vs time chart</canvas></div>
+  </div>
+</div>
+
+<p style="font-size:12px; color:var(--color-text-tertiary); margin-top:16px;">
+Velocity = rate of change of displacement (signed, has direction). Speed = magnitude of velocity (always positive). Acceleration = rate of change of velocity. Displacement = net change in position from start. Distance = total path length travelled, including any backtracking.
+</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
+<script>
+(function(){
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const textColor = isDark ? '#c2c0b6' : '#3d3d3a';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const blue = '#378ADD', coral = '#D85A30', teal = '#1D9E75';
+
+  let mode = 'const_v';
+  let params = { v: 10 };
+  let t = 0, dt = 0.05, playing = false, mult = 1;
+  let x = 0, distTravelled = 0, lastV = 0;
+  let dataT=[], dataX=[], dataV=[], dataA=[];
+  let rafId = null, lastFrame = null;
+
+  const ROAD_LEN = 600;
+  const PIX_PER_M = 4;
+
+  function vOf(tt){
+    if(mode==='const_v') return params.v;
+    if(mode==='const_a') return params.v0 + params.a*tt;
+    if(mode==='eq_v'){
+      try { return math.evaluate(params.eqv, {t:tt}); } catch(e){ return 0; }
+    }
+    if(mode==='eq_a'){
+      try {
+        const aFn = (tau) => math.evaluate(params.eqa, {t:tau});
+        const n = 200, h = tt/Math.max(n,1);
+        let v = params.eqaV0;
+        for(let i=0;i<n;i++){ v += aFn(i*h)*h; }
+        return tt===0 ? params.eqaV0 : v;
+      } catch(e){ return 0; }
+    }
+    return 0;
+  }
+  function aOf(tt){
+    if(mode==='const_v') return 0;
+    if(mode==='const_a') return params.a;
+    if(mode==='eq_v'){
+      const h = 0.001;
+      try { return (math.evaluate(params.eqv,{t:tt+h}) - math.evaluate(params.eqv,{t:Math.max(tt-h,0)})) / (tt>h? 2*h : h); } catch(e){ return 0; }
+    }
+    if(mode==='eq_a'){
+      try { return math.evaluate(params.eqa, {t:tt}); } catch(e){ return 0; }
+    }
+    return 0;
+  }
+
+  const gaugeSpeed = new Chart(document.getElementById('gaugeSpeed'), {
+    type:'doughnut',
+    data:{ labels:['speed','rest'], datasets:[{ data:[0,40], backgroundColor:[blue, isDark?'#3a3a38':'#e8e6df'], borderWidth:0 }]},
+    options:{ responsive:true, maintainAspectRatio:false, circumference:270, rotation:225, cutout:'72%',
+      plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+    plugins:[{
+      id:'speedText',
+      afterDraw(chart){
+        const {ctx, chartArea} = chart;
+        const cx = (chartArea.left+chartArea.right)/2, cy=(chartArea.top+chartArea.bottom)/2 + 10;
+        ctx.save();
+        ctx.font = '500 22px sans-serif'; ctx.fillStyle = textColor; ctx.textAlign='center';
+        ctx.fillText(chart.data.datasets[0].data[0].toFixed(1), cx, cy);
+        ctx.font = '12px sans-serif'; ctx.fillStyle = textColor;
+        ctx.fillText('m/s speed', cx, cy+18);
+        ctx.restore();
+      }
+    }]
+  });
+
+  const gaugeAccel = new Chart(document.getElementById('gaugeAccel'), {
+    type:'doughnut',
+    data:{ labels:['neg','pos','rest'], datasets:[{ data:[0,0,10], backgroundColor:[coral, teal, isDark?'#3a3a38':'#e8e6df'], borderWidth:0 }]},
+    options:{ responsive:true, maintainAspectRatio:false, circumference:270, rotation:225, cutout:'72%',
+      plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+    plugins:[{
+      id:'accelText',
+      afterDraw(chart){
+        const {ctx, chartArea} = chart;
+        const cx = (chartArea.left+chartArea.right)/2, cy=(chartArea.top+chartArea.bottom)/2 + 10;
+        ctx.save();
+        ctx.font = '500 22px sans-serif'; ctx.fillStyle = textColor; ctx.textAlign='center';
+        ctx.fillText(chart.lastA.toFixed(2), cx, cy);
+        ctx.font = '12px sans-serif'; ctx.fillStyle = textColor;
+        ctx.fillText('m/s\u00B2 accel', cx, cy+18);
+        ctx.restore();
+      }
+    }]
+  });
+  gaugeAccel.lastA = 0;
+
+  function mkChart(id, color, label){
+    return new Chart(document.getElementById(id), {
+      type:'line',
+      data:{ labels:[], datasets:[{ data:[], borderColor:color, backgroundColor:color, pointRadius:0, borderWidth:2, tension:0.15 }]},
+      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+        scales:{ x:{ title:{display:true,text:'t (s)',color:textColor,font:{size:11}}, ticks:{color:textColor,font:{size:10},maxTicksLimit:8}, grid:{color:gridColor} },
+                 y:{ title:{display:true,text:label,color:textColor,font:{size:11}}, ticks:{color:textColor,font:{size:10}}, grid:{color:gridColor} } },
+        plugins:{ legend:{display:false} } }
+    });
+  }
+  const chartX = mkChart('chartX', blue, 'x (m)');
+  const chartV = mkChart('chartV', teal, 'v (m/s)');
+  const chartA = mkChart('chartA', coral, 'a (m/s\u00B2)');
+
+  function updateGauges(speed, accel){
+    const maxSpeed = 30, maxA = 10;
+    gaugeSpeed.data.datasets[0].data = [Math.min(Math.abs(speed),maxSpeed), maxSpeed-Math.min(Math.abs(speed),maxSpeed)];
+    gaugeSpeed.update('none');
+    const mag = Math.min(Math.abs(accel), maxA);
+    if(accel>=0) gaugeAccel.data.datasets[0].data = [0, mag, maxA-mag];
+    else gaugeAccel.data.datasets[0].data = [mag, 0, maxA-mag];
+    gaugeAccel.lastA = accel;
+    gaugeAccel.update('none');
+  }
+
+  function updateCar(xPos, v, a){
+    const px = 40 + (xPos % ROAD_LEN) * PIX_PER_M * 0.6;
+    const clampedPx = Math.min(Math.max(px, 30), 650);
+    document.getElementById('carGroup').setAttribute('transform', `translate(${clampedPx},70)`);
+    document.getElementById('carLabelV').textContent = `v = ${v.toFixed(1)} m/s`;
+    document.getElementById('carLabelA').textContent = `a = ${a.toFixed(2)} m/s\u00B2`;
+  }
+
+  function resetSim(){
+    t=0; x=0; distTravelled=0; lastV=vOf(0);
+    dataT=[]; dataX=[]; dataV=[]; dataA=[];
+    chartX.data.labels=[]; chartX.data.datasets[0].data=[];
+    chartV.data.labels=[]; chartV.data.datasets[0].data=[];
+    chartA.data.labels=[]; chartA.data.datasets[0].data=[];
+    chartX.update('none'); chartV.update('none'); chartA.update('none');
+    document.getElementById('timeOut').textContent='0.0 s';
+    document.getElementById('stat_speed').textContent='0 m/s';
+    document.getElementById('stat_vel').textContent='0 m/s';
+    document.getElementById('stat_acc').textContent='0 m/s\u00B2';
+    document.getElementById('stat_disp').textContent='0 m';
+    document.getElementById('stat_dist').textContent='0 m';
+    document.getElementById('stat_avgv').textContent='0 m/s';
+    updateGauges(0,0);
+    updateCar(0,0,0);
+  }
+
+  function step(deltaSec){
+    const v = vOf(t);
+    const a = aOf(t);
+    x += v*deltaSec;
+    distTravelled += Math.abs(v)*deltaSec;
+    t += deltaSec;
+
+    dataT.push(t); dataX.push(x); dataV.push(v); dataA.push(a);
+    if(dataT.length>400){ dataT.shift(); dataX.shift(); dataV.shift(); dataA.shift(); }
+
+    const speed = Math.abs(v);
+    document.getElementById('stat_speed').textContent = speed.toFixed(1)+' m/s';
+    document.getElementById('stat_vel').textContent = v.toFixed(1)+' m/s';
+    document.getElementById('stat_acc').textContent = a.toFixed(2)+' m/s\u00B2';
+    document.getElementById('stat_disp').textContent = x.toFixed(1)+' m';
+    document.getElementById('stat_dist').textContent = distTravelled.toFixed(1)+' m';
+    document.getElementById('stat_avgv').textContent = (t>0? (x/t).toFixed(1):'0')+' m/s';
+    document.getElementById('timeOut').textContent = t.toFixed(1)+' s';
+
+    updateGauges(speed, a);
+    updateCar(x, v, a);
+
+    const labels = dataT.map(v=>v.toFixed(1));
+    chartX.data.labels=labels; chartX.data.datasets[0].data=dataX; chartX.update('none');
+    chartV.data.labels=labels; chartV.data.datasets[0].data=dataV; chartV.update('none');
+    chartA.data.labels=labels; chartA.data.datasets[0].data=dataA; chartA.update('none');
+  }
+
+  function loop(ts){
+    if(!playing) return;
+    if(lastFrame==null) lastFrame=ts;
+    const delta = Math.min((ts-lastFrame)/1000, 0.1) * mult;
+    lastFrame = ts;
+    step(delta);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  document.getElementById('mode').addEventListener('change', (e)=>{
+    mode = e.target.value;
+    document.querySelectorAll('.ctrl').forEach(el=>el.style.display='none');
+    if(mode==='const_v') document.getElementById('ctrl_const_v').style.display='flex';
+    if(mode==='const_a') document.getElementById('ctrl_const_a').style.display='flex';
+    if(mode==='eq_v') document.getElementById('ctrl_eq_v').style.display='flex';
+    if(mode==='eq_a') document.getElementById('ctrl_eq_a').style.display='flex';
+  });
+  document.querySelectorAll('.ctrl').forEach(el=>el.style.display='flex');
+  document.getElementById('ctrl_const_a').style.display='none';
+  document.getElementById('ctrl_eq_v').style.display='none';
+  document.getElementById('ctrl_eq_a').style.display='none';
+
+  document.getElementById('btn_apply').addEventListener('click', ()=>{
+    if(mode==='const_v') params.v = parseFloat(document.getElementById('in_v').value)||0;
+    if(mode==='const_a'){ params.v0 = parseFloat(document.getElementById('in_v0').value)||0; params.a = parseFloat(document.getElementById('in_a').value)||0; }
+    if(mode==='eq_v') params.eqv = document.getElementById('in_eqv').value || '0';
+    if(mode==='eq_a'){ params.eqa = document.getElementById('in_eqa').value || '0'; params.eqaV0 = parseFloat(document.getElementById('in_eqa_v0').value)||0; }
+    resetSim();
+  });
+
+  document.getElementById('btn_play').addEventListener('click', (e)=>{
+    playing = !playing;
+    e.target.textContent = playing ? 'Pause' : 'Play';
+    if(playing){ lastFrame=null; rafId=requestAnimationFrame(loop); }
+    else if(rafId) cancelAnimationFrame(rafId);
+  });
+
+  document.getElementById('btn_reset').addEventListener('click', ()=>{
+    playing=false; document.getElementById('btn_play').textContent='Play';
+    if(rafId) cancelAnimationFrame(rafId);
+    resetSim();
+  });
+
+  document.getElementById('speedMult').addEventListener('input', (e)=>{
+    mult = parseFloat(e.target.value);
+    document.getElementById('speedMultOut').textContent = mult+'x';
+  });
+
+  resetSim();
+})();
+</script>
+</body>
+</html>
