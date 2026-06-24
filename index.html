@@ -8,17 +8,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  --gold: #f5c030;
-  --gold-dim: rgba(245,192,48,0.15);
-  --blue: #3a8fff;
-  --blue-dim: rgba(58,143,255,0.15);
-  --navy: #04091f;
-  --navy2: #060d2e;
-  --white: #f0eee8;
-  --muted: rgba(240,238,232,0.45);
-  --muted2: rgba(240,238,232,0.7);
+  --gold: #ffd84d;
+  --gold-dim: rgba(255,216,77,0.2);
+  --blue: #5aafff;
+  --blue-dim: rgba(90,175,255,0.2);
+  --navy: #070e28;
+  --navy2: #0a1535;
+  --white: #f8f6f0;
+  --muted: rgba(248,246,240,0.65);
+  --muted2: rgba(248,246,240,0.88);
 }
-
+.orb-photo-wrap {
+  width: 100%; height: 100%;
+  border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 2;
+}
+.orb-photo {
+  width: 100%; height: 100%;
+  object-fit: cover; border-radius: 50%;
+  filter: brightness(1.05) saturate(1.1);
+}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 
@@ -109,19 +119,47 @@ nav {
   font-family: 'Cormorant Garamond', serif;
   font-size: 3rem; font-weight: 700; color: var(--gold);
   opacity: 0; animation: fadeUp 0.8s 0.3s forwards;
+  letter-spacing: -1px;
+}
+.loading-tagline {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 4px; text-transform: uppercase;
+  color: rgba(255,216,77,0.5); margin-top: 0.5rem;
+  opacity: 0; animation: fadeUp 0.8s 0.6s forwards;
 }
 .loading-bar-wrap {
-  width: 200px; height: 1px;
-  background: rgba(245,192,48,0.15);
-  margin-top: 2rem; overflow: hidden;
+  width: 260px; height: 3px;
+  background: rgba(255,216,77,0.1);
+  margin-top: 2.5rem; border-radius: 99px; overflow: hidden;
+  position: relative;
 }
 .loading-bar {
-  height: 100%; background: var(--gold);
-  width: 0%; animation: loadBar 1.8s ease forwards;
+  height: 100%;
+  background: linear-gradient(90deg, #ffd84d, #5aafff, #ffd84d);
+  background-size: 200% 100%;
+  width: 0%;
+  border-radius: 99px;
+  animation: loadBar 1.8s cubic-bezier(0.4,0,0.2,1) forwards,
+             shimmer 1.2s linear infinite;
+}
+.loading-dots {
+  display: flex; gap: 0.5rem; margin-top: 1.8rem;
+  opacity: 0; animation: fadeUp 0.8s 0.9s forwards;
+}
+.loading-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--gold);
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; background: #a0c8ff; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotPulse {
+  0%,100% { transform: scale(0.6); opacity: 0.3; }
+  50% { transform: scale(1.3); opacity: 1; }
 }
 @keyframes loadBar { to { width: 100%; } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 #loading.hidden { opacity: 0; pointer-events: none; }
-
 /* ─── HERO SECTION ─── */
 .hero {
   position: relative; z-index: 10;
@@ -388,8 +426,9 @@ nav {
 .stat { }
 .stat-num {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 3.2rem; font-weight: 700;
+  font-size: 5rem; font-weight: 700;
   color: var(--gold); line-height: 1;
+  text-shadow: 0 0 30px rgba(255,216,77,0.35);
 }
 .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; margin-top: 0.2rem; }
 
@@ -770,7 +809,11 @@ footer {
 <!-- LOADING -->
 <div id="loading">
   <p class="loading-logo">Physics Naveenified</p>
+  <p class="loading-tagline">Beyond Equations · Class XI &amp; XII</p>
   <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="loading-dots">
+    <span></span><span></span><span></span>
+  </div>
 </div>
 
 <!-- MAIN 3D CANVAS -->
@@ -890,10 +933,14 @@ footer {
     <div class="about-bg"></div>
     <div class="about-layout">
       <div class="about-orb">
-        <span class="orb-letter">N</span>
-        <div class="orb-ring1"></div>
-        <div class="orb-ring2"></div>
-      </div>
+  <div class="orb-photo-wrap">
+    <img src="YOUR_PHOTO.jpg" alt="Naveen" class="orb-photo"
+         onerror="this.style.display='none';document.querySelector('.orb-letter').style.display='block'"/>
+    <span class="orb-letter" style="display:none">N</span>
+  </div>
+  <div class="orb-ring1"></div>
+  <div class="orb-ring2"></div>
+</div>
       <div class="about-text">
         <h2>Meet <em>Naveen</em></h2>
         <p>Physics teacher passionate about making abstract concepts click. The mission here is simple — replace the fear of equations with genuine curiosity about how the universe works.</p>
@@ -1428,7 +1475,7 @@ function goAbout() {
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x04091f, 0.018);
+  scene.fog = new THREE.FogExp2(0x070e28, 0.012);
 
   const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
   camera.position.set(0, 3, 14);
