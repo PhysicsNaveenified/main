@@ -778,7 +778,7 @@ footer {
 
 <!-- ══════════════ NAV ══════════════ -->
 <nav>
-  <div class="nav-logo" onclick="showPage('home')">Naveenified <span>Physics</span></div>
+  <div class="nav-logo" onclick="showPage('home')">Physics <span>Naveenified</span></div>
   <ul class="nav-links">
     <li><a onclick="showPage('home')">Home</a></li>
     <li><button class="class-btn class-btn-11" onclick="showPage('class11')">Class XI</button></li>
@@ -1388,10 +1388,6 @@ function showPage(name) {
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-});
 }
 
 function switchTab(btn, panelId) {
