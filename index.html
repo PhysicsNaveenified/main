@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Naveenified — Physics Beyond Equations</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --gold: #f5c030;
+  --gold-dim: rgba(245,192,48,0.15);
+  --blue: #3a8fff;
+  --blue-dim: rgba(58,143,255,0.15);
+  --navy: #04091f;
+  --navy2: #060d2e;
+  --white: #f0eee8;
+  --muted: rgba(240,238,232,0.45);
+  --muted2: rgba(240,238,232,0.7);
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+
+body {
+  background: var(--navy);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ─── CUSTOM CURSOR ─── */
+#cursor {
+  position: fixed; z-index: 9999; pointer-events: none;
+  width: 12px; height: 12px;
+  background: var(--gold);
+  border-radius: 50%;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, width 0.25s, height 0.25s, background 0.25s;
+  mix-blend-mode: screen;
+}
+#cursor-ring {
+  position: fixed; z-index: 9998; pointer-events: none;
+  width: 36px; height: 36px;
+  border: 1px solid rgba(245,192,48,0.5);
+  border-radius: 50%;
+  transform: translate(-50%,-50%);
+  transition: transform 0.18s ease, width 0.3s, height 0.3s, opacity 0.3s;
+}
+body:hover #cursor { opacity: 1; }
+
+/* ─── WEBGL CANVAS ─── */
+#world-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ─── PAGE SYSTEM ─── */
+.page { display: none; position: relative; z-index: 10; min-height: 100vh; }
+.page.active { display: block; }
+#home-page { display: block; }
+
+/* ─── NAV ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.4rem 3.5rem;
+  background: rgba(4,9,31,0.6);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(245,192,48,0.08);
+}
+.nav-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem; font-weight: 700;
+  color: var(--gold); cursor: pointer;
+  letter-spacing: -0.5px;
+}
+.nav-logo span { color: var(--white); font-weight: 300; }
+.nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+.nav-links a {
+  color: var(--muted); font-size: 0.72rem; letter-spacing: 2px;
+  text-transform: uppercase; font-weight: 500;
+  cursor: pointer; transition: color 0.3s; text-decoration: none;
+}
+.nav-links a:hover { color: var(--gold); }
+.class-btn {
+  padding: 0.45rem 1.2rem; border-radius: 2px;
+  font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase;
+  font-weight: 600; cursor: pointer; border: 1px solid;
+  transition: all 0.25s; font-family: 'Inter', sans-serif;
+}
+.class-btn-11 { border-color: var(--gold); color: var(--gold); background: transparent; }
+.class-btn-11:hover, .class-btn-11.active { background: var(--gold); color: var(--navy); }
+.class-btn-12 { border-color: var(--blue); color: var(--blue); background: transparent; }
+.class-btn-12:hover, .class-btn-12.active { background: var(--blue); color: var(--navy); }
+
+/* ─── LOADING SCREEN ─── */
+#loading {
+  position: fixed; inset: 0; z-index: 9000;
+  background: var(--navy);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 1s ease;
+}
+.loading-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3rem; font-weight: 700; color: var(--gold);
+  opacity: 0; animation: fadeUp 0.8s 0.3s forwards;
+}
+.loading-bar-wrap {
+  width: 200px; height: 1px;
+  background: rgba(245,192,48,0.15);
+  margin-top: 2rem; overflow: hidden;
+}
+.loading-bar {
+  height: 100%; background: var(--gold);
+  width: 0%; animation: loadBar 1.8s ease forwards;
+}
+@keyframes loadBar { to { width: 100%; } }
+#loading.hidden { opacity: 0; pointer-events: none; }
+
+/* ─── HERO SECTION ─── */
+.hero {
+  position: relative; z-index: 10;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  padding: 0 8vw;
+  overflow: hidden;
+}
+
+.hero-terrain {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 50vh; pointer-events: none; z-index: 1;
+}
+
+.hero-content { position: relative; z-index: 5; max-width: 800px; }
+
+.hero-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; color: var(--gold);
+  letter-spacing: 5px; text-transform: uppercase;
+  margin-bottom: 2rem;
+  opacity: 0; animation: fadeUp 1s 2s forwards;
+}
+
+.hero-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(4rem, 10vw, 10rem);
+  font-weight: 700; line-height: 0.88;
+  letter-spacing: -3px; color: var(--white);
+  opacity: 0; animation: fadeUp 1s 2.2s forwards;
+}
+.hero-title .line2 {
+  color: var(--gold);
+  display: block;
+  font-style: italic;
+}
+.hero-title .line3 { display: block; }
+
+.hero-sub {
+  margin-top: 2.5rem;
+  font-size: 1.05rem; color: var(--muted2);
+  font-weight: 300; max-width: 460px; line-height: 1.8;
+  opacity: 0; animation: fadeUp 1s 2.5s forwards;
+}
+
+.hero-choose {
+  display: flex; gap: 1.5rem; margin-top: 3.5rem; flex-wrap: wrap;
+  opacity: 0; animation: fadeUp 1s 2.8s forwards;
+}
+
+.choose-card {
+  position: relative; padding: 2.2rem 2.5rem;
+  cursor: pointer; border-radius: 3px;
+  transition: transform 0.4s cubic-bezier(0.23,1,0.32,1), box-shadow 0.4s;
+  overflow: hidden; min-width: 240px;
+}
+.choose-card::before {
+  content: ''; position: absolute; inset: 0;
+  opacity: 0; transition: opacity 0.4s;
+}
+.choose-card:hover { transform: translateY(-8px); }
+.choose-card:hover::before { opacity: 1; }
+
+.choose-card-11 {
+  background: rgba(245,192,48,0.06);
+  border: 1.5px solid rgba(245,192,48,0.3);
+}
+.choose-card-11::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(245,192,48,0.12), transparent 70%);
+}
+.choose-card-11:hover {
+  box-shadow: 0 20px 60px rgba(245,192,48,0.2), 0 0 0 1px rgba(245,192,48,0.4);
+}
+.choose-card-12 {
+  background: rgba(58,143,255,0.06);
+  border: 1.5px solid rgba(58,143,255,0.3);
+}
+.choose-card-12::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(58,143,255,0.12), transparent 70%);
+}
+.choose-card-12:hover {
+  box-shadow: 0 20px 60px rgba(58,143,255,0.2), 0 0 0 1px rgba(58,143,255,0.4);
+}
+
+.choose-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+.choose-card-11 .choose-label { color: var(--gold); }
+.choose-card-12 .choose-label { color: var(--blue); }
+
+.choose-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3.5rem; font-weight: 700; line-height: 1;
+}
+.choose-card-11 .choose-num { color: var(--gold); }
+.choose-card-12 .choose-num { color: var(--blue); }
+
+.choose-desc {
+  font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6;
+}
+.choose-arrow {
+  margin-top: 1.5rem; font-size: 1.2rem;
+  transition: transform 0.3s;
+}
+.choose-card:hover .choose-arrow { transform: translateX(8px); }
+.choose-card-11 .choose-arrow { color: var(--gold); }
+.choose-card-12 .choose-arrow { color: var(--blue); }
+
+/* Floating particles overlay */
+.particles-container {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.particle {
+  position: absolute; border-radius: 50%;
+  animation: floatParticle linear infinite;
+}
+@keyframes floatParticle {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+}
+
+/* ─── SCROLL JOURNEY SECTIONS ─── */
+.journey {
+  position: relative; z-index: 10;
+  padding: 10vh 8vw;
+  overflow: hidden;
+}
+
+.journey-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6rem; align-items: center;
+}
+.journey-inner.reverse { direction: rtl; }
+.journey-inner.reverse > * { direction: ltr; }
+
+.journey-visual {
+  position: relative; height: 420px;
+  border-radius: 4px; overflow: hidden;
+}
+.journey-canvas {
+  width: 100%; height: 100%;
+  background: rgba(10,20,60,0.5);
+}
+
+.journey-text .eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 1.2rem;
+}
+.journey-text.blue .eyebrow { color: var(--blue); }
+
+.journey-text .big {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 700; line-height: 1; color: var(--white);
+  margin-bottom: 1.5rem;
+}
+.journey-text .big em {
+  font-style: italic; color: var(--gold);
+}
+.journey-text.blue .big em { color: var(--blue); }
+
+.journey-text .body {
+  font-size: 0.95rem; color: var(--muted2);
+  line-height: 1.9; font-weight: 300; max-width: 420px;
+}
+
+/* ─── TICKER ─── */
+.ticker-wrap {
+  overflow: hidden;
+  padding: 1.6rem 0;
+  background: rgba(4,9,31,0.8);
+  border-top: 1px solid rgba(245,192,48,0.1);
+  border-bottom: 1px solid rgba(245,192,48,0.1);
+  position: relative; z-index: 10;
+}
+.ticker {
+  display: flex; gap: 5rem;
+  white-space: nowrap; width: max-content;
+  animation: tickerScroll 35s linear infinite;
+}
+.ticker.blue-ticker { animation-duration: 30s; }
+.ticker-item {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); display: flex; align-items: center; gap: 0.9rem;
+}
+.ticker-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+.gold-dot { background: var(--gold); }
+.blue-dot { background: var(--blue); }
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ─── ABOUT SECTION ─── */
+.about-section {
+  position: relative; z-index: 10;
+  padding: 12vh 8vw;
+  overflow: hidden;
+}
+.about-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(245,192,48,0.04), transparent 70%);
+}
+.about-layout {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 6rem; align-items: center;
+}
+.about-orb {
+  width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(245,192,48,0.2), rgba(58,143,255,0.1), transparent 70%);
+  border: 1px solid rgba(245,192,48,0.25);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; flex-shrink: 0;
+}
+.orb-letter {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 8rem; font-weight: 700; color: var(--gold);
+  line-height: 1; position: relative; z-index: 2;
+}
+.orb-ring1 {
+  position: absolute; inset: -14px; border-radius: 50%;
+  border: 1px solid rgba(245,192,48,0.18);
+  animation: orbitSpin 22s linear infinite;
+}
+.orb-ring2 {
+  position: absolute; inset: -28px; border-radius: 50%;
+  border: 1px solid rgba(58,143,255,0.12);
+  animation: orbitSpin 35s linear infinite reverse;
+}
+.orb-ring1::after, .orb-ring2::after {
+  content: '';
+  position: absolute; top: 6px; left: 50%;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+.orb-ring1::after { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.orb-ring2::after { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+@keyframes orbitSpin { to { transform: rotate(360deg); } }
+
+.about-text h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.5rem, 4vw, 4rem);
+  font-weight: 700; color: var(--white);
+  line-height: 1; margin-bottom: 1.8rem;
+}
+.about-text h2 em { color: var(--gold); font-style: italic; }
+.about-text p {
+  font-size: 1rem; color: var(--muted2);
+  line-height: 1.9; font-weight: 300;
+  max-width: 520px; margin-bottom: 1rem;
+}
+.about-stats {
+  display: flex; gap: 3rem; margin-top: 2.5rem; flex-wrap: wrap;
+}
+.stat { }
+.stat-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3.2rem; font-weight: 700;
+  color: var(--gold); line-height: 1;
+}
+.stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; margin-top: 0.2rem; }
+
+/* ─── CLASS PAGES ─── */
+.class-page { padding-top: 6rem; position: relative; z-index: 10; }
+.class-hero-section {
+  position: relative; min-height: 55vh;
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  padding: 4rem 8vw 4rem;
+  overflow: hidden;
+}
+.class-hero-bg {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.class-hero-bg canvas { width: 100%; height: 100%; }
+
+.back-btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 2px; color: var(--muted); text-transform: uppercase;
+  cursor: pointer; background: none; border: none;
+  padding: 0; margin-bottom: 2.5rem;
+  transition: color 0.2s; position: relative; z-index: 2;
+}
+.back-btn:hover { color: var(--gold); }
+
+.class-eyebrow {
+  font-family: 'Space Mono', monospace; font-size: 0.68rem;
+  letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem; position: relative; z-index: 2;
+}
+.c11 .class-eyebrow { color: var(--gold); }
+.c12 .class-eyebrow { color: var(--blue); }
+
+.class-big-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(3rem, 7vw, 7rem);
+  font-weight: 700; line-height: 0.9;
+  color: var(--white); position: relative; z-index: 2;
+}
+.c11 .class-big-title .acc { color: var(--gold); }
+.c12 .class-big-title .acc { color: var(--blue); }
+
+/* ─── TABS ─── */
+.tab-nav {
+  display: flex; gap: 0;
+  border-bottom: 1px solid rgba(245,192,48,0.12);
+  padding: 0 8vw;
+  position: sticky; top: 70px;
+  background: rgba(4,9,31,0.95);
+  backdrop-filter: blur(16px);
+  z-index: 100;
+}
+.c12 .tab-nav { border-bottom-color: rgba(58,143,255,0.12); }
+.tab-btn {
+  padding: 1.1rem 2rem;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; background: none; border: none;
+  color: var(--muted); border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all 0.2s;
+}
+.tab-btn:hover, .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.c12 .tab-btn:hover, .c12 .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-panel { display: none; padding: 4rem 8vw; }
+.tab-panel.active { display: block; }
+
+/* ─── CHAPTERS GRID ─── */
+.section-head {
+  margin-bottom: 3rem;
+}
+.sec-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.c11 .sec-eyebrow { color: var(--gold); }
+.c12 .sec-eyebrow { color: var(--blue); }
+.sec-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 700; color: var(--white); line-height: 1;
+}
+.c11 .sec-title em { color: var(--gold); font-style: italic; }
+.c12 .sec-title em { color: var(--blue); font-style: italic; }
+.sec-body {
+  font-size: 0.95rem; color: var(--muted2);
+  max-width: 480px; line-height: 1.8; font-weight: 300;
+  margin-top: 1rem;
+}
+
+.part-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 1.5rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(245,192,48,0.08);
+}
+.c12 .part-label { border-bottom-color: rgba(58,143,255,0.08); }
+
+.chapters-section { margin-bottom: 4rem; }
+
+.chapters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px,1fr));
+  gap: 2px;
+  background: rgba(245,192,48,0.04);
+  border: 1px solid rgba(245,192,48,0.07);
+}
+.c12 .chapters-grid {
+  background: rgba(58,143,255,0.03);
+  border-color: rgba(58,143,255,0.07);
+}
+
+.ch-card {
+  padding: 2.2rem 2rem;
+  background: var(--navy);
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: background 0.35s, transform 0.25s;
+}
+.ch-card::after {
+  content: ''; position: absolute;
+  bottom: 0; left: 0; width: 100%; height: 2px;
+  background: var(--gold);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.23,1,0.32,1);
+}
+.c12 .ch-card::after { background: var(--blue); }
+.ch-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 0% 100%, rgba(245,192,48,0.07), transparent 60%);
+  opacity: 0; transition: opacity 0.35s;
+}
+.c12 .ch-card::before {
+  background: radial-gradient(circle at 0% 100%, rgba(58,143,255,0.07), transparent 60%);
+}
+.ch-card:hover { background: rgba(10,18,50,0.9); transform: translateY(-4px); }
+.ch-card:hover::before { opacity: 1; }
+.ch-card:hover::after { transform: scaleX(1); }
+
+.ch-num {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 2px; opacity: 0.6; margin-bottom: 0.9rem;
+}
+.c11 .ch-num { color: var(--gold); }
+.c12 .ch-num { color: var(--blue); }
+
+.ch-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.25rem; font-weight: 600;
+  color: var(--white); line-height: 1.2; margin-bottom: 0.6rem;
+}
+.ch-desc { font-size: 0.76rem; color: var(--muted); line-height: 1.65; }
+.ch-arrow {
+  margin-top: 1.3rem; font-size: 1.1rem;
+  opacity: 0; transform: translateX(-5px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.c11 .ch-arrow { color: var(--gold); }
+.c12 .ch-arrow { color: var(--blue); }
+.ch-card:hover .ch-arrow { opacity: 1; transform: translateX(0); }
+
+/* ─── VIDEOS ─── */
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px,1fr));
+  gap: 1.5rem; margin-top: 2.5rem;
+}
+
+.video-card {
+  background: rgba(10,20,60,0.4);
+  border-radius: 3px; overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.23,1,0.32,1), box-shadow 0.4s;
+  border: 1px solid rgba(245,192,48,0.07);
+}
+.c12 .video-card { border-color: rgba(58,143,255,0.08); }
+.video-card:hover { transform: translateY(-7px); box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+
+.video-thumb {
+  width: 100%; aspect-ratio: 16/9;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.video-thumb::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(0,0,0,0.25);
+  transition: background 0.3s;
+}
+.video-card:hover .video-thumb::after { background: rgba(0,0,0,0); }
+
+.play-btn {
+  width: 52px; height: 52px; background: var(--gold);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 2;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.video-card:hover .play-btn {
+  transform: scale(1.12);
+  box-shadow: 0 8px 32px rgba(245,192,48,0.5);
+}
+.play-btn::after {
+  content: ''; width: 0; height: 0;
+  border-style: solid;
+  border-width: 8px 0 8px 16px;
+  border-color: transparent transparent transparent var(--navy);
+  margin-left: 4px;
+}
+
+.video-info { padding: 1.2rem 1.4rem; }
+.video-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.4rem;
+}
+.c11 .video-tag { color: var(--gold); }
+.c12 .video-tag { color: var(--blue); }
+.video-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem; font-weight: 600; color: var(--white); line-height: 1.35;
+}
+.video-note { font-size: 0.7rem; color: var(--muted); margin-top: 0.35rem; }
+
+.yt-note {
+  margin-bottom: 2rem; padding: 1.3rem 1.8rem;
+  background: rgba(245,192,48,0.04);
+  border: 1px solid rgba(245,192,48,0.14);
+  border-radius: 3px; font-size: 0.82rem; color: var(--muted2); line-height: 1.7;
+}
+.c12 .yt-note { background: rgba(58,143,255,0.04); border-color: rgba(58,143,255,0.14); }
+.yt-note a { color: var(--gold); text-decoration: none; }
+.yt-note a:hover { text-decoration: underline; }
+.c12 .yt-note a { color: var(--blue); }
+
+/* ─── SIMULATIONS ─── */
+.sim-layout {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4rem; align-items: center; margin-top: 2.5rem;
+}
+.sim-preview {
+  height: 360px;
+  border: 1px solid rgba(245,192,48,0.14);
+  border-radius: 4px; overflow: hidden;
+  background: rgba(10,20,60,0.4);
+  position: relative;
+}
+.c12 .sim-preview { border-color: rgba(58,143,255,0.14); }
+.sim-canvas { width: 100%; height: 100%; }
+.sim-tag {
+  position: absolute; bottom: 1rem; left: 1.2rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase;
+}
+.c11 .sim-tag { color: var(--gold); }
+.c12 .sim-tag { color: var(--blue); }
+
+.sim-items { display: flex; flex-direction: column; gap: 0; }
+.sim-item {
+  padding: 1.5rem 1.8rem;
+  border-left: 2px solid rgba(245,192,48,0.15);
+  cursor: pointer; transition: border-color 0.3s, background 0.3s;
+  border-radius: 0 3px 3px 0;
+}
+.c12 .sim-item { border-left-color: rgba(58,143,255,0.15); }
+.sim-item:hover {
+  border-left-color: var(--gold);
+  background: rgba(245,192,48,0.04);
+}
+.c12 .sim-item:hover { border-left-color: var(--blue); background: rgba(58,143,255,0.04); }
+.sim-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem; font-weight: 600; color: var(--white);
+  margin-bottom: 0.35rem; transition: color 0.3s;
+}
+.sim-item:hover .sim-title { color: var(--gold); }
+.c12 .sim-item:hover .sim-title { color: var(--blue); }
+.sim-desc { font-size: 0.76rem; color: var(--muted); line-height: 1.6; }
+
+/* ─── QUESTION BANK ─── */
+.qbank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px,1fr));
+  gap: 2px;
+  background: rgba(245,192,48,0.04);
+  border: 1px solid rgba(245,192,48,0.07);
+  margin-top: 2.5rem;
+}
+.c12 .qbank-grid {
+  background: rgba(58,143,255,0.03);
+  border-color: rgba(58,143,255,0.07);
+}
+.qb-cell {
+  padding: 1.9rem 1.7rem; background: var(--navy);
+  cursor: pointer; transition: background 0.3s;
+}
+.qb-cell:hover { background: rgba(10,20,55,0.8); }
+.qb-ch {
+  font-family: 'Space Mono', monospace; font-size: 0.56rem;
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.6rem;
+}
+.c11 .qb-ch { color: var(--gold); }
+.c12 .qb-ch { color: var(--blue); }
+.qb-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem; font-weight: 600; color: var(--white);
+  margin-bottom: 0.4rem; line-height: 1.25;
+}
+.qb-count { font-size: 0.74rem; color: var(--muted); }
+.qb-count strong { color: var(--gold); }
+.c12 .qb-count strong { color: var(--blue); }
+.qb-tags { margin-top: 0.6rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.qb-tag {
+  font-size: 0.6rem; padding: 0.18rem 0.5rem;
+  border-radius: 2px; font-family: 'Space Mono', monospace; letter-spacing: 1px;
+}
+.tag-mcq { background: rgba(245,192,48,0.1); color: var(--gold); }
+.tag-num { background: rgba(58,143,255,0.1); color: var(--blue); }
+.tag-con { background: rgba(240,238,232,0.07); color: var(--muted2); }
+
+.qb-note {
+  padding: 1.2rem 1.8rem; margin-bottom: 0;
+  background: rgba(245,192,48,0.04);
+  border: 1px solid rgba(245,192,48,0.12);
+  border-radius: 3px; font-size: 0.82rem; color: var(--muted2);
+  line-height: 1.7;
+}
+.c12 .qb-note { background: rgba(58,143,255,0.04); border-color: rgba(58,143,255,0.12); }
+
+/* ─── REVEAL ANIMATIONS ─── */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+/* ─── FOOTER ─── */
+footer {
+  position: relative; z-index: 10;
+  padding: 2.5rem 8vw;
+  border-top: 1px solid rgba(245,192,48,0.08);
+  display: flex; justify-content: space-between;
+  align-items: center; flex-wrap: wrap; gap: 1rem;
+}
+.footer-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; font-weight: 700; color: var(--gold);
+}
+.footer-copy {
+  font-size: 0.7rem; color: var(--muted); letter-spacing: 1px;
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  nav { padding: 1rem 1.5rem; }
+  .nav-links { display: none; }
+  .hero-title { letter-spacing: -1.5px; }
+  .journey-inner, .about-layout, .sim-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+  .journey-inner.reverse { direction: ltr; }
+  .journey-visual, .sim-preview { height: 250px; }
+  .about-orb { width: 180px; height: 180px; }
+  .orb-letter { font-size: 5.5rem; }
+  footer { flex-direction: column; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- LOADING -->
+<div id="loading">
+  <p class="loading-logo">Naveenified</p>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+</div>
+
+<!-- MAIN 3D CANVAS -->
+<canvas id="world-canvas"></canvas>
+
+<!-- ══════════════ NAV ══════════════ -->
+<nav>
+  <div class="nav-logo" onclick="showPage('home')">Naveenified <span>Physics</span></div>
+  <ul class="nav-links">
+    <li><a onclick="showPage('home')">Home</a></li>
+    <li><button class="class-btn class-btn-11" onclick="showPage('class11')">Class XI</button></li>
+    <li><button class="class-btn class-btn-12" onclick="showPage('class12')">Class XII</button></li>
+    <li><a onclick="goAbout()">About</a></li>
+  </ul>
+</nav>
+
+<!-- ══════════════════════════════════════
+     HOME PAGE
+══════════════════════════════════════ -->
+<div id="home-page" class="page active">
+
+  <!-- HERO -->
+  <section class="hero" id="hero-section">
+    <!-- Floating particles -->
+    <div class="particles-container" id="particles"></div>
+
+    <div class="hero-content">
+      <p class="hero-eyebrow">Physics Beyond Equations · Class XI &amp; XII</p>
+      <h1 class="hero-title">
+        Physics<br>
+        <span class="line2">Beyond</span>
+        <span class="line3">Equations</span>
+      </h1>
+      <p class="hero-sub">Step inside the universe. Every concept explored as an experience — not a formula. Welcome to the way physics was always meant to feel.</p>
+      <div class="hero-choose">
+        <div class="choose-card choose-card-11" onclick="showPage('class11')">
+          <p class="choose-label">Begin your journey</p>
+          <p class="choose-num">Class XI</p>
+          <p class="choose-desc">14 chapters · Mechanics, Thermodynamics, Waves &amp; more</p>
+          <p class="choose-arrow">→</p>
+        </div>
+        <div class="choose-card choose-card-12" onclick="showPage('class12')">
+          <p class="choose-label">Continue the journey</p>
+          <p class="choose-num">Class XII</p>
+          <p class="choose-desc">14 chapters · Electrostatics, Optics, Modern Physics &amp; more</p>
+          <p class="choose-arrow">→</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Units &amp; Measurements</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Straight Line</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Laws of Motion</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Work, Energy &amp; Power</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Gravitation</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermodynamics</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Oscillations</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Waves</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electric Charges &amp; Fields</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Current Electricity</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Induction</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Ray Optics</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Atoms &amp; Nuclei</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Semiconductor Electronics</div>
+      <!-- duplicate for seamless loop -->
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Units &amp; Measurements</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Straight Line</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Laws of Motion</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Work, Energy &amp; Power</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Gravitation</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermodynamics</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Oscillations</div>
+      <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Waves</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electric Charges &amp; Fields</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Current Electricity</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Induction</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Ray Optics</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Atoms &amp; Nuclei</div>
+      <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Semiconductor Electronics</div>
+    </div>
+  </div>
+
+  <!-- JOURNEY SECTION 1 -->
+  <section class="journey reveal">
+    <div class="journey-inner">
+      <div class="journey-visual">
+        <canvas class="journey-canvas" id="jcanvas1"></canvas>
+      </div>
+      <div class="journey-text">
+        <p class="eyebrow">Class XI · 14 Chapters</p>
+        <h2 class="big">Where <em>mechanics</em> becomes motion</h2>
+        <p class="body">From the laws that hold planets in orbit to the waves that carry sound across space — Class XI is the foundation of everything. Not memorised. Understood.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOURNEY SECTION 2 -->
+  <section class="journey reveal">
+    <div class="journey-inner reverse">
+      <div class="journey-visual">
+        <canvas class="journey-canvas" id="jcanvas2"></canvas>
+      </div>
+      <div class="journey-text blue">
+        <p class="eyebrow">Class XII · 14 Chapters</p>
+        <h2 class="big">Where <em>fields</em> light up the world</h2>
+        <p class="body">Invisible fields, quantum mysteries, and the electrons that power civilisation. Class XII is where physics becomes the language of modern reality.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT SECTION -->
+  <section class="about-section reveal" id="about-section">
+    <div class="about-bg"></div>
+    <div class="about-layout">
+      <div class="about-orb">
+        <span class="orb-letter">N</span>
+        <div class="orb-ring1"></div>
+        <div class="orb-ring2"></div>
+      </div>
+      <div class="about-text">
+        <h2>Meet <em>Naveen</em></h2>
+        <p>Physics teacher passionate about making abstract concepts click. The mission here is simple — replace the fear of equations with genuine curiosity about how the universe works.</p>
+        <p>Every lesson, simulation, and video on this site is designed not just for exam success, but for lasting understanding. Physics is not a subject — it's a lens.</p>
+        <div class="about-stats">
+          <div class="stat">
+            <p class="stat-num">28</p>
+            <p class="stat-label">Chapters covered</p>
+          </div>
+          <div class="stat">
+            <p class="stat-num">800+</p>
+            <p class="stat-label">Questions curated</p>
+          </div>
+          <div class="stat">
+            <p class="stat-num">∞</p>
+            <p class="stat-label">Curiosity encouraged</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p class="footer-logo">Naveenified</p>
+    <p class="footer-copy">Physics Beyond Equations · Class XI &amp; XII · Built with curiosity</p>
+  </footer>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     CLASS XI PAGE
+══════════════════════════════════════ -->
+<div id="class11-page" class="page c11">
+  <div class="class-page">
+
+    <div class="class-hero-section">
+      <div class="class-hero-bg"><canvas id="hero-canvas-11"></canvas></div>
+      <button class="back-btn" onclick="showPage('home')">← Back to home</button>
+      <p class="class-eyebrow">Class XI Physics</p>
+      <h1 class="class-big-title">Explore<br><span class="acc">Class XI</span></h1>
+    </div>
+
+    <div class="ticker-wrap">
+      <div class="ticker">
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Units &amp; Measurements</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Straight Line</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Plane</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Laws of Motion</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Work, Energy &amp; Power</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>System of Particles &amp; Rotational Motion</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Gravitation</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Mechanical Properties of Solids</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Mechanical Properties of Fluids</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermal Properties of Matter</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermodynamics</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Kinetic Theory</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Oscillations</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Waves</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Units &amp; Measurements</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Straight Line</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Motion in a Plane</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Laws of Motion</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Work, Energy &amp; Power</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>System of Particles &amp; Rotational Motion</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Gravitation</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Mechanical Properties of Solids</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Mechanical Properties of Fluids</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermal Properties of Matter</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Thermodynamics</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Kinetic Theory</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Oscillations</div>
+        <div class="ticker-item"><span class="ticker-dot gold-dot"></span>Waves</div>
+      </div>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab(this,'t11-chapters')">Chapters</button>
+      <button class="tab-btn" onclick="switchTab(this,'t11-videos')">Videos</button>
+      <button class="tab-btn" onclick="switchTab(this,'t11-simulations')">Simulations</button>
+      <button class="tab-btn" onclick="switchTab(this,'t11-questions')">Question Bank</button>
+    </div>
+
+    <!-- CHAPTERS TAB -->
+    <div id="t11-chapters" class="tab-panel active">
+      <div class="section-head">
+        <p class="sec-eyebrow">Your syllabus</p>
+        <h2 class="sec-title">Class XI <em>Chapters</em></h2>
+        <p class="sec-body">All 14 chapters of Class XI Physics — organised, described and ready to explore.</p>
+      </div>
+
+      <div class="chapters-section">
+        <p class="part-label">Part I — Chapters 1 to 7</p>
+        <div class="chapters-grid">
+          <div class="ch-card"><p class="ch-num">Chapter 1</p><h3 class="ch-title">Units and Measurements</h3><p class="ch-desc">Dimensions, SI units, errors, significant figures — the precise language of physics.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 2</p><h3 class="ch-title">Motion in a Straight Line</h3><p class="ch-desc">1D kinematics — displacement, velocity, acceleration and motion graphs.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 3</p><h3 class="ch-title">Motion in a Plane</h3><p class="ch-desc">Vectors, projectile motion, relative motion and uniform circular motion.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 4</p><h3 class="ch-title">Laws of Motion</h3><p class="ch-desc">Newton's three laws — inertia, force, action-reaction and free-body diagrams.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 5</p><h3 class="ch-title">Work, Energy and Power</h3><p class="ch-desc">Energy conservation, work-energy theorem, potential energy and power.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 6</p><h3 class="ch-title">System of Particles and Rotational Motion</h3><p class="ch-desc">Centre of mass, torque, moment of inertia and angular momentum.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 7</p><h3 class="ch-title">Gravitation</h3><p class="ch-desc">Newton's law of gravitation, gravitational potential, escape velocity and satellites.</p><p class="ch-arrow">→</p></div>
+        </div>
+      </div>
+
+      <div class="chapters-section">
+        <p class="part-label">Part II — Chapters 8 to 14</p>
+        <div class="chapters-grid">
+          <div class="ch-card"><p class="ch-num">Chapter 8</p><h3 class="ch-title">Mechanical Properties of Solids</h3><p class="ch-desc">Stress, strain and elastic moduli — Young's, Bulk and Shear modulus.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 9</p><h3 class="ch-title">Mechanical Properties of Fluids</h3><p class="ch-desc">Pressure, Bernoulli's theorem, viscosity and surface tension.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 10</p><h3 class="ch-title">Thermal Properties of Matter</h3><p class="ch-desc">Heat, temperature, thermal expansion, calorimetry and heat transfer.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 11</p><h3 class="ch-title">Thermodynamics</h3><p class="ch-desc">Laws of thermodynamics, internal energy, entropy and heat engines.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 12</p><h3 class="ch-title">Kinetic Theory</h3><p class="ch-desc">Kinetic theory of gases, degrees of freedom, RMS speed and equipartition.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 13</p><h3 class="ch-title">Oscillations</h3><p class="ch-desc">Simple harmonic motion, pendulums, energy in SHM and resonance.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 14</p><h3 class="ch-title">Waves</h3><p class="ch-desc">Wave motion, speed of sound, superposition, standing waves and the Doppler effect.</p><p class="ch-arrow">→</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIDEOS TAB -->
+    <div id="t11-videos" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">YouTube Channel</p>
+        <h2 class="sec-title">Concepts, <em>explained</em></h2>
+        <p class="sec-body">Watch Naveen break down Class XI physics — visually, intuitively, unforgettably.</p>
+      </div>
+      <div class="yt-note">
+        📺 Click any card to watch the video on YouTube. Replace each <code>openYT('...')</code> URL with your actual video link.
+        <a href="https://youtube.com/@yourchannel" target="_blank"> Visit the channel →</a>
+      </div>
+      <div class="videos-grid">
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH1_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.25))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 1 · Class XI</p><p class="video-title">Units &amp; Measurements — why precision matters</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH2_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.18))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 2 · Class XI</p><p class="video-title">Understanding velocity-time graphs</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH3_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.2))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 3 · Class XI</p><p class="video-title">Projectile motion — step by step</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH4_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.22))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 4 · Class XI</p><p class="video-title">Newton's third law — the most misunderstood idea</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH11_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.16))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 11 · Class XI</p><p class="video-title">Thermodynamics — first and second law</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH13_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.18))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 13 · Class XI</p><p class="video-title">Simple harmonic motion — intuitively explained</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH14_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.14))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 14 · Class XI</p><p class="video-title">Standing waves and resonance visualised</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH7_XI')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.14))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 7 · Class XI</p><p class="video-title">Gravitation — orbits and escape velocity</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMULATIONS TAB -->
+    <div id="t11-simulations" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">Interactive Lab</p>
+        <h2 class="sec-title">See physics <em>move</em></h2>
+        <p class="sec-body">PhET simulations for Class XI. Touch the physics — don't just read about it.</p>
+      </div>
+      <div class="sim-layout">
+        <div class="sim-preview">
+          <canvas class="sim-canvas" id="sim-canvas-11"></canvas>
+          <p class="sim-tag">Live · Wave preview</p>
+        </div>
+        <div class="sim-items">
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/projectile-motion')">
+            <p class="sim-title">Projectile Motion</p>
+            <p class="sim-desc">Adjust angle and velocity. Watch the trajectory trace in real time.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/wave-on-a-string')">
+            <p class="sim-title">Wave on a String</p>
+            <p class="sim-desc">Tune frequency and amplitude. Observe standing waves emerge.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/gravity-and-orbits')">
+            <p class="sim-title">Gravity and Orbits</p>
+            <p class="sim-desc">Visualise gravitational force and satellite orbits interactively.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/masses-and-springs')">
+            <p class="sim-title">Masses and Springs</p>
+            <p class="sim-desc">Explore SHM, damping and resonance with a virtual spring system.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/energy-skate-park')">
+            <p class="sim-title">Energy Skate Park</p>
+            <p class="sim-desc">Watch kinetic and potential energy exchange in a beautiful visual.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUESTION BANK TAB -->
+    <div id="t11-questions" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">Question Bank · Class XI</p>
+        <h2 class="sec-title">Practice until it's <em>instinct</em></h2>
+        <p class="sec-body">Chapter-wise questions for Class XI — MCQs, numericals and conceptual problems. Exam-focused, Naveen-curated.</p>
+      </div>
+      <div class="qb-note">📝 Click any chapter to open its question set. Replace each <code>openYT('#')</code> with your Google Form or PDF link.</div>
+      <div class="qbank-grid">
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH1_XI')"><p class="qb-ch">Chapter 1</p><p class="qb-name">Units and Measurements</p><p class="qb-count"><strong>40</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH2_XI')"><p class="qb-ch">Chapter 2</p><p class="qb-name">Motion in a Straight Line</p><p class="qb-count"><strong>55</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH3_XI')"><p class="qb-ch">Chapter 3</p><p class="qb-name">Motion in a Plane</p><p class="qb-count"><strong>60</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH4_XI')"><p class="qb-ch">Chapter 4</p><p class="qb-name">Laws of Motion</p><p class="qb-count"><strong>65</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH5_XI')"><p class="qb-ch">Chapter 5</p><p class="qb-name">Work, Energy and Power</p><p class="qb-count"><strong>50</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH6_XI')"><p class="qb-ch">Chapter 6</p><p class="qb-name">System of Particles &amp; Rotational Motion</p><p class="qb-count"><strong>58</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH7_XI')"><p class="qb-ch">Chapter 7</p><p class="qb-name">Gravitation</p><p class="qb-count"><strong>45</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH8_XI')"><p class="qb-ch">Chapter 8</p><p class="qb-name">Mechanical Properties of Solids</p><p class="qb-count"><strong>38</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH9_XI')"><p class="qb-ch">Chapter 9</p><p class="qb-name">Mechanical Properties of Fluids</p><p class="qb-count"><strong>42</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH10_XI')"><p class="qb-ch">Chapter 10</p><p class="qb-name">Thermal Properties of Matter</p><p class="qb-count"><strong>44</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH11_XI')"><p class="qb-ch">Chapter 11</p><p class="qb-name">Thermodynamics</p><p class="qb-count"><strong>52</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH12_XI')"><p class="qb-ch">Chapter 12</p><p class="qb-name">Kinetic Theory</p><p class="qb-count"><strong>36</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH13_XI')"><p class="qb-ch">Chapter 13</p><p class="qb-name">Oscillations</p><p class="qb-count"><strong>55</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH14_XI')"><p class="qb-ch">Chapter 14</p><p class="qb-name">Waves</p><p class="qb-count"><strong>60</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+      </div>
+    </div>
+
+  </div>
+  <footer>
+    <p class="footer-logo">Naveenified</p>
+    <p class="footer-copy">Physics Beyond Equations · Class XI · Built with curiosity</p>
+  </footer>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     CLASS XII PAGE
+══════════════════════════════════════ -->
+<div id="class12-page" class="page c12">
+  <div class="class-page">
+
+    <div class="class-hero-section">
+      <div class="class-hero-bg"><canvas id="hero-canvas-12"></canvas></div>
+      <button class="back-btn" onclick="showPage('home')">← Back to home</button>
+      <p class="class-eyebrow">Class XII Physics</p>
+      <h1 class="class-big-title">Explore<br><span class="acc">Class XII</span></h1>
+    </div>
+
+    <div class="ticker-wrap">
+      <div class="ticker blue-ticker">
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electric Charges and Fields</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electrostatic Potential and Capacitance</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Current Electricity</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Moving Charges and Magnetism</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Magnetism and Matter</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Induction</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Alternating Current</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Waves</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Ray Optics and Optical Instruments</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Wave Optics</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Dual Nature of Radiation and Matter</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Atoms</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Nuclei</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Semiconductor Electronics</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electric Charges and Fields</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electrostatic Potential and Capacitance</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Current Electricity</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Moving Charges and Magnetism</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Magnetism and Matter</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Induction</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Alternating Current</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Electromagnetic Waves</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Ray Optics and Optical Instruments</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Wave Optics</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Dual Nature of Radiation and Matter</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Atoms</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Nuclei</div>
+        <div class="ticker-item"><span class="ticker-dot blue-dot"></span>Semiconductor Electronics</div>
+      </div>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab(this,'t12-chapters')">Chapters</button>
+      <button class="tab-btn" onclick="switchTab(this,'t12-videos')">Videos</button>
+      <button class="tab-btn" onclick="switchTab(this,'t12-simulations')">Simulations</button>
+      <button class="tab-btn" onclick="switchTab(this,'t12-questions')">Question Bank</button>
+    </div>
+
+    <!-- CHAPTERS TAB -->
+    <div id="t12-chapters" class="tab-panel active">
+      <div class="section-head">
+        <p class="sec-eyebrow">Your syllabus</p>
+        <h2 class="sec-title">Class XII <em>Chapters</em></h2>
+        <p class="sec-body">All 14 chapters of Class XII Physics — electromagnetism, optics, and modern physics.</p>
+      </div>
+
+      <div class="chapters-section">
+        <p class="part-label">Part I — Chapters 1 to 8</p>
+        <div class="chapters-grid">
+          <div class="ch-card"><p class="ch-num">Chapter 1</p><h3 class="ch-title">Electric Charges and Fields</h3><p class="ch-desc">Coulomb's law, electric field lines, Gauss's law and charge distributions.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 2</p><h3 class="ch-title">Electrostatic Potential and Capacitance</h3><p class="ch-desc">Electric potential, equipotential surfaces, capacitors and dielectrics.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 3</p><h3 class="ch-title">Current Electricity</h3><p class="ch-desc">Ohm's law, resistivity, Kirchhoff's laws, Wheatstone bridge and potentiometer.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 4</p><h3 class="ch-title">Moving Charges and Magnetism</h3><p class="ch-desc">Biot-Savart law, Ampere's law, force on a conductor and the cyclotron.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 5</p><h3 class="ch-title">Magnetism and Matter</h3><p class="ch-desc">Bar magnets, Earth's magnetic field, diamagnetism, paramagnetism, ferromagnetism.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 6</p><h3 class="ch-title">Electromagnetic Induction</h3><p class="ch-desc">Faraday's law, Lenz's law, motional EMF, self and mutual inductance.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 7</p><h3 class="ch-title">Alternating Current</h3><p class="ch-desc">AC circuits, phasors, resonance, LC oscillations and transformers.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 8</p><h3 class="ch-title">Electromagnetic Waves</h3><p class="ch-desc">Maxwell's equations, the EM spectrum and properties of electromagnetic waves.</p><p class="ch-arrow">→</p></div>
+        </div>
+      </div>
+
+      <div class="chapters-section">
+        <p class="part-label">Part II — Chapters 9 to 14</p>
+        <div class="chapters-grid">
+          <div class="ch-card"><p class="ch-num">Chapter 9</p><h3 class="ch-title">Ray Optics and Optical Instruments</h3><p class="ch-desc">Reflection, refraction, lenses, mirrors, microscopes and telescopes.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 10</p><h3 class="ch-title">Wave Optics</h3><p class="ch-desc">Huygens' principle, interference, diffraction and polarisation of light.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 11</p><h3 class="ch-title">Dual Nature of Radiation and Matter</h3><p class="ch-desc">Photoelectric effect, de Broglie wavelength and wave-particle duality.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 12</p><h3 class="ch-title">Atoms</h3><p class="ch-desc">Bohr's model, spectral series of hydrogen and atomic energy levels.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 13</p><h3 class="ch-title">Nuclei</h3><p class="ch-desc">Nuclear binding energy, radioactivity, alpha/beta/gamma decay and fission-fusion.</p><p class="ch-arrow">→</p></div>
+          <div class="ch-card"><p class="ch-num">Chapter 14</p><h3 class="ch-title">Semiconductor Electronics</h3><p class="ch-desc">p-n junction, diodes, transistors, logic gates and digital circuits.</p><p class="ch-arrow">→</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIDEOS TAB -->
+    <div id="t12-videos" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">YouTube Channel</p>
+        <h2 class="sec-title">Concepts, <em>explained</em></h2>
+        <p class="sec-body">Watch Naveen break down Class XII physics — visually, intuitively, unforgettably.</p>
+      </div>
+      <div class="yt-note">
+        📺 Click any card to watch the video on YouTube. Replace each <code>openYT('...')</code> URL with your actual video link.
+        <a href="https://youtube.com/@yourchannel" target="_blank"> Visit the channel →</a>
+      </div>
+      <div class="videos-grid">
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH1_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.28))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 1 · Class XII</p><p class="video-title">What is an electric field — actually?</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH3_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.18))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 3 · Class XII</p><p class="video-title">Kirchhoff's laws made simple</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH6_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.22))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 6 · Class XII</p><p class="video-title">Faraday's law — how we generate electricity</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH7_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.18))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 7 · Class XII</p><p class="video-title">Alternating current — phasors and resonance</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH9_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(245,192,48,0.15))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 9 · Class XII</p><p class="video-title">Ray optics — lenses, mirrors and real images</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH11_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.2))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 11 · Class XII</p><p class="video-title">Photoelectric effect — Einstein's Nobel prize</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH12_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.14))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 12 · Class XII</p><p class="video-title">Bohr's model — why atoms don't collapse</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+        <div class="video-card" onclick="openYT('https://youtu.be/REPLACE_CH14_XII')">
+          <div class="video-thumb" style="background:linear-gradient(135deg,#04091f,rgba(58,143,255,0.24))"><div class="play-btn"></div></div>
+          <div class="video-info"><p class="video-tag">Chapter 14 · Class XII</p><p class="video-title">p-n junction diodes — how they work</p><p class="video-note">Update URL with your YouTube video link</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMULATIONS TAB -->
+    <div id="t12-simulations" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">Interactive Lab</p>
+        <h2 class="sec-title">See physics <em>move</em></h2>
+        <p class="sec-body">PhET simulations for Class XII. Click to open each simulation in a new tab.</p>
+      </div>
+      <div class="sim-layout">
+        <div class="sim-preview">
+          <canvas class="sim-canvas" id="sim-canvas-12"></canvas>
+          <p class="sim-tag">Live · Field preview</p>
+        </div>
+        <div class="sim-items">
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/charges-and-fields')">
+            <p class="sim-title">Charges and Fields</p>
+            <p class="sim-desc">Place charges. See electric field lines draw themselves in space.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/circuit-construction-kit-dc')">
+            <p class="sim-title">Circuit Construction Kit</p>
+            <p class="sim-desc">Drag components. Build circuits. Measure current and voltage live.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/faradays-law')">
+            <p class="sim-title">Faraday's Law</p>
+            <p class="sim-desc">Move a magnet through a coil — watch the EMF appear on the meter.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/wave-interference')">
+            <p class="sim-title">Wave Interference</p>
+            <p class="sim-desc">Visualise constructive and destructive interference of light and sound.</p>
+          </div>
+          <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/photoelectric-effect')">
+            <p class="sim-title">Photoelectric Effect</p>
+            <p class="sim-desc">Vary the light frequency. See electrons escape the metal surface.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUESTION BANK TAB -->
+    <div id="t12-questions" class="tab-panel">
+      <div class="section-head">
+        <p class="sec-eyebrow">Question Bank · Class XII</p>
+        <h2 class="sec-title">Practice until it's <em>instinct</em></h2>
+        <p class="sec-body">Chapter-wise questions for Class XII — MCQs, numericals and conceptual problems. Exam-focused, Naveen-curated.</p>
+      </div>
+      <div class="qb-note">📝 Click any chapter to open its question set. Replace each URL with your Google Form or PDF link.</div>
+      <div class="qbank-grid">
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH1_XII')"><p class="qb-ch">Chapter 1</p><p class="qb-name">Electric Charges and Fields</p><p class="qb-count"><strong>55</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH2_XII')"><p class="qb-ch">Chapter 2</p><p class="qb-name">Electrostatic Potential and Capacitance</p><p class="qb-count"><strong>60</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH3_XII')"><p class="qb-ch">Chapter 3</p><p class="qb-name">Current Electricity</p><p class="qb-count"><strong>65</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH4_XII')"><p class="qb-ch">Chapter 4</p><p class="qb-name">Moving Charges and Magnetism</p><p class="qb-count"><strong>58</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH5_XII')"><p class="qb-ch">Chapter 5</p><p class="qb-name">Magnetism and Matter</p><p class="qb-count"><strong>40</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH6_XII')"><p class="qb-ch">Chapter 6</p><p class="qb-name">Electromagnetic Induction</p><p class="qb-count"><strong>52</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH7_XII')"><p class="qb-ch">Chapter 7</p><p class="qb-name">Alternating Current</p><p class="qb-count"><strong>55</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH8_XII')"><p class="qb-ch">Chapter 8</p><p class="qb-name">Electromagnetic Waves</p><p class="qb-count"><strong>35</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH9_XII')"><p class="qb-ch">Chapter 9</p><p class="qb-name">Ray Optics and Optical Instruments</p><p class="qb-count"><strong>70</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH10_XII')"><p class="qb-ch">Chapter 10</p><p class="qb-name">Wave Optics</p><p class="qb-count"><strong>48</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH11_XII')"><p class="qb-ch">Chapter 11</p><p class="qb-name">Dual Nature of Radiation and Matter</p><p class="qb-count"><strong>45</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH12_XII')"><p class="qb-ch">Chapter 12</p><p class="qb-name">Atoms</p><p class="qb-count"><strong>42</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH13_XII')"><p class="qb-ch">Chapter 13</p><p class="qb-name">Nuclei</p><p class="qb-count"><strong>45</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-num">Numericals</span></div></div>
+        <div class="qb-cell" onclick="openYT('https://docs.google.com/forms/REPLACE_CH14_XII')"><p class="qb-ch">Chapter 14</p><p class="qb-name">Semiconductor Electronics</p><p class="qb-count"><strong>60</strong> questions</p><div class="qb-tags"><span class="qb-tag tag-mcq">MCQ</span><span class="qb-tag tag-con">Conceptual</span></div></div>
+      </div>
+    </div>
+
+  </div>
+  <footer>
+    <p class="footer-logo">Naveenified</p>
+    <p class="footer-copy">Physics Beyond Equations · Class XII · Built with curiosity</p>
+  </footer>
+</div>
+
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   CUSTOM CURSOR
+═══════════════════════════════════════════════ */
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px';
+  cursor.style.top = my + 'px';
+});
+(function ringLoop() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) *.12;
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top = ry + 'px';
+  requestAnimationFrame(ringLoop);
+})();
+document.querySelectorAll('button, a, .ch-card, .video-card, .qb-cell, .sim-item, .choose-card, .qbank-cell').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cursor.style.width = '20px'; cursor.style.height = '20px';
+    cursorRing.style.width = '56px'; cursorRing.style.height = '56px';
+  });
+  el.addEventListener('mouseleave', () => {
+    cursor.style.width = '12px'; cursor.style.height = '12px';
+    cursorRing.style.width = '36px'; cursorRing.style.height = '36px';
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('hidden');
+    setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 1000);
+  }, 2000);
+});
+
+/* ═══════════════════════════════════════════════
+   PAGE NAVIGATION
+═══════════════════════════════════════════════ */
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(name + '-page').classList.add('active');
+  window.scrollTo(0, 0);
+  document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
+  if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
+  if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
+}
+
+function switchTab(btn, panelId) {
+  const parent = btn.closest('.class-page');
+  parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  parent.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+}
+
+function openYT(url) {
+  if (url && url !== '#' && !url.includes('REPLACE')) {
+    window.open(url, '_blank');
+  } else {
+    alert('Add your YouTube / Google Form URL to this card in the HTML!');
+  }
+}
+
+function goAbout() {
+  showPage('home');
+  setTimeout(() => {
+    document.getElementById('about-section').scrollIntoView({ behavior: 'smooth' });
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════════
+   THREE.JS — MAIN WORLD CANVAS
+   Surreal 3D dreamscape: mountains, particles, rings
+═══════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('world-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x04091f, 0.018);
+
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
+  camera.position.set(0, 3, 14);
+
+  /* ── Stars ── */
+  const starGeo = new THREE.BufferGeometry();
+  const starCount = 3000;
+  const starPos = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount * 3; i++) starPos[i] = (Math.random() - 0.5) * 200;
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  const starMat = new THREE.PointsMaterial({ color: 0xf0eee8, size: 0.06, transparent: true, opacity: 0.75 });
+  scene.add(new THREE.Points(starGeo, starMat));
+
+  /* ── Gold dust ── */
+  const dustGeo = new THREE.BufferGeometry();
+  const dustPos = new Float32Array(800 * 3);
+  for (let i = 0; i < 800 * 3; i++) dustPos[i] = (Math.random() - 0.5) * 80;
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  scene.add(new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xf5c030, size: 0.12, transparent: true, opacity: 0.35 })));
+
+  /* ── Stylised mountain terrain ── */
+  function buildMountain(offsetX, offsetZ, scale, colorHex, wireframe) {
+    const geo = new THREE.ConeGeometry(scale, scale * 1.4, wireframe ? 6 : 32);
+    const mat = new THREE.MeshStandardMaterial({
+      color: colorHex,
+      wireframe,
+      transparent: true,
+      opacity: wireframe ? 0.12 : 0.55,
+      metalness: 0.2,
+      roughness: 0.85
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(offsetX, -scale * 0.7 + 0.4, offsetZ);
+    return m;
+  }
+
+  // Distant mountain range
+  const mountains = [
+    buildMountain(-14, -8, 8, 0x0a1f5e, false),
+    buildMountain(-5,  -12, 11, 0x050e30, false),
+    buildMountain(6,   -10, 9, 0x091840, false),
+    buildMountain(16,  -8, 8, 0x0a1f5e, false),
+    buildMountain(-20, -15, 14, 0x04091f, false),
+    buildMountain(22,  -15, 12, 0x04091f, false),
+    buildMountain(-8,  -10, 6, 0x3a8fff, true),
+    buildMountain(10,  -8, 7, 0xf5c030, true),
+  ];
+  mountains.forEach(m => scene.add(m));
+
+  /* ── Floating geometric creatures (icosahedra) ── */
+  const creatures = [];
+  const creatureColors = [0xf5c030, 0x3a8fff, 0xf0eee8, 0xf5c030];
+  for (let i = 0; i < 12; i++) {
+    const size = 0.1 + Math.random() * 0.35;
+    const geo = new THREE.IcosahedronGeometry(size, 0);
+    const mat = new THREE.MeshStandardMaterial({
+      color: creatureColors[i % creatureColors.length],
+      wireframe: Math.random() > 0.5,
+      transparent: true,
+      opacity: 0.4 + Math.random() * 0.4,
+      metalness: 0.6,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(
+      (Math.random() - 0.5) * 28,
+      (Math.random() - 0.5) * 10 + 2,
+      (Math.random() - 0.5) * 20 - 5
+    );
+    mesh.userData = {
+      ox: mesh.position.x,
+      oy: mesh.position.y,
+      oz: mesh.position.z,
+      speed: 0.3 + Math.random() * 0.7,
+      amp: 0.4 + Math.random() * 1.2,
+      phase: Math.random() * Math.PI * 2,
+      rx: (Math.random() - 0.5) * 0.01,
+      ry: (Math.random() - 0.5) * 0.015,
+    };
+    scene.add(mesh);
+    creatures.push(mesh);
+  }
+
+  /* ── Orbit rings ── */
+  const rings = [];
+  for (let i = 0; i < 10; i++) {
+    const geo = new THREE.TorusGeometry(1.5 + Math.random() * 3, 0.006, 8, 100);
+    const mat = new THREE.MeshBasicMaterial({
+      color: i % 2 === 0 ? 0x3a8fff : 0xf5c030,
+      transparent: true,
+      opacity: 0.06 + Math.random() * 0.1
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 18 - 6
+    );
+    m.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    m.userData = { rx: (Math.random() - 0.5) * 0.003, ry: (Math.random() - 0.5) * 0.004 };
+    scene.add(m);
+    rings.push(m);
+  }
+
+  /* ── Energy lines (wave plane) ── */
+  const planeGeo = new THREE.PlaneGeometry(60, 60, 80, 80);
+  const planeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1850, wireframe: true, transparent: true, opacity: 0.08
+  });
+  const plane = new THREE.Mesh(planeGeo, planeMat);
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.y = -5.5;
+  scene.add(plane);
+
+  /* ── Lighting ── */
+  scene.add(new THREE.AmbientLight(0xf0eee8, 0.4));
+  const pLight = new THREE.PointLight(0xf5c030, 1.2, 40);
+  pLight.position.set(5, 8, 5);
+  scene.add(pLight);
+  const pLight2 = new THREE.PointLight(0x3a8fff, 0.8, 50);
+  pLight2.position.set(-8, 4, -4);
+  scene.add(pLight2);
+
+  /* ── Animate ── */
+  let t = 0;
+  let camMX = 0, camMY = 0;
+  document.addEventListener('mousemove', e => {
+    camMX = (e.clientX / window.innerWidth - 0.5) * 0.8;
+    camMY = (e.clientY / window.innerHeight - 0.5) * 0.4;
+  });
+
+  // Animate plane vertices for rolling hills effect
+  const posAttr = planeGeo.attributes.position;
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    t += 0.006;
+
+    // Rolling terrain
+    for (let i = 0; i < posAttr.count; i++) {
+      const x = posAttr.getX(i);
+      const z = posAttr.getZ(i);
+      posAttr.setZ(i, Math.sin(x * 0.15 + t) * 0.6 + Math.cos(z * 0.12 + t * 0.7) * 0.5);
+    }
+    posAttr.needsUpdate = true;
+
+    // Camera parallax
+    camera.position.x += (camMX - camera.position.x) * 0.03;
+    camera.position.y += (-camMY + 3 - camera.position.y) * 0.03;
+    camera.lookAt(0, 1, 0);
+
+    // Floating creatures
+    creatures.forEach(c => {
+      const d = c.userData;
+      c.position.y = d.oy + Math.sin(t * d.speed + d.phase) * d.amp;
+      c.position.x = d.ox + Math.cos(t * d.speed * 0.4 + d.phase) * 0.3;
+      c.rotation.x += d.rx;
+      c.rotation.y += d.ry;
+    });
+
+    // Orbit rings
+    rings.forEach(r => {
+      r.rotation.x += r.userData.rx;
+      r.rotation.y += r.userData.ry;
+    });
+
+    // Pulse light
+    pLight.intensity = 1.0 + Math.sin(t * 1.4) * 0.3;
+    starMat.opacity = 0.55 + Math.sin(t * 0.6) * 0.12;
+
+    renderer.render(scene, camera);
+  })();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+
+
+/* ═══════════════════════════════════════════════
+   FLOATING PARTICLES (hero)
+═══════════════════════════════════════════════ */
+(function() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 5;
+    const isGold = Math.random() > 0.5;
+    p.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      background:${isGold ? 'rgba(245,192,48,0.5)' : 'rgba(58,143,255,0.4)'};
+      animation-duration:${8 + Math.random()*14}s;
+      animation-delay:${Math.random()*8}s;
+    `;
+    container.appendChild(p);
+  }
+})();
+
+
+/* ═══════════════════════════════════════════════
+   JOURNEY CANVAS 1 — Gold waves (Class XI theme)
+═══════════════════════════════════════════════ */
+function initJourneyCanvas(id, c1, c2, c3) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h, t = 0;
+  function resize() {
+    w = canvas.offsetWidth; h = canvas.offsetHeight;
+    canvas.width = w; canvas.height = h;
+  }
+  resize();
+  const ro = new ResizeObserver(resize); ro.observe(canvas);
+  (function draw() {
+    requestAnimationFrame(draw); t += 0.025;
+    ctx.clearRect(0, 0, w, h);
+
+    // Mountains
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let x = 0; x <= w; x += 3) {
+      const y = h * 0.55 + Math.sin(x * 0.009 + t * 0.4) * h * 0.15 + Math.cos(x * 0.02 + 1) * h * 0.08;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h); ctx.closePath();
+    const grd = ctx.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, c1); grd.addColorStop(1, 'rgba(4,9,31,0.9)');
+    ctx.fillStyle = grd; ctx.fill();
+
+    // Second layer
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let x = 0; x <= w; x += 3) {
+      const y = h * 0.7 + Math.sin(x * 0.015 - t * 0.3) * h * 0.1 + Math.cos(x * 0.03 + 2) * h * 0.06;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h); ctx.closePath();
+    const grd2 = ctx.createLinearGradient(0, 0, 0, h);
+    grd2.addColorStop(0, c2); grd2.addColorStop(1, 'rgba(4,9,31,0.97)');
+    ctx.fillStyle = grd2; ctx.fill();
+
+    // Wave lines
+    [
+      [h*0.35, 28, 0.016, c3, 1.8],
+      [h*0.42, 14, 0.024, c3.replace('0.6','0.3'), 1],
+    ].forEach(([yOff, amp, freq, col, lw]) => {
+      ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = lw;
+      for (let x = 0; x <= w; x += 2) {
+        const y = yOff + amp * Math.sin(freq * x - t);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
+
+    // Dots on wave
+    ctx.fillStyle = c3;
+    for (let x = 0; x <= w; x += 60) {
+      const y = h*0.35 + 28 * Math.sin(0.016 * x - t);
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  })();
+}
+
+initJourneyCanvas('jcanvas1', 'rgba(10,25,80,0.8)', 'rgba(4,9,31,0.9)', 'rgba(245,192,48,0.6)');
+initJourneyCanvas('jcanvas2', 'rgba(10,30,80,0.8)', 'rgba(4,9,31,0.9)', 'rgba(58,143,255,0.6)');
+
+
+/* ═══════════════════════════════════════════════
+   CLASS HERO CANVASES (mini terrain)
+═══════════════════════════════════════════════ */
+function initHeroCanvas(id, col) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h, t = 0;
+  function resize() {
+    w = canvas.offsetWidth; h = canvas.offsetHeight;
+    canvas.width = w; canvas.height = h;
+  }
+  resize();
+  const ro = new ResizeObserver(resize); ro.observe(canvas);
+  (function draw() {
+    requestAnimationFrame(draw); t += 0.018;
+    ctx.clearRect(0, 0, w, h);
+
+    // Stars
+    ctx.fillStyle = 'rgba(240,238,232,0.55)';
+    for (let i = 0; i < 80; i++) {
+      const sx = ((i * 137.5) % w);
+      const sy = ((i * 79.3) % (h * 0.7));
+      const pulse = 0.3 + 0.4 * Math.sin(t + i);
+      ctx.globalAlpha = pulse;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Terrain layers
+    [[0.65, 0.08, 0.008, col.replace('0.7','0.45')],
+     [0.78, 0.06, 0.014, col.replace('0.7','0.3')]].forEach(([ybas, amp, freq, fillCol]) => {
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 2) {
+        const y = h * ybas + h * amp * Math.sin(freq * x - t * 0.5) + h * amp * 0.5 * Math.cos(freq * 2 * x + 1);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h); ctx.closePath();
+      ctx.fillStyle = fillCol; ctx.fill();
+    });
+
+    // Horizon glow
+    const glow = ctx.createRadialGradient(w*0.5, h*0.5, 0, w*0.5, h*0.5, w*0.4);
+    glow.addColorStop(0, col.replace('0.7','0.08'));
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+  })();
+}
+initHeroCanvas('hero-canvas-11', 'rgba(245,192,48,0.7)');
+initHeroCanvas('hero-canvas-12', 'rgba(58,143,255,0.7)');
+
+
+/* ═══════════════════════════════════════════════
+   SIMULATION PREVIEW CANVASES
+═══════════════════════════════════════════════ */
+function initSimCanvas(id, col1, col2) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h, t = 0;
+  function resize() { w = canvas.offsetWidth; h = canvas.offsetHeight; canvas.width = w; canvas.height = h; }
+  resize();
+  new ResizeObserver(resize).observe(canvas);
+  (function draw() {
+    requestAnimationFrame(draw); t += 0.03;
+    ctx.clearRect(0, 0, w, h);
+    [[h*0.4,30,0.016,1,col1,2],[h*0.5,18,0.026,1.5,col2,1.2],[h*0.55,10,0.04,0.8,'rgba(240,238,232,0.12)',0.7]].forEach(([yo,amp,freq,sp,col,lw]) => {
+      ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = lw;
+      for (let x = 0; x <= w; x += 2) {
+        const y = yo + amp * Math.sin(freq * x - t * sp);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
+    ctx.fillStyle = col1;
+    for (let x = 0; x <= w; x += 55) {
+      const y = h*0.4 + 30 * Math.sin(0.016 * x - t);
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  })();
+}
+initSimCanvas('sim-canvas-11', 'rgba(245,192,48,0.7)', 'rgba(58,143,255,0.45)');
+initSimCanvas('sim-canvas-12', 'rgba(58,143,255,0.7)', 'rgba(245,192,48,0.45)');
+
+
+/* ═══════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════ */
+const revealObserver = new IntersectionObserver(entries => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 80);
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+</script>
+</body>
+</html>
