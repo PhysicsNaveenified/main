@@ -769,7 +769,7 @@ footer {
 
 <!-- LOADING -->
 <div id="loading">
-  <p class="loading-logo">Naveenified</p>
+  <p class="loading-logo">Physics Naveenified</p>
   <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
 </div>
 
@@ -1388,6 +1388,10 @@ function showPage(name) {
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+});
 }
 
 function switchTab(btn, panelId) {
