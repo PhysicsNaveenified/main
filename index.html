@@ -431,7 +431,7 @@ nav {
 .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; margin-top: 0.2rem; }
 
 /* ─── CLASS PAGES ─── */
-.class-page { padding-top: 6rem; position: relative; z-index: 10; }
+.class-page { padding-top: 5rem; position: relative; z-index: 10; }
 .class-hero-section {
   position: relative; min-height: 55vh;
   display: flex; flex-direction: column;
@@ -1428,8 +1428,7 @@ window.addEventListener('load', () => {
 ═══════════════════════════════════════════════ */
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + '-page').classList.add('active');
-  setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 10);
+  document.getElementById(name + '-page').scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
