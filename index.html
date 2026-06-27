@@ -1434,10 +1434,6 @@ function showPage(name) {
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
 }
-  document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
-  if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
-  if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
-}
 
 function switchTab(btn, panelId) {
   const parent = btn.closest('.class-page');
