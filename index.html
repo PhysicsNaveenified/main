@@ -1428,7 +1428,10 @@ window.addEventListener('load', () => {
 ═══════════════════════════════════════════════ */
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + '-page').classList.add('active');
+  if(page !== 'home'){
+    document.getElementById(page + '-page')
+            .scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
   window.scrollTo(0, 0);
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
