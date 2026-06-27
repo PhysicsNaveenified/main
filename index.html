@@ -8,15 +8,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  --gold: #ffd84d;
-  --gold-dim: rgba(255,216,77,0.2);
-  --blue: #5aafff;
-  --blue-dim: rgba(90,175,255,0.2);
-  --navy: #070e28;
-  --navy2: #0a1535;
-  --white: #f8f6f0;
-  --muted: rgba(248,246,240,0.65);
-  --muted2: rgba(248,246,240,0.88);
+  --gold: #ffd84d;          /* keep */
+  --blue: #5aafff;          /* keep */
+  --navy: #0b1330;          /* was #070e28 — slightly lighter base */
+  --navy2: #0f1a3d;         /* was #0a1535 */
+  --white: #faf8f2;         /* was #f8f6f0 — brighter */
+  --muted: rgba(250,248,242,0.72);   /* was 0.65 */
+  --muted2: rgba(250,248,242,0.92);  /* was 0.88 */
 }
 .orb-photo-wrap {
   width: 100%; height: 100%;
@@ -428,7 +426,7 @@ nav {
   font-family: 'Cormorant Garamond', serif;
   font-size: 8rem; font-weight: 700;
   color: var(--gold); line-height: 1;
-  text-shadow: 0 0 30px rgba(255,216,77,0.35);
+  text-shadow: 0 0 40px rgba(255,216,77,0.5);
 }
 .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; margin-top: 0.2rem; }
 
@@ -1431,9 +1429,6 @@ window.addEventListener('load', () => {
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(name + '-page').classList.add('active');
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + '-page').classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
@@ -1479,7 +1474,7 @@ function goAbout() {
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x070e28, 0.012);
+  scene.fog = new THREE.FogExp2(0x0b1330, 0.009);  // was 0.012 — less fog = brighter depth
 
   const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
   camera.position.set(0, 3, 14);
@@ -1594,11 +1589,11 @@ function goAbout() {
   scene.add(plane);
 
   /* ── Lighting ── */
-  scene.add(new THREE.AmbientLight(0xf0eee8, 0.4));
-  const pLight = new THREE.PointLight(0xf5c030, 1.2, 40);
+  scene.add(new THREE.AmbientLight(0xf0eee8, 0.7));  // was 0.4
+  const pLight = new THREE.PointLight(0xf5c030, 2.0, 50);
   pLight.position.set(5, 8, 5);
   scene.add(pLight);
-  const pLight2 = new THREE.PointLight(0x3a8fff, 0.8, 50);
+  const pLight2 = new THREE.PointLight(0x3a8fff, 1.4, 60);
   pLight2.position.set(-8, 4, -4);
   scene.add(pLight2);
 
@@ -1647,7 +1642,7 @@ function goAbout() {
 
     // Pulse light
     pLight.intensity = 1.0 + Math.sin(t * 1.4) * 0.3;
-    starMat.opacity = 0.55 + Math.sin(t * 0.6) * 0.12;
+    starMat.opacity = 0.75 + Math.sin(t * 0.6) * 0.12;
 
     renderer.render(scene, camera);
   })();
