@@ -1428,16 +1428,15 @@ window.addEventListener('load', () => {
 ═══════════════════════════════════════════════ */
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  if(page !== 'home'){
-    document.getElementById(page + '-page')
-            .scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-  window.scrollTo(0, 0);
+  document.getElementById(name + '-page').classList.add('active');
+  setTimeout(() => {
+    document.getElementById(name + '-page').scrollIntoView({ behavior: 'smooth' });
+  }, 50);
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
 }
-function switchTab(btn, panelId) {
+  function switchTab(btn, panelId) {
   const parent = btn.closest('.class-page');
   parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   parent.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
