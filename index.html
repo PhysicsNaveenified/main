@@ -1428,12 +1428,12 @@ window.addEventListener('load', () => {
 ═══════════════════════════════════════════════ */
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + '-page').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById(name + '-page').classList.add('active');
+  window.scrollTo(0, 0);
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
 }
-
 function switchTab(btn, panelId) {
   const parent = btn.closest('.class-page');
   parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
