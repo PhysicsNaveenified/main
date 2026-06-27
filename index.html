@@ -1429,7 +1429,7 @@ window.addEventListener('load', () => {
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(name + '-page').classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 10);
   document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
   if (name === 'class11') document.querySelector('.class-btn-11').classList.add('active');
   if (name === 'class12') document.querySelector('.class-btn-12').classList.add('active');
