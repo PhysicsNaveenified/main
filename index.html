@@ -205,6 +205,26 @@ nav {
 }
 
 .hero-choose {
+  <div class="hero-choose">
+        <div class="choose-card choose-card-11" onclick="showPage('class11')">
+          <p class="choose-label">Begin your journey</p>
+          <p class="choose-num">Class XI</p>
+          <p class="choose-desc">14 chapters · Mechanics, Thermodynamics, Waves &amp; more</p>
+          <p class="choose-arrow">→</p>
+        </div>
+        <div class="choose-card choose-card-12" onclick="showPage('class12')">
+          <p class="choose-label">Continue the journey</p>
+          <p class="choose-num">Class XII</p>
+          <p class="choose-desc">14 chapters · Electrostatics, Optics, Modern Physics &amp; more</p>
+          <p class="choose-arrow">→</p>
+        </div>
+        <div class="choose-card choose-card-ts" onclick="window.location.href='testseries.html'">
+          <p class="choose-label">Test yourself</p>
+          <p class="choose-num">Test Series</p>
+          <p class="choose-desc">Chapter-wise Board, CET/NEET &amp; JEE tests with instant results</p>
+          <p class="choose-arrow">→</p>
+        </div>
+      </div>
   display: flex; gap: 1.5rem; margin-top: 3.5rem; flex-wrap: wrap;
   opacity: 0; animation: fadeUp 1s 2.8s forwards;
 }
@@ -242,6 +262,19 @@ nav {
 .choose-card-12:hover {
   box-shadow: 0 20px 60px rgba(58,143,255,0.2), 0 0 0 1px rgba(58,143,255,0.4);
 }
+  .choose-card-ts {
+  background: rgba(100,220,120,0.06);
+  border: 1.5px solid rgba(100,220,120,0.3);
+}
+.choose-card-ts::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(100,220,120,0.12), transparent 70%);
+}
+.choose-card-ts:hover {
+  box-shadow: 0 20px 60px rgba(100,220,120,0.2), 0 0 0 1px rgba(100,220,120,0.4);
+}
+.choose-card-ts .choose-label { color: #64dc78; }
+.choose-card-ts .choose-num { color: #64dc78; }
+.choose-card-ts .choose-arrow { color: #64dc78; }
 
 .choose-label {
   font-family: 'Space Mono', monospace;
