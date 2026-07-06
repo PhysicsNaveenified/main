@@ -256,6 +256,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
 <!-- HISTORY POPUP -->
 <div class="history-popup" id="history-popup">
+  <div class="history-popup" id="student-modal" style="max-width:600px;min-width:320px;">
+  <button class="history-close" onclick="closeStudentModal()">✕</button>
+  <p class="history-popup-title" id="student-modal-title"></p>
+  <div id="student-modal-content"></div>
+</div>
   <button class="history-close" onclick="closeHistory()">✕</button>
   <p class="history-popup-title" id="history-popup-title"></p>
   <div id="history-popup-content"></div>
@@ -303,6 +308,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <div class="form-group">
         <label class="form-label">Roll Number (Optional)</label>
         <input id="p-roll" class="form-input" type="text" placeholder="Enter roll number"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number</label>
+        <input id="p-phone" class="form-input" type="tel" placeholder="+91XXXXXXXXXX"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">College / School Name</label>
+        <input id="p-college" class="form-input" type="text" placeholder="Enter your college/school name"/>
       </div>
       <button class="btn-primary" onclick="saveProfile()">Save &amp; Continue →</button>
     </div>
@@ -397,6 +410,33 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 </div>
 
 <!-- ═══ DASHBOARD PAGE ═══ -->
+  <div class="type-tabs" style="margin-bottom:2rem;">
+      <button class="type-tab active" id="master-tab-questions" onclick="switchMasterTab('questions')">Question Manager</button>
+      <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
+    </div>
+
+    <div id="master-view-questions">
+      <!-- your existing 3 .upload-section blocks go here, unchanged -->
+    </div>
+
+    <div id="master-view-students" style="display:none;">
+      <div class="chart-section">
+        <p class="chart-eyebrow">Overview</p>
+        <h3 class="chart-title">All Students Summary</h3>
+        <div class="dash-summary" id="admin-summary"></div>
+      </div>
+      <div class="upload-section">
+        <h3 class="upload-title">All Students</h3>
+        <div style="overflow-x:auto;">
+          <table class="question-table">
+            <thead>
+              <tr><th>Name</th><th>Class</th><th>Group</th><th>College</th><th>Phone</th><th>Email</th><th>Tests</th><th>Avg %</th><th>Action</th></tr>
+            </thead>
+            <tbody id="students-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 <div id="page-dashboard" class="page">
   <div class="dash-wrap">
     <div class="dash-header">
@@ -689,16 +729,18 @@ async function saveProfile() {
   const cls = document.getElementById('p-class').value;
   const grp = document.getElementById('p-group').value;
   const roll = document.getElementById('p-roll').value.trim();
+  const phone = document.getElementById('p-phone').value.trim();
+  const college = document.getElementById('p-college').value.trim();
   if (!name || !cls || !grp) { alert('Please fill Name, Class and Group!'); return; }
 
   const { error } = await sb.from('profiles').upsert({
-    id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll
+    id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll,
+    phone, college, email: currentUser.email
   });
   if (error) { alert('Error saving profile: ' + error.message); return; }
-  currentProfile = { name, class: cls, group_name: grp, roll_no: roll };
+  currentProfile = { name, class: cls, group_name: grp, roll_no: roll, phone, college, email: currentUser.email };
   showPage('home');
 }
-
 // ═══════════════════════════════════════════
 // CHAPTERS
 // ═══════════════════════════════════════════
@@ -1290,7 +1332,98 @@ async function uploadQuestion() {
     document.getElementById(id).value = '');
   loadMasterQuestions();
 }
+function switchMasterTab(tab) {
+  document.getElementById('master-tab-questions').classList.toggle('active', tab === 'questions');
+  document.getElementById('master-tab-students').classList.toggle('active', tab === 'students');
+  document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
+  document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
+  if (tab === 'students') loadAdminDashboard();
+}
 
+async function loadAdminDashboard() {
+  const { data: profiles } = await sb.from('profiles').select('*').eq('is_master', false);
+  const { data: allResults } = await sb.from('test_results').select('*');
+
+  const totalStudents = profiles ? profiles.length : 0;
+  const totalTests = allResults ? allResults.length : 0;
+  const avgScore = totalTests > 0 ? (allResults.reduce((s,r) => s + r.percentage, 0) / totalTests).toFixed(1) : 0;
+  const activeStudents = new Set((allResults || []).map(r => r.user_id)).size;
+
+  document.getElementById('admin-summary').innerHTML = `
+    <div class="ds-card gold"><p class="ds-num">${totalStudents}</p><p class="ds-label">Total Students</p></div>
+    <div class="ds-card gold"><p class="ds-num">${totalTests}</p><p class="ds-label">Tests Taken</p></div>
+    <div class="ds-card blue"><p class="ds-num">${avgScore}%</p><p class="ds-label">Avg Score (All)</p></div>
+    <div class="ds-card blue"><p class="ds-num">${activeStudents}</p><p class="ds-label">Active Students</p></div>
+  `;
+
+  const resultsByUser = {};
+  (allResults || []).forEach(r => {
+    if (!resultsByUser[r.user_id]) resultsByUser[r.user_id] = [];
+    resultsByUser[r.user_id].push(r);
+  });
+
+  const tbody = document.getElementById('students-table-body');
+  tbody.innerHTML = (profiles || []).map(p => {
+    const results = resultsByUser[p.id] || [];
+    const avg = results.length > 0 ? (results.reduce((s,r) => s + r.percentage, 0) / results.length).toFixed(1) : '-';
+    return `
+      <tr>
+        <td>${p.name || '-'}</td>
+        <td>Class ${p.class || '-'}</td>
+        <td>${p.group_name || '-'}</td>
+        <td>${p.college || '-'}</td>
+        <td>${p.phone || '-'}</td>
+        <td>${p.email || '-'}</td>
+        <td>${results.length}</td>
+        <td>${avg}${avg !== '-' ? '%' : ''}</td>
+        <td><button class="btn-upload" style="padding:0.3rem 0.8rem;font-size:0.55rem;" onclick='viewStudentDashboard("${p.id}")'>View</button></td>
+      </tr>`;
+  }).join('');
+}
+
+async function viewStudentDashboard(userId) {
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).single();
+  const { data: results } = await sb.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
+  const total = results ? results.length : 0;
+  const avg = total > 0 ? (results.reduce((s,r) => s + r.percentage, 0) / total).toFixed(1) : 0;
+  const best = total > 0 ? results.reduce((a,b) => a.percentage > b.percentage ? a : b) : null;
+
+  document.getElementById('student-modal-title').textContent = profile?.name || 'Student';
+  document.getElementById('student-modal-content').innerHTML = `
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">
+      Class ${profile?.class} · ${profile?.group_name} · ${profile?.college || 'No college listed'}<br>
+      ${profile?.email || ''} · ${profile?.phone || ''}
+    </p>
+    <div class="dash-summary" style="margin-bottom:1.5rem;">
+      <div class="ds-card gold"><p class="ds-num">${total}</p><p class="ds-label">Tests Taken</p></div>
+      <div class="ds-card gold"><p class="ds-num">${avg}%</p><p class="ds-label">Average</p></div>
+      <div class="ds-card blue"><p class="ds-num">${best ? best.percentage + '%' : 'N/A'}</p><p class="ds-label">Best</p></div>
+    </div>
+    <div style="max-height:300px;overflow-y:auto;">
+      ${(results || []).map(r => `
+        <div class="recent-item">
+          <div class="ri-left">
+            <p class="ri-chapter">${r.test_type} · Chapter ${r.chapter}</p>
+            <p class="ri-type">${r.chapter_name}</p>
+          </div>
+          <div class="ri-right">
+            <p class="ri-score">${r.percentage}%</p>
+            <p class="ri-attempt">Attempt #${r.attempt_number}</p>
+          </div>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:0.85rem;">No tests taken yet.</p>'}
+    </div>
+  `;
+  const modal = document.getElementById('student-modal');
+  modal.style.left = '50%';
+  modal.style.top = '50%';
+  modal.style.transform = 'translate(-50%,-50%)';
+  modal.classList.add('show');
+}
+
+function closeStudentModal() {
+  document.getElementById('student-modal').classList.remove('show');
+}
 async function loadMasterQuestions() {
   const cls = document.getElementById('filter-class').value;
   const type = document.getElementById('filter-type').value;
