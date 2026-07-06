@@ -1113,19 +1113,14 @@ function renderRecentTests() {
 // MASTER — QUESTION UPLOAD
 // ═══════════════════════════════════════════
 function populateChapterSelects() {
-  function populateChapterSelects() {
-  const selects = ['uq-chapter', 'filter-chapter', 'bulk-chapter']; // add bulk-chapter here
+  const selects = ['uq-chapter', 'filter-chapter', 'bulk-chapter'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = CLASS11_CHAPTERS.map((n, i) =>
       `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
   });
-document.getElementById('bulk-class').addEventListener('change', function() {
-  const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
-  document.getElementById('bulk-chapter').innerHTML = chapters.map((n,i) =>
-    `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
-});
+
   document.getElementById('uq-class').addEventListener('change', function() {
     const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
     ['uq-chapter','filter-chapter'].forEach(id => {
@@ -1134,8 +1129,137 @@ document.getElementById('bulk-class').addEventListener('change', function() {
         `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
     });
   });
+
+  document.getElementById('bulk-class').addEventListener('change', function() {
+    const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+    document.getElementById('bulk-chapter').innerHTML = chapters.map((n,i) =>
+      `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+  });
+}
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let loadedQuestions = null;
+let loadedAnswerKey = null;
+
+async function extractTextFromFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'docx') {
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return result.value;
+  } else if (ext === 'pdf') {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const content = await (await pdf.getPage(i)).getTextContent();
+      text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return text;
+  }
+  throw new Error('Use a .docx or .pdf file');
 }
 
+function parseQuestions(text) {
+  const blocks = text.split(/\n(?=\s*\d+\.\s)/).map(b => b.trim()).filter(Boolean);
+  const out = {};
+  blocks.forEach(block => {
+    const numMatch = block.match(/^(\d+)\.\s*/);
+    if (!numMatch) return;
+    const num = parseInt(numMatch[1]);
+    const rest = block.slice(numMatch[0].length);
+    const qMatch = rest.match(/([\s\S]+?)A\)/);
+    const aMatch = rest.match(/A\)\s*(.+?)\s*B\)/s);
+    const bMatch = rest.match(/B\)\s*(.+?)\s*C\)/s);
+    const cMatch = rest.match(/C\)\s*(.+?)\s*D\)/s);
+    const dMatch = rest.match(/D\)\s*(.+)/s);
+    if (qMatch && aMatch && bMatch && cMatch && dMatch) {
+      out[num] = {
+        question: qMatch[1].replace(/\s+/g,' ').trim(),
+        option_a: aMatch[1].replace(/\s+/g,' ').trim(),
+        option_b: bMatch[1].replace(/\s+/g,' ').trim(),
+        option_c: cMatch[1].replace(/\s+/g,' ').trim(),
+        option_d: dMatch[1].replace(/\s+/g,' ').trim()
+      };
+    }
+  });
+  return out;
+}
+
+function parseAnswerKey(text) {
+  const out = {};
+  const regex = /(\d+)\.\s*([A-D])\s*(?:-\s*(.+))?/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    out[parseInt(m[1])] = { answer: m[2].toUpperCase(), concept: m[3] ? m[3].trim() : '' };
+  }
+  return out;
+}
+
+async function loadQuestionFile() {
+  const file = document.getElementById('q-file').files[0];
+  const statusEl = document.getElementById('bulk-status');
+  if (!file) { alert('Choose a questions file first'); return; }
+  statusEl.textContent = 'Reading questions file...';
+  try {
+    const text = await extractTextFromFile(file);
+    loadedQuestions = parseQuestions(text);
+    statusEl.textContent = `Loaded ${Object.keys(loadedQuestions).length} questions. Now load the answer key.`;
+  } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
+}
+
+async function loadKeyFile() {
+  const file = document.getElementById('key-file').files[0];
+  const statusEl = document.getElementById('bulk-status');
+  if (!file) { alert('Choose an answer key file first'); return; }
+  statusEl.textContent = 'Reading answer key file...';
+  try {
+    const text = await extractTextFromFile(file);
+    loadedAnswerKey = parseAnswerKey(text);
+    statusEl.textContent = `Loaded ${Object.keys(loadedAnswerKey).length} answers. Click "Combine & Upload" when ready.`;
+  } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
+}
+
+async function submitBulkUpload() {
+  const statusEl = document.getElementById('bulk-status');
+  if (!loadedQuestions || !loadedAnswerKey) {
+    alert('Load both the questions file and the answer key file first!'); return;
+  }
+
+  const cls = document.getElementById('bulk-class').value;
+  const type = document.getElementById('bulk-type').value;
+  const chapter = parseInt(document.getElementById('bulk-chapter').value);
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const chapterName = chapters[chapter - 1];
+
+  const rows = [];
+  const missing = [];
+  Object.keys(loadedQuestions).forEach(num => {
+    const q = loadedQuestions[num];
+    const key = loadedAnswerKey[num];
+    if (!key) { missing.push(num); return; }
+    rows.push({
+      class: cls, test_type: type, chapter, chapter_name: chapterName,
+      question: q.question, option_a: q.option_a, option_b: q.option_b,
+      option_c: q.option_c, option_d: q.option_d,
+      correct_answer: key.answer, concept: key.concept
+    });
+  });
+
+  if (missing.length > 0) {
+    statusEl.textContent = `⚠ Question(s) #${missing.join(', ')} have no matching answer in the key — fix numbering and reload.`;
+    return;
+  }
+
+  statusEl.textContent = `Uploading ${rows.length} questions...`;
+  const { error } = await sb.from('questions').insert(rows);
+  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
+
+  statusEl.textContent = `✅ Uploaded ${rows.length} questions successfully!`;
+  loadedQuestions = null;
+  loadedAnswerKey = null;
+  document.getElementById('q-file').value = '';
+  document.getElementById('key-file').value = '';
+  loadMasterQuestions();
+}
 async function uploadQuestion() {
   const cls = document.getElementById('uq-class').value;
   const type = document.getElementById('uq-type').value;
