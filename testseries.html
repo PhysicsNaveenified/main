@@ -6,6 +6,8 @@
 <title>Test Series — Naveenified</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 :root {
@@ -428,7 +430,53 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div class="master-wrap">
     <p class="section-eyebrow">Master Controls</p>
     <h1 class="section-title">Question <em>Manager</em></h1>
+<div class="upload-section">
+  <h3 class="upload-title">Bulk Upload (Word / PDF)</h3>
+  <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
+    <strong>Question file</strong> — just number and options, nothing fancy:<br>
+    <code>1. What is the SI unit of force?<br>A) Joule&nbsp; B) Newton&nbsp; C) Watt&nbsp; D) Pascal</code><br><br>
+    <strong>Answer key file</strong> — number, dot, correct letter (concept optional after a dash):<br>
+    <code>1. B - Newton's Laws<br>2. C</code>
+  </p>
 
+  <div class="upload-row">
+    <div>
+      <label class="form-label">Class</label>
+      <select id="bulk-class" class="form-select">
+        <option value="11">Class XI</option>
+        <option value="12">Class XII</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Test Type</label>
+      <select id="bulk-type" class="form-select">
+        <option value="Board">Board</option>
+        <option value="CET">CET/NEET</option>
+        <option value="JEE">JEE</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Chapter Number</label>
+      <select id="bulk-chapter" class="form-select"></select>
+    </div>
+  </div>
+
+  <div class="upload-row">
+    <div>
+      <label class="form-label">Questions File</label>
+      <input type="file" id="q-file" accept=".docx,.pdf" class="form-input"/>
+      <button class="btn-upload" style="margin-top:0.6rem;" onclick="loadQuestionFile()">Load Questions</button>
+    </div>
+    <div>
+      <label class="form-label">Answer Key File</label>
+      <input type="file" id="key-file" accept=".docx,.pdf" class="form-input"/>
+      <button class="btn-upload" style="margin-top:0.6rem;" onclick="loadKeyFile()">Load Answer Key</button>
+    </div>
+  </div>
+
+  <button class="btn-upload" style="margin-top:1rem;background:var(--blue);" onclick="submitBulkUpload()">Combine &amp; Upload to Database →</button>
+  <div id="bulk-status" style="margin-top:1rem;font-size:0.8rem;color:var(--muted2);"></div>
+</div>
     <div class="upload-section">
       <h3 class="upload-title">Add New Question</h3>
       <div class="upload-form">
@@ -1065,14 +1113,19 @@ function renderRecentTests() {
 // MASTER — QUESTION UPLOAD
 // ═══════════════════════════════════════════
 function populateChapterSelects() {
-  const selects = ['uq-chapter', 'filter-chapter'];
+  function populateChapterSelects() {
+  const selects = ['uq-chapter', 'filter-chapter', 'bulk-chapter']; // add bulk-chapter here
   selects.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = CLASS11_CHAPTERS.map((n, i) =>
       `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
   });
-
+document.getElementById('bulk-class').addEventListener('change', function() {
+  const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  document.getElementById('bulk-chapter').innerHTML = chapters.map((n,i) =>
+    `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+});
   document.getElementById('uq-class').addEventListener('change', function() {
     const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
     ['uq-chapter','filter-chapter'].forEach(id => {
