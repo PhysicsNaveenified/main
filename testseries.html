@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Test Series — Naveenified</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root {
+  --gold: #ffd84d;
+  --blue: #5aafff;
+  --navy: #0b1330;
+  --white: #faf8f2;
+  --muted: rgba(250,248,242,0.65);
+  --muted2: rgba(250,248,242,0.88);
+  --surface: rgba(255,216,77,0.05);
+  --surface-blue: rgba(90,175,255,0.05);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--navy);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;min-height:100vh;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:1.2rem 3.5rem;background:rgba(11,19,48,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,216,77,0.1);}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--gold);cursor:pointer;text-decoration:none;}
+.nav-logo span{color:var(--white);font-weight:300;}
+.back-home{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+.back-home:hover{color:var(--gold);}
+.nav-user{display:flex;align-items:center;gap:1rem;}
+.nav-user img{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,216,77,0.3);}
+.nav-user-name{font-size:0.78rem;color:var(--muted2);}
+.btn-logout{padding:0.35rem 0.9rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:2px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;}
+.btn-logout:hover{background:var(--gold);color:var(--navy);}
+
+/* PAGES */
+.page{display:none;padding-top:5rem;min-height:100vh;}
+.page.active{display:block;}
+
+/* LOGIN PAGE */
+.login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;padding:2rem;text-align:center;}
+.login-eyebrow{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;}
+.login-title{font-family:'Cormorant Garamond',serif;font-size:4rem;font-weight:700;color:var(--white);margin-bottom:0.5rem;line-height:1;}
+.login-sub{font-size:0.9rem;color:var(--muted);margin-bottom:2.5rem;max-width:400px;}
+.btn-google{display:inline-flex;align-items:center;gap:0.8rem;padding:0.9rem 2rem;background:var(--white);color:#333;border:none;border-radius:3px;font-family:'Inter',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.25s;box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+.btn-google:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.4);}
+.btn-google svg{width:20px;height:20px;}
+
+/* PROFILE PAGE */
+.profile-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;padding:2rem;}
+.profile-card{width:100%;max-width:480px;background:rgba(255,216,77,0.04);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:2.5rem;}
+.form-eyebrow{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;}
+.form-title{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:700;color:var(--white);margin-bottom:2rem;}
+.form-group{margin-bottom:1.2rem;}
+.form-label{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:0.5rem;}
+.form-input,.form-select{width:100%;padding:0.85rem 1.1rem;background:rgba(255,216,77,0.04);border:1px solid rgba(255,216,77,0.2);border-radius:3px;color:var(--white);font-family:'Inter',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;}
+.form-input:focus,.form-select:focus{border-color:var(--gold);}
+.form-select option{background:#0b1330;}
+.btn-primary{width:100%;padding:1rem;background:var(--gold);color:var(--navy);border:none;border-radius:3px;font-family:'Space Mono',monospace;font-size:0.68rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;cursor:pointer;margin-top:1rem;transition:all 0.25s;}
+.btn-primary:hover{background:#ffe07a;transform:translateY(-2px);}
+
+/* HOME — TEST TYPE SELECTION */
+.home-wrap{padding:3rem 8vw;}
+.section-eyebrow{font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:clamp(2.5rem,5vw,4rem);font-weight:700;color:var(--white);line-height:1;margin-bottom:0.5rem;}
+.section-title em{color:var(--gold);font-style:italic;}
+.section-sub{font-size:0.9rem;color:var(--muted);margin-bottom:3rem;max-width:500px;line-height:1.7;}
+.type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.5rem;margin-bottom:4rem;}
+.type-card{padding:2.2rem;border-radius:3px;cursor:pointer;position:relative;overflow:hidden;transition:transform 0.35s cubic-bezier(0.23,1,0.32,1),box-shadow 0.35s;border:1.5px solid;}
+.type-card:hover{transform:translateY(-8px);}
+.type-card.gold{background:rgba(255,216,77,0.06);border-color:rgba(255,216,77,0.3);}
+.type-card.gold:hover{box-shadow:0 20px 60px rgba(255,216,77,0.2);}
+.type-card.blue{background:rgba(90,175,255,0.06);border-color:rgba(90,175,255,0.3);}
+.type-card.blue:hover{box-shadow:0 20px 60px rgba(90,175,255,0.2);}
+.type-card.green{background:rgba(100,220,120,0.06);border-color:rgba(100,220,120,0.3);}
+.type-card.green:hover{box-shadow:0 20px 60px rgba(100,220,120,0.2);}
+.type-label{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;margin-bottom:0.8rem;}
+.type-card.gold .type-label{color:var(--gold);}
+.type-card.blue .type-label{color:var(--blue);}
+.type-card.green .type-label{color:#64dc78;}
+.type-name{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:700;color:var(--white);margin-bottom:0.5rem;}
+.type-desc{font-size:0.78rem;color:var(--muted);line-height:1.6;}
+.type-arrow{font-size:1.2rem;margin-top:1.2rem;transition:transform 0.3s;}
+.type-card.gold .type-arrow{color:var(--gold);}
+.type-card.blue .type-arrow{color:var(--blue);}
+.type-card.green .type-arrow{color:#64dc78;}
+.type-card:hover .type-arrow{transform:translateX(8px);}
+
+/* CHAPTER GRID */
+.chapter-wrap{padding:3rem 8vw;}
+.breadcrumb{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2rem;cursor:pointer;}
+.breadcrumb span{color:var(--gold);}
+.chapter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1.2rem;margin-top:2rem;}
+.chapter-tile{padding:1.8rem 1.5rem;background:rgba(255,216,77,0.04);border:1px solid rgba(255,216,77,0.12);border-radius:3px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;}
+.chapter-tile:hover{background:rgba(255,216,77,0.08);border-color:rgba(255,216,77,0.35);transform:translateY(-4px);box-shadow:0 16px 40px rgba(255,216,77,0.12);}
+.chapter-tile.blue-tile{background:rgba(90,175,255,0.04);border-color:rgba(90,175,255,0.12);}
+.chapter-tile.blue-tile:hover{background:rgba(90,175,255,0.08);border-color:rgba(90,175,255,0.35);box-shadow:0 16px 40px rgba(90,175,255,0.12);}
+.chapter-tile.green-tile{background:rgba(100,220,120,0.04);border-color:rgba(100,220,120,0.12);}
+.chapter-tile.green-tile:hover{background:rgba(100,220,120,0.08);border-color:rgba(100,220,120,0.35);box-shadow:0 16px 40px rgba(100,220,120,0.12);}
+.tile-num{font-family:'Space Mono',monospace;font-size:0.56rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:0.6rem;}
+.blue-tile .tile-num{color:var(--blue);}
+.green-tile .tile-num{color:#64dc78;}
+.tile-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:600;color:var(--white);line-height:1.3;margin-bottom:0.5rem;}
+.tile-count{font-size:0.7rem;color:var(--muted);}
+.tile-score{margin-top:0.8rem;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold);}
+.blue-tile .tile-score{color:var(--blue);}
+.green-tile .tile-score{color:#64dc78;}
+
+/* TEST PAGE */
+.test-wrap{padding:2rem 8vw 4rem;max-width:860px;margin:0 auto;}
+.test-header{position:sticky;top:70px;background:rgba(11,19,48,0.97);backdrop-filter:blur(16px);padding:1rem 0;margin-bottom:2rem;border-bottom:1px solid rgba(255,216,77,0.1);display:flex;justify-content:space-between;align-items:center;z-index:100;}
+.test-title-wrap .test-eyebrow{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+.test-title-wrap .test-name{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700;color:var(--white);}
+.timer-wrap{text-align:right;}
+.timer-label{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.timer-display{font-family:'Space Mono',monospace;font-size:1.8rem;font-weight:700;color:var(--gold);}
+.timer-display.warning{color:#ff6b6b;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+.progress-bar-wrap{height:3px;background:rgba(255,255,255,0.07);border-radius:99px;margin-bottom:2rem;}
+.progress-bar-fill{height:100%;background:var(--gold);border-radius:99px;transition:width 0.3s;}
+.question-card{padding:2rem;background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.1);border-radius:3px;margin-bottom:1.5rem;}
+.q-number{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;}
+.q-text{font-size:1rem;color:var(--white);line-height:1.7;margin-bottom:1.5rem;font-weight:300;}
+.options-list{display:flex;flex-direction:column;gap:0.7rem;}
+.option-label{display:flex;align-items:center;gap:0.9rem;padding:0.9rem 1.2rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:3px;cursor:pointer;transition:all 0.2s;font-size:0.88rem;color:var(--muted2);}
+.option-label:hover{background:rgba(255,216,77,0.07);border-color:rgba(255,216,77,0.25);color:var(--white);}
+.option-label input[type=radio]{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0;}
+.option-label.selected{background:rgba(255,216,77,0.1);border-color:rgba(255,216,77,0.4);color:var(--white);}
+.submit-section{text-align:center;padding:2rem 0;}
+.btn-submit{padding:1.1rem 3rem;background:var(--gold);color:var(--navy);border:none;border-radius:3px;font-family:'Space Mono',monospace;font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all 0.25s;}
+.btn-submit:hover{background:#ffe07a;transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,216,77,0.3);}
+.unattempted-warning{font-size:0.8rem;color:rgba(255,107,107,0.8);margin-top:0.8rem;}
+
+/* RESULT PAGE */
+.result-wrap{padding:3rem 8vw;max-width:900px;margin:0 auto;}
+.result-hero{text-align:center;margin-bottom:3rem;}
+.result-score-big{font-family:'Cormorant Garamond',serif;font-size:8rem;font-weight:700;line-height:1;}
+.result-score-big.excellent{color:var(--gold);}
+.result-score-big.good{color:var(--blue);}
+.result-score-big.poor{color:#ff6b6b;}
+.result-label{font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;margin-top:0.5rem;}
+.result-meta{font-size:0.88rem;color:var(--muted);margin-top:0.5rem;}
+.result-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1.2rem;margin-bottom:3rem;}
+.result-card{padding:1.5rem;border-radius:3px;text-align:center;}
+.result-card.gold-card{background:rgba(255,216,77,0.06);border:1px solid rgba(255,216,77,0.2);}
+.result-card.blue-card{background:rgba(90,175,255,0.06);border:1px solid rgba(90,175,255,0.2);}
+.result-card.red-card{background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.2);}
+.rc-num{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:700;line-height:1;}
+.gold-card .rc-num{color:var(--gold);}
+.blue-card .rc-num{color:var(--blue);}
+.red-card .rc-num{color:#ff6b6b;}
+.rc-label{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:0.3rem;}
+.tips-section{background:rgba(255,216,77,0.04);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:2rem;margin-bottom:2rem;}
+.tips-eyebrow{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;}
+.tips-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);margin-bottom:1.2rem;}
+.tip-item{display:flex;gap:0.8rem;margin-bottom:0.9rem;align-items:flex-start;}
+.tip-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:6px;}
+.tip-text{font-size:0.88rem;color:var(--muted2);line-height:1.7;}
+.answers-review{margin-top:2rem;}
+.review-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);margin-bottom:1.5rem;}
+.review-item{padding:1.5rem;border-radius:3px;margin-bottom:1rem;border-left:3px solid;}
+.review-item.correct{background:rgba(100,220,120,0.05);border-color:#64dc78;}
+.review-item.wrong{background:rgba(255,107,107,0.05);border-color:#ff6b6b;}
+.review-item.skipped{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.15);}
+.review-q{font-size:0.9rem;color:var(--white);margin-bottom:0.8rem;line-height:1.6;}
+.review-ans{font-size:0.8rem;font-family:'Space Mono',monospace;}
+.correct-ans{color:#64dc78;}
+.wrong-ans{color:#ff6b6b;}
+.your-ans{color:var(--muted);}
+.btn-dashboard{padding:0.9rem 2rem;background:transparent;border:1px solid rgba(255,216,77,0.3);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-right:1rem;transition:all 0.2s;}
+.btn-dashboard:hover{background:rgba(255,216,77,0.1);}
+.btn-retake{padding:0.9rem 2rem;background:var(--gold);color:var(--navy);border:none;border-radius:3px;font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.btn-retake:hover{background:#ffe07a;}
+
+/* DASHBOARD PAGE */
+.dash-wrap{padding:3rem 8vw;}
+.dash-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:3rem;}
+.dash-name{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:700;color:var(--white);line-height:1;}
+.dash-name em{color:var(--gold);font-style:italic;}
+.dash-meta{font-size:0.82rem;color:var(--muted);margin-top:0.4rem;}
+.dash-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1.2rem;margin-bottom:3rem;}
+.ds-card{padding:1.8rem;border-radius:3px;}
+.ds-card.gold{background:rgba(255,216,77,0.06);border:1px solid rgba(255,216,77,0.2);}
+.ds-card.blue{background:rgba(90,175,255,0.06);border:1px solid rgba(90,175,255,0.2);}
+.ds-num{font-family:'Cormorant Garamond',serif;font-size:3.5rem;font-weight:700;line-height:1;}
+.ds-card.gold .ds-num{color:var(--gold);}
+.ds-card.blue .ds-num{color:var(--blue);}
+.ds-label{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:0.3rem;}
+.chart-section{background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.1);border-radius:4px;padding:2rem;margin-bottom:3rem;}
+.chart-eyebrow{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;}
+.chart-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);margin-bottom:1.5rem;}
+.type-tabs{display:flex;gap:0;border-bottom:1px solid rgba(255,216,77,0.1);margin-bottom:1.5rem;}
+.type-tab{padding:0.7rem 1.5rem;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;background:none;border:none;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s;}
+.type-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.history-popup{position:fixed;background:rgba(11,19,48,0.97);border:1px solid rgba(255,216,77,0.2);border-radius:4px;padding:1.5rem;min-width:260px;z-index:1000;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:none;}
+.history-popup.show{display:block;}
+.history-popup-title{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:700;color:var(--white);margin-bottom:1rem;}
+.history-item{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.78rem;}
+.history-item:last-child{border:none;}
+.h-attempt{color:var(--muted);}
+.h-score{color:var(--gold);font-family:'Space Mono',monospace;}
+.history-close{position:absolute;top:0.8rem;right:0.8rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;}
+.recent-tests{margin-top:2rem;}
+.recent-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);margin-bottom:1.5rem;}
+.recent-item{display:flex;justify-content:space-between;align-items:center;padding:1.2rem 1.5rem;background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.08);border-radius:3px;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;}
+.ri-left .ri-chapter{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+.ri-left .ri-type{font-size:0.82rem;color:var(--muted2);margin-top:0.2rem;}
+.ri-right{text-align:right;}
+.ri-score{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);}
+.ri-attempt{font-size:0.7rem;color:var(--muted);font-family:'Space Mono',monospace;}
+
+/* MASTER UPLOAD */
+.master-wrap{padding:3rem 8vw;}
+.upload-section{background:rgba(255,216,77,0.04);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:2rem;margin-bottom:2rem;}
+.upload-title{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:var(--white);margin-bottom:1.5rem;}
+.upload-form{display:flex;flex-direction:column;gap:1rem;}
+.upload-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+.btn-upload{padding:0.9rem 2rem;background:var(--gold);color:var(--navy);border:none;border-radius:3px;font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;cursor:pointer;width:fit-content;}
+.question-table{width:100%;border-collapse:collapse;margin-top:1.5rem;font-size:0.82rem;}
+.question-table th{text-align:left;padding:0.8rem 1rem;font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);border-bottom:1px solid rgba(255,216,77,0.1);}
+.question-table td{padding:0.8rem 1rem;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--muted2);vertical-align:top;}
+.btn-delete{background:none;border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;padding:0.2rem 0.6rem;border-radius:2px;font-size:0.7rem;cursor:pointer;}
+
+/* FLOATING CALL BUTTON */
+.fab{position:fixed;bottom:2rem;right:2rem;width:52px;height:52px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 30px rgba(255,216,77,0.4);z-index:900;transition:transform 0.25s;text-decoration:none;font-size:1.3rem;}
+.fab:hover{transform:scale(1.1);}
+
+@media(max-width:768px){
+  nav{padding:1rem 1.5rem;}
+  .home-wrap,.chapter-wrap,.test-wrap,.result-wrap,.dash-wrap,.master-wrap{padding-left:5vw;padding-right:5vw;}
+  .upload-row{grid-template-columns:1fr;}
+  .test-header{flex-direction:column;gap:0.5rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="https://physicsnaveenified.github.io/main/" class="nav-logo">Physics <span>Naveenified</span></a>
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="https://physicsnaveenified.github.io/main/" class="back-home">← Main Site</a>
+    <div class="nav-user" id="nav-user" style="display:none;">
+      <img id="nav-avatar" src="" alt=""/>
+      <span class="nav-user-name" id="nav-username"></span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<!-- FLOATING CALL BUTTON -->
+<a href="tel:+919999999999" class="fab" title="Call Naveen Sir">📞</a>
+
+<!-- HISTORY POPUP -->
+<div class="history-popup" id="history-popup">
+  <button class="history-close" onclick="closeHistory()">✕</button>
+  <p class="history-popup-title" id="history-popup-title"></p>
+  <div id="history-popup-content"></div>
+</div>
+
+<!-- ═══ LOGIN PAGE ═══ -->
+<div id="page-login" class="page active">
+  <div class="login-wrap">
+    <p class="login-eyebrow">Naveenified · Test Series</p>
+    <h1 class="login-title">Sign In to<br><em style="color:var(--gold);font-style:italic;">Begin</em></h1>
+    <p class="login-sub">Login with your Google account to access chapter-wise tests and track your performance.</p>
+    <button class="btn-google" onclick="loginWithGoogle()">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- ═══ PROFILE PAGE ═══ -->
+<div id="page-profile" class="page">
+  <div class="profile-wrap">
+    <div class="profile-card">
+      <p class="form-eyebrow">Welcome!</p>
+      <h2 class="form-title">Complete Your Profile</h2>
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input id="p-name" class="form-input" type="text" placeholder="Enter your full name"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Class</label>
+        <select id="p-class" class="form-select">
+          <option value="">Select Class</option>
+          <option value="11">Class XI</option>
+          <option value="12">Class XII</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Group</label>
+        <select id="p-group" class="form-select">
+          <option value="">Select Group</option>
+          <option value="PCMB">PCMB</option>
+          <option value="PCMC">PCMC</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Roll Number (Optional)</label>
+        <input id="p-roll" class="form-input" type="text" placeholder="Enter roll number"/>
+      </div>
+      <button class="btn-primary" onclick="saveProfile()">Save &amp; Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HOME PAGE (Test Type Selection) ═══ -->
+<div id="page-home" class="page">
+  <div class="home-wrap">
+    <p class="section-eyebrow">Test Series</p>
+    <h1 class="section-title">Choose your <em>exam</em></h1>
+    <p class="section-sub">Select the exam type to access chapter-wise tests designed specifically for that syllabus and pattern.</p>
+    <div class="type-grid">
+      <div class="type-card gold" onclick="goToChapters('Board')">
+        <p class="type-label">State Board</p>
+        <p class="type-name">Board Exams</p>
+        <p class="type-desc">Chapter-wise tests aligned with the Karnataka State Board syllabus and pattern.</p>
+        <p class="type-arrow">→</p>
+      </div>
+      <div class="type-card blue" onclick="goToChapters('CET')">
+        <p class="type-label">CET / NEET</p>
+        <p class="type-name">CET &amp; NEET</p>
+        <p class="type-desc">MCQs with 1 min 20 sec per question. Competitive exam standard questions.</p>
+        <p class="type-arrow">→</p>
+      </div>
+      <div class="type-card green" onclick="goToChapters('JEE')">
+        <p class="type-label">JEE Mains &amp; Advanced</p>
+        <p class="type-name">JEE</p>
+        <p class="type-desc">High difficulty questions with 2 min 24 sec per question. Concept-heavy problems.</p>
+        <p class="type-arrow">→</p>
+      </div>
+    </div>
+    <div style="margin-top:1rem;">
+      <button onclick="goToDashboard()" style="padding:0.7rem 1.8rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,216,77,0.08)'" onmouseout="this.style.background='transparent'">
+        View My Dashboard →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CHAPTERS PAGE ═══ -->
+<div id="page-chapters" class="page">
+  <div class="chapter-wrap">
+    <p class="breadcrumb" onclick="showPage('home')">← <span id="breadcrumb-type"></span></p>
+    <p class="section-eyebrow" id="chapters-eyebrow"></p>
+    <h1 class="section-title" id="chapters-title"></h1>
+    <p class="section-sub" id="chapters-sub"></p>
+    <div class="chapter-grid" id="chapter-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ TEST PAGE ═══ -->
+<div id="page-test" class="page">
+  <div class="test-wrap">
+    <div class="test-header">
+      <div class="test-title-wrap">
+        <p class="test-eyebrow" id="test-eyebrow"></p>
+        <p class="test-name" id="test-name"></p>
+      </div>
+      <div class="timer-wrap">
+        <p class="timer-label">Time Remaining</p>
+        <p class="timer-display" id="timer-display">00:00</p>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div id="questions-container"></div>
+    <div class="submit-section">
+      <button class="btn-submit" onclick="submitTest()">Submit Test →</button>
+      <p class="unattempted-warning" id="unattempted-warning"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RESULT PAGE ═══ -->
+<div id="page-result" class="page">
+  <div class="result-wrap">
+    <div class="result-hero">
+      <p id="result-score-big" class="result-score-big excellent"></p>
+      <p class="result-label" id="result-label"></p>
+      <p class="result-meta" id="result-meta"></p>
+    </div>
+    <div class="result-cards" id="result-cards"></div>
+    <div class="tips-section" id="tips-section"></div>
+    <div class="answers-review" id="answers-review"></div>
+    <div style="margin-top:2rem;">
+      <button class="btn-dashboard" onclick="goToDashboard()">View Dashboard</button>
+      <button class="btn-retake" onclick="retakeTest()">Retake Test →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD PAGE ═══ -->
+<div id="page-dashboard" class="page">
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <div>
+        <p class="section-eyebrow">My Performance</p>
+        <h2 class="dash-name">Welcome, <em id="dash-name-text"></em></h2>
+        <p class="dash-meta" id="dash-meta"></p>
+      </div>
+      <button onclick="showPage('home')" style="padding:0.5rem 1.2rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">← Back to Tests</button>
+    </div>
+    <div class="dash-summary" id="dash-summary"></div>
+    <div class="chart-section">
+      <p class="chart-eyebrow">Chapter-wise Performance</p>
+      <h3 class="chart-title">Performance Graph</h3>
+      <div class="type-tabs">
+        <button class="type-tab active" onclick="switchChartType('Board',this)">Board</button>
+        <button class="type-tab" onclick="switchChartType('CET',this)">CET/NEET</button>
+        <button class="type-tab" onclick="switchChartType('JEE',this)">JEE</button>
+      </div>
+      <canvas id="perf-chart" height="100"></canvas>
+    </div>
+    <div class="recent-tests">
+      <h3 class="recent-title">Recent Tests</h3>
+      <div id="recent-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MASTER UPLOAD PAGE ═══ -->
+<div id="page-master" class="page">
+  <div class="master-wrap">
+    <p class="section-eyebrow">Master Controls</p>
+    <h1 class="section-title">Question <em>Manager</em></h1>
+
+    <div class="upload-section">
+      <h3 class="upload-title">Add New Question</h3>
+      <div class="upload-form">
+        <div class="upload-row">
+          <div>
+            <label class="form-label">Class</label>
+            <select id="uq-class" class="form-select">
+              <option value="11">Class XI</option>
+              <option value="12">Class XII</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Test Type</label>
+            <select id="uq-type" class="form-select">
+              <option value="Board">Board</option>
+              <option value="CET">CET/NEET</option>
+              <option value="JEE">JEE</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Chapter Number</label>
+            <select id="uq-chapter" class="form-select"></select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Question</label>
+          <textarea id="uq-question" class="form-input" rows="3" style="resize:vertical;" placeholder="Enter the question text"></textarea>
+        </div>
+        <div class="upload-row">
+          <div>
+            <label class="form-label">Option A</label>
+            <input id="uq-a" class="form-input" type="text" placeholder="Option A"/>
+          </div>
+          <div>
+            <label class="form-label">Option B</label>
+            <input id="uq-b" class="form-input" type="text" placeholder="Option B"/>
+          </div>
+        </div>
+        <div class="upload-row">
+          <div>
+            <label class="form-label">Option C</label>
+            <input id="uq-c" class="form-input" type="text" placeholder="Option C"/>
+          </div>
+          <div>
+            <label class="form-label">Option D</label>
+            <input id="uq-d" class="form-input" type="text" placeholder="Option D"/>
+          </div>
+        </div>
+        <div class="upload-row">
+          <div>
+            <label class="form-label">Correct Answer</label>
+            <select id="uq-answer" class="form-select">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Concept Tag (for tips)</label>
+            <input id="uq-concept" class="form-input" type="text" placeholder="e.g. Newton's Laws, Kinematics"/>
+          </div>
+        </div>
+        <button class="btn-upload" onclick="uploadQuestion()">Add Question →</button>
+      </div>
+    </div>
+
+    <div class="upload-section">
+      <h3 class="upload-title">Existing Questions</h3>
+      <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <select id="filter-class" class="form-select" style="width:auto;" onchange="loadMasterQuestions()">
+          <option value="11">Class XI</option>
+          <option value="12">Class XII</option>
+        </select>
+        <select id="filter-type" class="form-select" style="width:auto;" onchange="loadMasterQuestions()">
+          <option value="Board">Board</option>
+          <option value="CET">CET/NEET</option>
+          <option value="JEE">JEE</option>
+        </select>
+        <select id="filter-chapter" class="form-select" style="width:auto;" onchange="loadMasterQuestions()"></select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="question-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Question</th>
+              <th>Options</th>
+              <th>Answer</th>
+              <th>Concept</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="questions-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// SUPABASE INIT
+// ═══════════════════════════════════════════
+const { createClient } = supabase;
+const sb = createClient(
+  'https://cyynkucowogcetrsuvzb.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5eW5rdWNvd29nY2V0cnN1dnpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjQyMjEsImV4cCI6MjA5ODkwMDIyMX0.nF6UKi9icYOBYkgrCdnqQvmDB1b3978NSE5VHBbUHVA'
+);
+
+const MASTER_EMAIL = 'naganaveensir@gmail.com';
+const CLASS11_CHAPTERS = [
+  'Units and Measurements','Motion in a Straight Line','Motion in a Plane',
+  'Laws of Motion','Work Energy and Power','System of Particles and Rotational Motion',
+  'Gravitation','Mechanical Properties of Solids','Mechanical Properties of Fluids',
+  'Thermal Properties of Matter','Thermodynamics','Kinetic Theory','Oscillations','Waves'
+];
+const CLASS12_CHAPTERS = [
+  'Electric Charges and Fields','Electrostatic Potential and Capacitance','Current Electricity',
+  'Moving Charges and Magnetism','Magnetism and Matter','Electromagnetic Induction',
+  'Alternating Current','Electromagnetic Waves','Ray Optics and Optical Instruments',
+  'Wave Optics','Dual Nature of Radiation and Matter','Atoms','Nuclei','Semiconductor Electronics'
+];
+const TIMER_PER_Q = { Board: 90, CET: 80, JEE: 144 };
+
+let currentUser = null;
+let currentProfile = null;
+let currentTestType = '';
+let currentChapter = 0;
+let currentChapterName = '';
+let currentQuestions = [];
+let userAnswers = {};
+let timerInterval = null;
+let timeLeft = 0;
+let perfChart = null;
+let allResults = [];
+
+// ═══════════════════════════════════════════
+// PAGE NAVIGATION
+// ═══════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ═══════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════
+async function loginWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) alert('Login failed: ' + error.message);
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  currentProfile = null;
+  document.getElementById('nav-user').style.display = 'none';
+  showPage('login');
+}
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await onLogin(session.user);
+  } else {
+    showPage('login');
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      await onLogin(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      showPage('login');
+    }
+  });
+}
+
+async function onLogin(user) {
+  currentUser = user;
+  document.getElementById('nav-user').style.display = 'flex';
+  document.getElementById('nav-avatar').src = user.user_metadata?.avatar_url || '';
+  document.getElementById('nav-username').textContent = user.user_metadata?.full_name || user.email;
+
+  // Check if master
+  if (user.email === MASTER_EMAIL) {
+    showPage('master');
+    populateChapterSelects();
+    loadMasterQuestions();
+    return;
+  }
+
+  // Load profile
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if (profile) {
+    currentProfile = profile;
+    showPage('home');
+  } else {
+    document.getElementById('p-name').value = user.user_metadata?.full_name || '';
+    showPage('profile');
+  }
+}
+
+async function saveProfile() {
+  const name = document.getElementById('p-name').value.trim();
+  const cls = document.getElementById('p-class').value;
+  const grp = document.getElementById('p-group').value;
+  const roll = document.getElementById('p-roll').value.trim();
+  if (!name || !cls || !grp) { alert('Please fill Name, Class and Group!'); return; }
+
+  const { error } = await sb.from('profiles').upsert({
+    id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll
+  });
+  if (error) { alert('Error saving profile: ' + error.message); return; }
+  currentProfile = { name, class: cls, group_name: grp, roll_no: roll };
+  showPage('home');
+}
+
+// ═══════════════════════════════════════════
+// CHAPTERS
+// ═══════════════════════════════════════════
+async function goToChapters(type) {
+  currentTestType = type;
+  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const tileClass = type === 'Board' ? '' : type === 'CET' ? 'blue-tile' : 'green-tile';
+  const colors = { Board: 'var(--gold)', CET: 'var(--blue)', JEE: '#64dc78' };
+
+  document.getElementById('breadcrumb-type').textContent = type;
+  document.getElementById('chapters-eyebrow').textContent = `Class ${currentProfile.class} · ${type}`;
+  document.getElementById('chapters-title').innerHTML = `Choose a <em style="color:${colors[type]};font-style:italic;">Chapter</em>`;
+  document.getElementById('chapters-sub').textContent = `Select a chapter to start your ${type} test. Questions are loaded from the database.`;
+
+  // Load best scores for this student
+  const { data: results } = await sb.from('test_results')
+    .select('chapter,percentage')
+    .eq('user_id', currentUser.id)
+    .eq('test_type', type)
+    .eq('class', currentProfile.class);
+
+  // Best score per chapter
+  const bestScores = {};
+  if (results) {
+    results.forEach(r => {
+      if (!bestScores[r.chapter] || r.percentage > bestScores[r.chapter]) {
+        bestScores[r.chapter] = r.percentage;
+      }
+    });
+  }
+
+  // Count questions per chapter
+  const { data: qCounts } = await sb.from('questions')
+    .select('chapter')
+    .eq('class', currentProfile.class)
+    .eq('test_type', type);
+
+  const countMap = {};
+  if (qCounts) qCounts.forEach(q => { countMap[q.chapter] = (countMap[q.chapter] || 0) + 1; });
+
+  const grid = document.getElementById('chapter-grid');
+  grid.innerHTML = chapters.map((name, i) => {
+    const ch = i + 1;
+    const count = countMap[ch] || 0;
+    const best = bestScores[ch];
+    const scoreHTML = best !== undefined
+      ? `<p class="tile-score">Best: ${best.toFixed(0)}%</p>`
+      : `<p class="tile-score" style="color:var(--muted);">Not attempted</p>`;
+    return `
+      <div class="chapter-tile ${tileClass}" onclick="startTest(${ch},'${name.replace(/'/g,"\\'")}')">
+        <p class="tile-num">Chapter ${ch}</p>
+        <p class="tile-name">${name}</p>
+        <p class="tile-count">${count} questions</p>
+        ${scoreHTML}
+      </div>`;
+  }).join('');
+
+  showPage('chapters');
+}
+
+// ═══════════════════════════════════════════
+// TEST
+// ═══════════════════════════════════════════
+async function startTest(chapter, chapterName) {
+  currentChapter = chapter;
+  currentChapterName = chapterName;
+  userAnswers = {};
+
+  // Fetch questions
+  let { data: questions, error } = await sb.from('questions')
+    .select('*')
+    .eq('class', currentProfile.class)
+    .eq('test_type', currentTestType)
+    .eq('chapter', chapter);
+
+  if (error || !questions || questions.length === 0) {
+    // Use sample questions if none in DB
+    questions = getSampleQuestions(chapter, chapterName, currentTestType);
+  }
+
+  // Shuffle questions
+  questions = questions.sort(() => Math.random() - 0.5);
+  currentQuestions = questions;
+
+  // Build test UI
+  document.getElementById('test-eyebrow').textContent = `${currentTestType} · Chapter ${chapter}`;
+  document.getElementById('test-name').textContent = chapterName;
+
+  const container = document.getElementById('questions-container');
+  container.innerHTML = questions.map((q, i) => `
+    <div class="question-card" id="qcard-${i}">
+      <p class="q-number">Question ${i + 1} of ${questions.length}</p>
+      <p class="q-text">${q.question}</p>
+      <div class="options-list">
+        ${['A','B','C','D'].map(opt => `
+          <label class="option-label" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
+            <input type="radio" name="q${i}" value="${opt}"/>
+            <span><strong>${opt}.</strong> ${q['option_' + opt.toLowerCase()]}</span>
+          </label>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  // Start timer
+  startTimer(questions.length);
+  showPage('test');
+}
+
+function selectAnswer(qIndex, option, labelEl) {
+  userAnswers[qIndex] = option;
+  document.querySelectorAll(`[id^="opt-${qIndex}-"]`).forEach(l => l.classList.remove('selected'));
+  labelEl.classList.add('selected');
+  updateProgress();
+}
+
+function updateProgress() {
+  const answered = Object.keys(userAnswers).length;
+  const total = currentQuestions.length;
+  document.getElementById('progress-bar').style.width = (answered / total * 100) + '%';
+}
+
+function startTimer(numQuestions) {
+  clearInterval(timerInterval);
+  timeLeft = numQuestions * TIMER_PER_Q[currentTestType];
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 60) document.getElementById('timer-display').classList.add('warning');
+    if (timeLeft <= 0) { clearInterval(timerInterval); submitTest(); }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timeLeft / 60);
+  const s = timeLeft % 60;
+  document.getElementById('timer-display').textContent =
+    String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+async function submitTest() {
+  clearInterval(timerInterval);
+  const unattempted = currentQuestions.length - Object.keys(userAnswers).length;
+  if (unattempted > 0) {
+    const warn = document.getElementById('unattempted-warning');
+    warn.textContent = `⚠ ${unattempted} question(s) unattempted. Submit anyway?`;
+    if (!confirm(`${unattempted} questions unattempted. Submit anyway?`)) {
+      startTimer(currentQuestions.length); return;
+    }
+  }
+
+  // Calculate score
+  let correct = 0, wrong = 0, skipped = 0;
+  const answerPattern = {};
+  currentQuestions.forEach((q, i) => {
+    const given = userAnswers[i] || null;
+    const correct_ans = q.correct_answer;
+    answerPattern[i] = { given, correct: correct_ans, question: q.question, concept: q.concept || '' };
+    if (!given) skipped++;
+    else if (given === correct_ans) correct++;
+    else wrong++;
+  });
+
+  const total = currentQuestions.length;
+  const pct = parseFloat(((correct / total) * 100).toFixed(1));
+
+  // Get attempt number
+  const { data: prevAttempts } = await sb.from('test_results')
+    .select('attempt_number')
+    .eq('user_id', currentUser.id)
+    .eq('class', currentProfile.class)
+    .eq('test_type', currentTestType)
+    .eq('chapter', currentChapter);
+
+  const attemptNum = prevAttempts ? prevAttempts.length + 1 : 1;
+
+  // Save result
+  await sb.from('test_results').insert({
+    user_id: currentUser.id,
+    class: currentProfile.class,
+    test_type: currentTestType,
+    chapter: currentChapter,
+    chapter_name: currentChapterName,
+    score: correct,
+    total,
+    percentage: pct,
+    attempt_number: attemptNum,
+    answer_pattern: answerPattern
+  });
+
+  showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum);
+}
+
+// ═══════════════════════════════════════════
+// RESULT
+// ═══════════════════════════════════════════
+function showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum) {
+  const scoreBig = document.getElementById('result-score-big');
+  scoreBig.textContent = pct + '%';
+  scoreBig.className = 'result-score-big ' + (pct >= 75 ? 'excellent' : pct >= 50 ? 'good' : 'poor');
+  document.getElementById('result-label').textContent =
+    pct >= 75 ? '🏆 Excellent Performance!' : pct >= 50 ? '👍 Good Effort!' : '📚 Keep Practicing!';
+  document.getElementById('result-meta').textContent =
+    `${currentTestType} · Chapter ${currentChapter} · ${currentChapterName} · Attempt #${attemptNum}`;
+
+  document.getElementById('result-cards').innerHTML = `
+    <div class="result-card gold-card"><p class="rc-num">${correct}</p><p class="rc-label">Correct</p></div>
+    <div class="result-card red-card"><p class="rc-num">${wrong}</p><p class="rc-label">Wrong</p></div>
+    <div class="result-card blue-card"><p class="rc-num">${skipped}</p><p class="rc-label">Skipped</p></div>
+    <div class="result-card gold-card"><p class="rc-num">${total}</p><p class="rc-label">Total</p></div>
+  `;
+
+  // Auto-generate tips based on wrong answers
+  const weakConcepts = [];
+  Object.values(answerPattern).forEach(a => {
+    if (a.given !== a.correct && a.concept) weakConcepts.push(a.concept);
+  });
+  const uniqueWeak = [...new Set(weakConcepts)];
+  const tips = generateTips(pct, uniqueWeak, currentChapterName, currentTestType);
+
+  document.getElementById('tips-section').innerHTML = `
+    <p class="tips-eyebrow">Personalised Tips</p>
+    <h3 class="tips-title">Areas to Focus On</h3>
+    ${tips.map(t => `<div class="tip-item"><div class="tip-dot"></div><p class="tip-text">${t}</p></div>`).join('')}
+  `;
+
+  // Answer review
+  const reviewHTML = Object.entries(answerPattern).map(([i, a]) => {
+    const status = !a.given ? 'skipped' : a.given === a.correct ? 'correct' : 'wrong';
+    const icon = status === 'correct' ? '✓' : status === 'wrong' ? '✗' : '—';
+    return `
+      <div class="review-item ${status}">
+        <p class="review-q"><strong>${icon} Q${parseInt(i)+1}.</strong> ${a.question}</p>
+        ${status === 'wrong' ? `<p class="review-ans wrong-ans">Your answer: ${a.given} &nbsp;|&nbsp; <span class="correct-ans">Correct: ${a.correct}</span></p>` : ''}
+        ${status === 'skipped' ? `<p class="review-ans your-ans">Not attempted &nbsp;|&nbsp; <span class="correct-ans">Correct: ${a.correct}</span></p>` : ''}
+        ${status === 'correct' ? `<p class="review-ans correct-ans">Correct ✓</p>` : ''}
+      </div>`;
+  }).join('');
+
+  document.getElementById('answers-review').innerHTML = `<h3 class="review-title">Answer Review</h3>${reviewHTML}`;
+  showPage('result');
+}
+
+function generateTips(pct, weakConcepts, chapterName, testType) {
+  const tips = [];
+  if (pct < 40) {
+    tips.push(`Your score of ${pct}% suggests the fundamentals of ${chapterName} need revision. Start from the basics.`);
+    tips.push(`Re-read the theory section of ${chapterName} before attempting more questions.`);
+  } else if (pct < 60) {
+    tips.push(`You have a basic understanding of ${chapterName}. Focus on improving accuracy.`);
+    tips.push(`Practice more numerical problems to strengthen your grasp.`);
+  } else if (pct < 75) {
+    tips.push(`Good performance! A few more practice sessions will push you past 75%.`);
+  } else {
+    tips.push(`Excellent! You have strong command over ${chapterName}.`);
+    tips.push(`Challenge yourself with higher difficulty questions for ${testType}.`);
+  }
+  if (weakConcepts.length > 0) {
+    tips.push(`Focus specifically on these concepts where you made errors: ${weakConcepts.slice(0,4).join(', ')}.`);
+  }
+  if (testType === 'JEE') tips.push('For JEE, focus on multi-concept problems and derivation-based questions.');
+  if (testType === 'CET') tips.push('For CET/NEET, speed and accuracy are key. Practice with a timer regularly.');
+  if (testType === 'Board') tips.push('For Board exams, ensure you can write step-by-step solutions clearly.');
+  return tips;
+}
+
+function retakeTest() { startTest(currentChapter, currentChapterName); }
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+async function goToDashboard() {
+  document.getElementById('dash-name-text').textContent = currentProfile?.name || '';
+  document.getElementById('dash-meta').textContent =
+    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll: ${currentProfile?.roll_no || 'N/A'}`;
+
+  const { data: results } = await sb.from('test_results')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  allResults = results || [];
+
+  // Summary
+  const totalTests = allResults.length;
+  const avgScore = totalTests > 0
+    ? (allResults.reduce((s, r) => s + r.percentage, 0) / totalTests).toFixed(1)
+    : 0;
+  const bestResult = allResults.length > 0
+    ? allResults.reduce((a, b) => a.percentage > b.percentage ? a : b)
+    : null;
+
+  document.getElementById('dash-summary').innerHTML = `
+    <div class="ds-card gold"><p class="ds-num">${totalTests}</p><p class="ds-label">Tests Taken</p></div>
+    <div class="ds-card gold"><p class="ds-num">${avgScore}%</p><p class="ds-label">Average Score</p></div>
+    <div class="ds-card blue"><p class="ds-num">${bestResult ? bestResult.percentage + '%' : 'N/A'}</p><p class="ds-label">Best Score</p></div>
+  `;
+
+  renderChart('Board');
+  renderRecentTests();
+  showPage('dashboard');
+}
+
+function renderChart(type) {
+  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const filtered = allResults.filter(r => r.test_type === type);
+
+  // Best score per chapter
+  const bestPerChapter = {};
+  const allAttempts = {};
+  filtered.forEach(r => {
+    if (!bestPerChapter[r.chapter] || r.percentage > bestPerChapter[r.chapter]) {
+      bestPerChapter[r.chapter] = r.percentage;
+    }
+    if (!allAttempts[r.chapter]) allAttempts[r.chapter] = [];
+    allAttempts[r.chapter].push({ attempt: r.attempt_number, score: r.percentage, date: r.created_at });
+  });
+
+  const labels = chapters.map((_, i) => 'Ch ' + (i + 1));
+  const dataPoints = chapters.map((_, i) => bestPerChapter[i + 1] || 0);
+  const colors = dataPoints.map(v => v >= 75 ? 'rgba(255,216,77,0.8)' : v >= 50 ? 'rgba(90,175,255,0.8)' : 'rgba(255,107,107,0.8)');
+
+  if (perfChart) perfChart.destroy();
+  const ctx = document.getElementById('perf-chart').getContext('2d');
+  perfChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Best Score %',
+        data: dataPoints,
+        backgroundColor: colors,
+        borderRadius: 3,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => chapters[items[0].dataIndex],
+            label: (item) => `Best: ${item.raw}%`
+          },
+          backgroundColor: 'rgba(11,19,48,0.95)',
+          titleColor: '#ffd84d',
+          bodyColor: '#faf8f2',
+          borderColor: 'rgba(255,216,77,0.2)',
+          borderWidth: 1
+        }
+      },
+      scales: {
+        x: { ticks: { color: 'rgba(250,248,242,0.5)', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { min: 0, max: 100, ticks: { color: 'rgba(250,248,242,0.5)', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      },
+      onClick: (e, elements) => {
+        if (elements.length > 0) {
+          const ch = elements[0].index + 1;
+          if (allAttempts[ch]) showHistory(ch, allAttempts[ch], e);
+        }
+      }
+    }
+  });
+}
+
+function switchChartType(type, btn) {
+  document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart(type);
+}
+
+function showHistory(chapter, attempts, event) {
+  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const popup = document.getElementById('history-popup');
+  document.getElementById('history-popup-title').textContent = `Ch ${chapter}: ${chapters[chapter-1]}`;
+  document.getElementById('history-popup-content').innerHTML = attempts
+    .sort((a,b) => a.attempt - b.attempt)
+    .map(a => `
+      <div class="history-item">
+        <span class="h-attempt">Attempt #${a.attempt}</span>
+        <span class="h-score">${a.score.toFixed(0)}%</span>
+      </div>`).join('');
+  popup.style.left = Math.min(event.native.clientX, window.innerWidth - 300) + 'px';
+  popup.style.top = (event.native.clientY - 20) + 'px';
+  popup.classList.add('show');
+}
+
+function closeHistory() {
+  document.getElementById('history-popup').classList.remove('show');
+}
+
+function renderRecentTests() {
+  const recent = allResults.slice(0, 10);
+  document.getElementById('recent-list').innerHTML = recent.length === 0
+    ? '<p style="color:var(--muted);font-size:0.88rem;">No tests taken yet. Start your first test!</p>'
+    : recent.map(r => `
+      <div class="recent-item">
+        <div class="ri-left">
+          <p class="ri-chapter">${r.test_type} · Chapter ${r.chapter}</p>
+          <p class="ri-type">${r.chapter_name}</p>
+        </div>
+        <div class="ri-right">
+          <p class="ri-score">${r.percentage}%</p>
+          <p class="ri-attempt">Attempt #${r.attempt_number}</p>
+        </div>
+      </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// MASTER — QUESTION UPLOAD
+// ═══════════════════════════════════════════
+function populateChapterSelects() {
+  const selects = ['uq-chapter', 'filter-chapter'];
+  selects.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = CLASS11_CHAPTERS.map((n, i) =>
+      `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+  });
+
+  document.getElementById('uq-class').addEventListener('change', function() {
+    const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+    ['uq-chapter','filter-chapter'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) sel.innerHTML = chapters.map((n,i) =>
+        `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+    });
+  });
+}
+
+async function uploadQuestion() {
+  const cls = document.getElementById('uq-class').value;
+  const type = document.getElementById('uq-type').value;
+  const chapter = parseInt(document.getElementById('uq-chapter').value);
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const chapterName = chapters[chapter - 1];
+  const question = document.getElementById('uq-question').value.trim();
+  const optA = document.getElementById('uq-a').value.trim();
+  const optB = document.getElementById('uq-b').value.trim();
+  const optC = document.getElementById('uq-c').value.trim();
+  const optD = document.getElementById('uq-d').value.trim();
+  const answer = document.getElementById('uq-answer').value;
+  const concept = document.getElementById('uq-concept').value.trim();
+
+  if (!question || !optA || !optB || !optC || !optD) {
+    alert('Please fill all fields!'); return;
+  }
+
+  const { error } = await sb.from('questions').insert({
+    class: cls, test_type: type, chapter, chapter_name: chapterName,
+    question, option_a: optA, option_b: optB, option_c: optC, option_d: optD,
+    correct_answer: answer, concept
+  });
+
+  if (error) { alert('Error: ' + error.message); return; }
+  alert('Question added successfully!');
+  ['uq-question','uq-a','uq-b','uq-c','uq-d','uq-concept'].forEach(id =>
+    document.getElementById(id).value = '');
+  loadMasterQuestions();
+}
+
+async function loadMasterQuestions() {
+  const cls = document.getElementById('filter-class').value;
+  const type = document.getElementById('filter-type').value;
+  const chapter = document.getElementById('filter-chapter').value;
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  document.getElementById('filter-chapter').innerHTML = chapters.map((n,i) =>
+    `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+
+  const { data, error } = await sb.from('questions').select('*')
+    .eq('class', cls).eq('test_type', type).eq('chapter', parseInt(chapter));
+
+  if (error) return;
+  const tbody = document.getElementById('questions-table-body');
+  tbody.innerHTML = (data || []).map((q, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td style="max-width:300px;">${q.question}</td>
+      <td style="font-size:0.75rem;">A:${q.option_a}<br>B:${q.option_b}<br>C:${q.option_c}<br>D:${q.option_d}</td>
+      <td><strong style="color:var(--gold)">${q.correct_answer}</strong></td>
+      <td style="font-size:0.75rem;">${q.concept || '-'}</td>
+      <td><button class="btn-delete" onclick="deleteQuestion('${q.id}')">Delete</button></td>
+    </tr>`).join('');
+}
+
+async function deleteQuestion(id) {
+  if (!confirm('Delete this question?')) return;
+  await sb.from('questions').delete().eq('id', id);
+  loadMasterQuestions();
+}
+
+// ═══════════════════════════════════════════
+// SAMPLE QUESTIONS (fallback)
+// ═══════════════════════════════════════════
+function getSampleQuestions(chapter, chapterName, type) {
+  return [
+    {
+      question: `(Sample) Which of the following is a fundamental unit in the SI system related to ${chapterName}?`,
+      option_a: 'Newton', option_b: 'Joule', option_c: 'Metre', option_d: 'Pascal',
+      correct_answer: 'C', concept: chapterName + ' Basics'
+    },
+    {
+      question: `(Sample) A key principle of ${chapterName} states that:`,
+      option_a: 'Energy is always lost', option_b: 'Mass can be created',
+      option_c: 'Physical laws are consistent', option_d: 'None of the above',
+      correct_answer: 'C', concept: chapterName + ' Principles'
+    },
+    {
+      question: `(Sample) In ${chapterName}, the standard formula involves:`,
+      option_a: 'F = ma', option_b: 'E = mc²', option_c: 'V = IR', option_d: 'PV = nRT',
+      correct_answer: 'A', concept: chapterName + ' Formula'
+    },
+    {
+      question: `(Sample) Which scientist is most associated with ${chapterName}?`,
+      option_a: 'Einstein', option_b: 'Newton', option_c: 'Bohr', option_d: 'Faraday',
+      correct_answer: 'B', concept: chapterName + ' History'
+    },
+    {
+      question: `(Sample) The SI unit commonly used in ${chapterName} problems is:`,
+      option_a: 'Kilogram', option_b: 'Ampere', option_c: 'Kelvin', option_d: 'Depends on context',
+      correct_answer: 'D', concept: chapterName + ' Units'
+    }
+  ];
+}
+
+// Close history popup on outside click
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('history-popup');
+  if (!popup.contains(e.target) && !e.target.closest('#perf-chart')) {
+    closeHistory();
+  }
+});
+
+// Init
+initAuth();
+</script>
+</body>
+</html>
