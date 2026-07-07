@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Test Series — Naveenified</title>
@@ -542,6 +546,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
           <label class="form-label">Question</label>
           <textarea id="uq-question" class="form-input" rows="3" style="resize:vertical;" placeholder="Enter the question text"></textarea>
         </div>
+        <div>
+          <label class="form-label">Image URL (Optional)</label>
+          <input id="uq-image" class="form-input" type="text" placeholder="Paste image link (e.g. from Supabase Storage or Imgur)"/>
+        </div>
         <div class="upload-row">
           <div>
             <label class="form-label">Option A</label>
@@ -831,6 +839,7 @@ async function startTest(chapter, chapterName) {
     <div class="question-card" id="qcard-${i}">
       <p class="q-number">Question ${i + 1} of ${questions.length}</p>
       <p class="q-text">${q.question}</p>
+      ${q.image_url ? `<img src="${q.image_url}" alt="Question image" style="max-width:100%;border-radius:3px;margin-bottom:1.2rem;"/>` : ''}
       <div class="options-list">
         ${['A','B','C','D'].map(opt => `
           <label class="option-label" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
@@ -841,7 +850,7 @@ async function startTest(chapter, chapterName) {
       </div>
     </div>
   `).join('');
-
+if (window.MathJax) MathJax.typesetPromise([container]);
   // Start timer
   startTimer(questions.length);
   showPage('test');
@@ -979,9 +988,11 @@ function showResult(correct, wrong, skipped, total, pct, answerPattern, attemptN
   }).join('');
 
   document.getElementById('answers-review').innerHTML = `<h3 class="review-title">Answer Review</h3>${reviewHTML}`;
+
+  if (window.MathJax) MathJax.typesetPromise([document.getElementById('answers-review')]);
+
   showPage('result');
 }
-
 function generateTips(pct, weakConcepts, chapterName, testType) {
   const tips = [];
   if (pct < 40) {
@@ -1205,7 +1216,9 @@ function parseQuestions(text) {
     if (!numMatch) return;
     const num = parseInt(numMatch[1]);
     const rest = block.slice(numMatch[0].length);
-    const qMatch = rest.match(/([\s\S]+?)A\)/);
+    const imgMatch = rest.match(/\[IMG:\s*(.+?)\]/);
+    const cleanedRest = rest.replace(/\[IMG:\s*.+?\]/, '');
+    const qMatch = cleanedRest.match(/([\s\S]+?)A\)/);
     const aMatch = rest.match(/A\)\s*(.+?)\s*B\)/s);
     const bMatch = rest.match(/B\)\s*(.+?)\s*C\)/s);
     const cMatch = rest.match(/C\)\s*(.+?)\s*D\)/s);
@@ -1317,10 +1330,11 @@ async function uploadQuestion() {
     alert('Please fill all fields!'); return;
   }
 
+const imageUrl = document.getElementById('uq-image').value.trim();
   const { error } = await sb.from('questions').insert({
     class: cls, test_type: type, chapter, chapter_name: chapterName,
     question, option_a: optA, option_b: optB, option_c: optC, option_d: optD,
-    correct_answer: answer, concept
+    correct_answer: answer, concept, image_url: imageUrl || null
   });
 
   if (error) { alert('Error: ' + error.message); return; }
@@ -1424,16 +1438,23 @@ function closeStudentModal() {
 async function loadMasterQuestions() {
   const cls = document.getElementById('filter-class').value;
   const type = document.getElementById('filter-type').value;
-  const chapter = document.getElementById('filter-chapter').value;
+  const chapterSelect = document.getElementById('filter-chapter');
   const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
-  document.getElementById('filter-chapter').innerHTML = chapters.map((n,i) =>
-    `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+
+  // Only rebuild the dropdown options if the class changed the chapter count/list;
+  // this preserves whatever chapter the user just picked.
+  if (chapterSelect.dataset.loadedFor !== cls) {
+    chapterSelect.innerHTML = chapters.map((n,i) =>
+      `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+    chapterSelect.dataset.loadedFor = cls;
+  }
+
+  const chapter = chapterSelect.value;
 
   const { data, error } = await sb.from('questions').select('*')
     .eq('class', cls).eq('test_type', type).eq('chapter', parseInt(chapter));
-
   if (error) return;
-  const tbody = document.getElementById('questions-table-body');
+const tbody = document.getElementById('questions-table-body');
   tbody.innerHTML = (data || []).map((q, i) => `
     <tr>
       <td>${i+1}</td>
@@ -1443,6 +1464,8 @@ async function loadMasterQuestions() {
       <td style="font-size:0.75rem;">${q.concept || '-'}</td>
       <td><button class="btn-delete" onclick="deleteQuestion('${q.id}')">Delete</button></td>
     </tr>`).join('');
+
+  if (window.MathJax) MathJax.typesetPromise([tbody]);
 }
 
 async function deleteQuestion(id) {
