@@ -408,35 +408,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </div>
   </div>
 </div>
-
-<!-- ═══ DASHBOARD PAGE ═══ -->
-  <div class="type-tabs" style="margin-bottom:2rem;">
-      <button class="type-tab active" id="master-tab-questions" onclick="switchMasterTab('questions')">Question Manager</button>
-      <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
-    </div>
-
-    <div id="master-view-questions">
-      <!-- your existing 3 .upload-section blocks go here, unchanged -->
-    </div>
-
-    <div id="master-view-students" style="display:none;">
-      <div class="chart-section">
-        <p class="chart-eyebrow">Overview</p>
-        <h3 class="chart-title">All Students Summary</h3>
-        <div class="dash-summary" id="admin-summary"></div>
-      </div>
-      <div class="upload-section">
-        <h3 class="upload-title">All Students</h3>
-        <div style="overflow-x:auto;">
-          <table class="question-table">
-            <thead>
-              <tr><th>Name</th><th>Class</th><th>Group</th><th>College</th><th>Phone</th><th>Email</th><th>Tests</th><th>Avg %</th><th>Action</th></tr>
-            </thead>
-            <tbody id="students-table-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
 <div id="page-dashboard" class="page">
   <div class="dash-wrap">
     <div class="dash-header">
@@ -470,6 +441,32 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div class="master-wrap">
     <p class="section-eyebrow">Master Controls</p>
     <h1 class="section-title">Question <em>Manager</em></h1>
+
+    <div class="type-tabs" style="margin-bottom:2rem;">
+      <button class="type-tab active" id="master-tab-questions" onclick="switchMasterTab('questions')">Question Manager</button>
+      <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
+    </div>
+
+    <div id="master-view-students" style="display:none;">
+      <div class="chart-section">
+        <p class="chart-eyebrow">Overview</p>
+        <h3 class="chart-title">All Students Summary</h3>
+        <div class="dash-summary" id="admin-summary"></div>
+      </div>
+      <div class="upload-section">
+        <h3 class="upload-title">All Students</h3>
+        <div style="overflow-x:auto;">
+          <table class="question-table">
+            <thead>
+              <tr><th>Name</th><th>Class</th><th>Group</th><th>College</th><th>Phone</th><th>Email</th><th>Tests</th><th>Avg %</th><th>Action</th></tr>
+            </thead>
+            <tbody id="students-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="master-view-questions">
 <div class="upload-section">
   <h3 class="upload-title">Bulk Upload (Word / PDF)</h3>
   <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
@@ -611,12 +608,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
             </tr>
           </thead>
           <tbody id="questions-table-body"></tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+    </div><!-- closes master-view-questions -->
   </div>
 </div>
-
 <script>
 // ═══════════════════════════════════════════
 // SUPABASE INIT
