@@ -4,7 +4,7 @@
 <script>
 window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/mathnjax@3/es5/tex-mml-chtml.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Test Series — Naveenified</title>
@@ -1023,49 +1023,7 @@ async function saveBookmark(i, questionId) {
   btn.textContent = '🔖 Bookmarked';
 }
 
-  // Fetch questions
-  let { data: questions, error } = await sb.from('questions')
-    .select('*')
-    .eq('class', currentProfile.class)
-    .eq('test_type', currentTestType)
-    .eq('chapter', chapter);
-
-  if (error || !questions || questions.length === 0) {
-    // Use sample questions if none in DB
-    questions = getSampleQuestions(chapter, chapterName, currentTestType);
-  }
-
-  // Shuffle questions
-  questions = questions.sort(() => Math.random() - 0.5);
-  currentQuestions = questions;
-
-  // Build test UI
-  document.getElementById('test-eyebrow').textContent = `${currentTestType} · Chapter ${chapter}`;
-  document.getElementById('test-name').textContent = chapterName;
-
-  const container = document.getElementById('questions-container');
-  container.innerHTML = questions.map((q, i) => `
-    <div class="question-card" id="qcard-${i}">
-      <p class="q-number">Question ${i + 1} of ${questions.length}</p>
-      <p class="q-text">${q.question}</p>
-      ${q.image_url ? `<img src="${q.image_url}" alt="Question image" style="max-width:100%;border-radius:3px;margin-bottom:1.2rem;"/>` : ''}
-      <div class="options-list">
-        ${['A','B','C','D'].map(opt => `
-          <label class="option-label" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
-            <input type="radio" name="q${i}" value="${opt}"/>
-            <span><strong>${opt}.</strong> ${q['option_' + opt.toLowerCase()]}</span>
-          </label>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-if (window.MathJax) MathJax.typesetPromise([container]);
-  // Start timer
-  startTimer(questions.length);
-  showPage('test');
-}
-
-function selectAnswer(qIndex, option, labelEl) {
+ function selectAnswer(qIndex, option, labelEl) {
   userAnswers[qIndex] = option;
   document.querySelectorAll(`[id^="opt-${qIndex}-"]`).forEach(l => l.classList.remove('selected'));
   labelEl.classList.add('selected');
