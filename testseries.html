@@ -297,6 +297,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </button>
   </div>
 </div>
+  <div id="page-myfeedback" class="page">
+  <div class="dash-wrap">
+    <p class="section-eyebrow">My Submissions</p>
+    <h1 class="section-title">Feedback &amp; <em>Doubts</em></h1>
+    <div id="my-feedback-list" style="margin-top:2rem;"></div>
+  </div>
+</div>
 <div id="page-feedback" class="page">
   <div class="profile-wrap">
     <div class="profile-card">
@@ -375,6 +382,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 </div>
 
 <!-- ═══ HOME PAGE (Test Type Selection) ═══ -->
+  <button onclick="loadMyFeedback(); showPage('myfeedback');" style="padding:0.7rem 1.8rem;background:transparent;border:1px solid rgba(90,175,255,0.25);border-radius:3px;color:var(--blue);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">My Feedback &amp; Doubts →</button>
 <div id="page-home" class="page">
   <div class="home-wrap">
     <p class="section-eyebrow">Test Series</p>
@@ -514,7 +522,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <div style="overflow-x:auto;">
           <table class="question-table">
             <thead>
-              <tr><th>Type</th><th>Name</th><th>Email</th><th>Class/Chapter</th><th>Message</th><th>Photo</th><th>Date</th></tr>
+              <tr><th>Type</th><th>Name</th><th>Email</th><th>Class/Chapter</th><th>Message</th><th>Photo</th><th>Date</th><th>Response</th></tr>
             </thead>
             <tbody id="feedback-table-body"></tbody>
           </table>
@@ -694,6 +702,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   </div>
 </div>
 <script>
+  async function loadMyFeedback() {
+  const { data } = await sb.from('feedback').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  document.getElementById('my-feedback-list').innerHTML = (data || []).map(f => `
+    <div class="recent-item" style="flex-direction:column;align-items:flex-start;">
+      <p class="ri-chapter">${f.type === 'doubt' ? 'Doubt' : 'Feedback'} · ${new Date(f.created_at).toLocaleDateString()}</p>
+      <p style="margin-top:0.5rem;color:var(--white);font-size:0.88rem;">${f.message}</p>
+      ${f.admin_response
+        ? `<p style="margin-top:0.8rem;padding:0.8rem;background:rgba(100,220,120,0.06);border-left:3px solid #64dc78;border-radius:3px;font-size:0.85rem;">
+             <strong style="color:#64dc78;">Naveen Sir's reply:</strong><br>${f.admin_response}
+           </p>`
+        : `<p style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted);">⏳ Awaiting response</p>`
+      }
+    </div>
+  `).join('') || '<p style="color:var(--muted);">No submissions yet.</p>';
+}
 // ═══════════════════════════════════════════
 // SUPABASE INIT
 // ═══════════════════════════════════════════
@@ -1606,12 +1629,37 @@ async function loadFeedbackList() {
       <td>${f.name || '-'}</td>
       <td style="font-size:0.75rem;">${f.email || '-'}</td>
       <td style="font-size:0.75rem;">${f.chapter_name ? `Class ${f.class} · Ch ${f.chapter}: ${f.chapter_name}` : '-'}</td>
-      <td style="max-width:280px;">${f.message}</td>
+      <td style="max-width:220px;">${f.message}</td>
       <td>${f.image_url ? `<a href="${f.image_url}" target="_blank" style="color:var(--gold);">View</a>` : '-'}</td>
       <td style="font-size:0.7rem;color:var(--muted);">${new Date(f.created_at).toLocaleDateString()}</td>
+      <td style="min-width:220px;">
+        ${f.admin_response
+          ? `<p style="font-size:0.75rem;color:#64dc78;margin-bottom:0.4rem;">✓ ${f.admin_response}</p>
+             <button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Edit Reply</button>`
+          : `<button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Reply</button>`
+        }
+        <div id="reply-box-${f.id}" style="display:none;margin-top:0.5rem;">
+          <textarea id="reply-text-${f.id}" class="form-input" rows="2" style="font-size:0.78rem;" placeholder="Type your response...">${f.admin_response || ''}</textarea>
+          <button class="btn-upload" style="margin-top:0.4rem;padding:0.3rem 0.8rem;font-size:0.55rem;" onclick="sendReply('${f.id}')">Send</button>
+        </div>
+      </td>
     </tr>`).join('');
 }
 
+function toggleReplyBox(id) {
+  const box = document.getElementById(`reply-box-${id}`);
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sendReply(id) {
+  const response = document.getElementById(`reply-text-${id}`).value.trim();
+  if (!response) { alert('Please type a response'); return; }
+  const { error } = await sb.from('feedback').update({
+    admin_response: response, responded_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { alert('Error: ' + error.message); return; }
+  loadFeedbackList();
+}
 async function loadAdminDashboard() {
   const { data: profiles } = await sb.from('profiles').select('*').eq('is_master', false);
   const { data: allResults } = await sb.from('test_results').select('*');
