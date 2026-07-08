@@ -801,7 +801,16 @@ footer {
 /* ─── RESPONSIVE ─── */
 @media (max-width: 900px) {
   nav { padding: 1rem 1.5rem; }
-  .nav-links { display: none; }
+  .nav-burger{display:block;}
+  .nav-links{
+    display:none;position:fixed;top:64px;left:0;right:0;
+    flex-direction:column;align-items:stretch;gap:0;
+    background:rgba(11,19,48,0.98);backdrop-filter:blur(20px);
+    padding:1rem 1.5rem;border-bottom:1px solid rgba(255,216,77,0.15);
+  }
+  .nav-links.open{display:flex;}
+  .nav-links li{width:100%;padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+  .nav-links a,.nav-links button{width:100%;text-align:left;display:block;}
   .hero-title { letter-spacing: -1.5px; }
   .journey-inner, .about-layout, .sim-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .journey-inner.reverse { direction: ltr; }
@@ -810,6 +819,7 @@ footer {
   .orb-letter { font-size: 5.5rem; }
   footer { flex-direction: column; text-align: center; }
 }
+.nav-burger{display:none;background:none;border:none;color:var(--gold);font-size:1.6rem;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -834,13 +844,14 @@ footer {
 <!-- ══════════════ NAV ══════════════ -->
 <nav>
   <div class="nav-logo" onclick="showPage('home')">Physics <span>Naveenified</span></div>
-  <ul class="nav-links">
+  <ul class="nav-links" id="nav-links">
     <li><a onclick="showPage('home')">Home</a></li>
     <li><button class="class-btn class-btn-11" onclick="showPage('class11')">Class XI</button></li>
     <li><button class="class-btn class-btn-12" onclick="showPage('class12')">Class XII</button></li>
     <li><button class="class-btn class-btn-ts" onclick="window.location.href='testseries.html'">Test Series</button></li>
     <li><a onclick="goAbout()">About</a></li>
   </ul>
+  <button class="nav-burger" id="nav-burger" onclick="toggleMobileNav()">☰</button>
 </nav>
 
 <!-- ══════════════════════════════════════
@@ -1404,6 +1415,14 @@ footer {
 <!-- THREE.JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+  function toggleMobileNav() {
+  document.getElementById('nav-links').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.nav-links a, .nav-links button')) {
+    document.getElementById('nav-links').classList.remove('open');
+  }
+});
 /* ═══════════════════════════════════════════════
    CUSTOM CURSOR
 ═══════════════════════════════════════════════ */
@@ -1865,5 +1884,9 @@ const revealObserver = new IntersectionObserver(entries => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 </script>
+<div style="position:fixed;bottom:2rem;left:2rem;display:flex;gap:0.8rem;z-index:900;">
+  <a href="testseries.html?action=feedback" style="padding:0.7rem 1.2rem;background:rgba(255,216,77,0.1);border:1px solid rgba(255,216,77,0.3);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">💬 Feedback</a>
+  <a href="testseries.html?action=doubt" style="padding:0.7rem 1.2rem;background:rgba(90,175,255,0.1);border:1px solid rgba(90,175,255,0.3);border-radius:3px;color:var(--blue);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">❓ Ask a Doubt</a>
+</div>
 </body>
 </html>
