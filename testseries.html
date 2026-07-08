@@ -4,7 +4,7 @@
 <script>
 window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathnjax@3/es5/tex-mml-chtml.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Test Series — Naveenified</title>
@@ -114,6 +114,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .green-tile .tile-score{color:#64dc78;}
 
 /* TEST PAGE */
+  .qnav-panel{position:fixed;right:1.5rem;top:140px;width:170px;max-height:65vh;overflow-y:auto;background:rgba(11,19,48,0.95);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:1rem;z-index:150;}
+.qnav-title{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;}
+.qnav-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;}
+.qnav-btn{aspect-ratio:1;border-radius:3px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.03);color:var(--muted2);font-family:'Space Mono',monospace;font-size:0.65rem;cursor:pointer;}
+.qnav-btn.answered{background:rgba(100,220,120,0.3);border-color:#64dc78;color:#fff;}
+.qnav-btn.marked{background:rgba(90,175,255,0.3);border-color:var(--blue);color:#fff;}
+.qnav-btn.answered.marked{background:linear-gradient(135deg,rgba(100,220,120,0.35),rgba(90,175,255,0.35));border-color:var(--gold);}
+.qnav-legend{margin-top:0.8rem;font-size:0.58rem;color:var(--muted);line-height:1.8;}
+.btn-mark{padding:0.5rem 1rem;background:transparent;border:1px solid rgba(90,175,255,0.3);border-radius:3px;color:var(--blue);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:1rem;margin-right:0.6rem;}
+.btn-mark.active{background:var(--blue);color:var(--navy);}
+.btn-bookmark{padding:0.5rem 1rem;background:transparent;border:1px solid rgba(255,216,77,0.3);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:1rem;}
+.btn-bookmark.active{background:var(--gold);color:var(--navy);}
+.bookmark-remark{display:none;margin-top:0.8rem;}
+.bookmark-remark textarea{width:100%;padding:0.7rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,216,77,0.2);border-radius:3px;color:var(--white);font-family:'Inter',sans-serif;font-size:0.82rem;resize:vertical;}
+@media(max-width:900px){.qnav-panel{display:none;}}
 .test-wrap{padding:2rem 8vw 4rem;max-width:860px;margin:0 auto;}
 .test-header{position:sticky;top:70px;background:rgba(11,19,48,0.97);backdrop-filter:blur(16px);padding:1rem 0;margin-bottom:2rem;border-bottom:1px solid rgba(255,216,77,0.1);display:flex;justify-content:space-between;align-items:center;z-index:100;}
 .test-title-wrap .test-eyebrow{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
@@ -282,7 +297,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </button>
   </div>
 </div>
-
+<div id="page-feedback" class="page">
+  <div class="profile-wrap">
+    <div class="profile-card">
+      <p class="form-eyebrow" id="fb-eyebrow">Feedback</p>
+      <h2 class="form-title" id="fb-title">Share your thoughts</h2>
+      <div class="form-group">
+        <label class="form-label">Your Message</label>
+        <textarea id="fb-message" class="form-input" rows="5" style="resize:vertical;" placeholder="Type your feedback or doubt here..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Attach a Photo (Optional)</label>
+        <input id="fb-image" class="form-input" type="file" accept="image/*"/>
+      </div>
+      <button class="btn-primary" onclick="submitFeedback()">Submit →</button>
+      <p id="fb-status" style="font-size:0.78rem;color:var(--muted);margin-top:1rem;"></p>
+    </div>
+  </div>
+</div>
 <!-- ═══ PROFILE PAGE ═══ -->
 <div id="page-profile" class="page">
   <div class="profile-wrap">
@@ -387,7 +419,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <div class="progress-bar-wrap">
       <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
     </div>
+    <p id="autosave-status" style="font-size:0.65rem;color:var(--muted);margin-bottom:1rem;"></p>
     <div id="questions-container"></div>
+
+    <div class="qnav-panel" id="qnav-panel">
+      <p class="qnav-title">Question Navigator</p>
+      <div class="qnav-grid" id="qnav-grid"></div>
+      <p class="qnav-legend">
+        🟢 Answered<br>🔵 Marked for Review<br>⬜ Not attempted
+      </p>
+    </div>
     <div class="submit-section">
       <button class="btn-submit" onclick="submitTest()">Submit Test →</button>
       <p class="unattempted-warning" id="unattempted-warning"></p>
@@ -631,7 +672,10 @@ const sb = createClient(
   'https://cyynkucowogcetrsuvzb.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5eW5rdWNvd29nY2V0cnN1dnpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjQyMjEsImV4cCI6MjA5ODkwMDIyMX0.nF6UKi9icYOBYkgrCdnqQvmDB1b3978NSE5VHBbUHVA'
 );
-
+const urlAction = new URLSearchParams(window.location.search).get('action');
+if (urlAction === 'feedback' || urlAction === 'doubt') {
+  sessionStorage.setItem('pendingAction', urlAction);
+}
 const MASTER_EMAIL = 'naganaveensir@gmail.com';
 const CLASS11_CHAPTERS = [
   'Units and Measurements','Motion in a Straight Line','Motion in a Plane',
@@ -659,6 +703,47 @@ let timeLeft = 0;
 let perfChart = null;
 let allResults = [];
 
+ let feedbackType = 'feedback';
+
+function openFeedbackForm(type) {
+  feedbackType = type;
+  document.getElementById('fb-eyebrow').textContent = type === 'doubt' ? 'Ask a Doubt' : 'Feedback';
+  document.getElementById('fb-title').textContent = type === 'doubt' ? 'What\'s your question?' : 'Share your thoughts';
+  document.getElementById('fb-message').value = '';
+  document.getElementById('fb-image').value = '';
+  document.getElementById('fb-status').textContent = '';
+  showPage('feedback');
+}
+
+async function submitFeedback() {
+  const message = document.getElementById('fb-message').value.trim();
+  const file = document.getElementById('fb-image').files[0];
+  const statusEl = document.getElementById('fb-status');
+  if (!message) { alert('Please enter a message'); return; }
+
+  statusEl.textContent = 'Submitting...';
+  let imageUrl = null;
+
+  if (file) {
+    const fileName = `${currentUser.id}_${Date.now()}_${file.name}`;
+    const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
+    if (uploadError) { statusEl.textContent = 'Image upload failed: ' + uploadError.message; return; }
+    const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
+    imageUrl = urlData.publicUrl;
+  }
+
+  const { error } = await sb.from('feedback').insert({
+    user_id: currentUser.id,
+    name: currentProfile?.name || currentUser.user_metadata?.full_name,
+    email: currentUser.email,
+    type: feedbackType,
+    message, image_url: imageUrl
+  });
+
+  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
+  statusEl.textContent = '✅ Thank you! Your ' + feedbackType + ' has been recorded.';
+  setTimeout(() => showPage('home'), 1500);
+} 
 // ═══════════════════════════════════════════
 // PAGE NAVIGATION
 // ═══════════════════════════════════════════
@@ -722,7 +807,13 @@ async function onLogin(user) {
   const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
   if (profile) {
     currentProfile = profile;
-    showPage('home');
+    const pendingAction = sessionStorage.getItem('pendingAction');
+    if (pendingAction === 'feedback' || pendingAction === 'doubt') {
+      sessionStorage.removeItem('pendingAction');
+      openFeedbackForm(pendingAction);
+    } else {
+      showPage('home');
+    }
   } else {
     document.getElementById('p-name').value = user.user_metadata?.full_name || '';
     showPage('profile');
@@ -809,10 +900,128 @@ async function goToChapters(type) {
 // ═══════════════════════════════════════════
 // TEST
 // ═══════════════════════════════════════════
+let markedForReview = {};
+let bookmarkedQuestions = {};
+
 async function startTest(chapter, chapterName) {
   currentChapter = chapter;
   currentChapterName = chapterName;
   userAnswers = {};
+  markedForReview = {};
+  bookmarkedQuestions = {};
+
+  let { data: questions, error } = await sb.from('questions')
+    .select('*')
+    .eq('class', currentProfile.class)
+    .eq('test_type', currentTestType)
+    .eq('chapter', chapter);
+
+  if (error || !questions || questions.length === 0) {
+    questions = getSampleQuestions(chapter, chapterName, currentTestType);
+  }
+
+  questions = questions.sort(() => Math.random() - 0.5);
+  currentQuestions = questions;
+
+  // Load existing bookmarks for these questions
+  const qIds = questions.filter(q => q.id).map(q => q.id);
+  if (qIds.length > 0) {
+    const { data: existingBookmarks } = await sb.from('bookmarks')
+      .select('question_id, remark').eq('user_id', currentUser.id).in('question_id', qIds);
+    questions.forEach((q, i) => {
+      const bm = (existingBookmarks || []).find(b => b.question_id === q.id);
+      if (bm) bookmarkedQuestions[i] = bm.remark || '';
+    });
+  }
+
+  // Load saved progress (autosave recovery)
+  const { data: savedProgress } = await sb.from('test_progress')
+    .select('*').eq('user_id', currentUser.id).eq('class', currentProfile.class)
+    .eq('test_type', currentTestType).eq('chapter', chapter).maybeSingle();
+  if (savedProgress) {
+    userAnswers = savedProgress.answers || {};
+    markedForReview = savedProgress.marked || {};
+  }
+
+  document.getElementById('test-eyebrow').textContent = `${currentTestType} · Chapter ${chapter}`;
+  document.getElementById('test-name').textContent = chapterName;
+
+  const container = document.getElementById('questions-container');
+  container.innerHTML = questions.map((q, i) => `
+    <div class="question-card" id="qcard-${i}">
+      <p class="q-number">Question ${i + 1} of ${questions.length}</p>
+      <p class="q-text">${q.question}</p>
+      ${q.image_url ? `<img src="${q.image_url}" alt="Question image" style="max-width:100%;border-radius:3px;margin-bottom:1.2rem;"/>` : ''}
+      <div class="options-list">
+        ${['A','B','C','D'].map(opt => `
+          <label class="option-label ${userAnswers[i] === opt ? 'selected' : ''}" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
+            <input type="radio" name="q${i}" value="${opt}" ${userAnswers[i] === opt ? 'checked' : ''}/>
+            <span><strong>${opt}.</strong> ${q['option_' + opt.toLowerCase()]}</span>
+          </label>
+        `).join('')}
+      </div>
+      <button class="btn-mark ${markedForReview[i] ? 'active' : ''}" id="mark-${i}" onclick="toggleMarkForReview(${i})">
+        ${markedForReview[i] ? '🚩 Marked for Review' : '🚩 Mark for Review'}
+      </button>
+      <button class="btn-bookmark ${bookmarkedQuestions[i] !== undefined ? 'active' : ''}" id="bm-${i}" onclick="toggleBookmarkBox(${i})">
+        ${bookmarkedQuestions[i] !== undefined ? '🔖 Bookmarked' : '🔖 Bookmark this'}
+      </button>
+      <div class="bookmark-remark" id="bmbox-${i}" style="display:${bookmarkedQuestions[i] !== undefined ? 'block' : 'none'};">
+        <textarea id="bmtext-${i}" rows="2" placeholder="Why is this tough? Add a note for later revision...">${bookmarkedQuestions[i] || ''}</textarea>
+        <button class="btn-upload" style="margin-top:0.6rem;" onclick="saveBookmark(${i}, '${q.id || ''}')">Save Note</button>
+      </div>
+    </div>
+  `).join('');
+
+  if (window.MathJax) MathJax.typesetPromise([container]);
+
+  renderNavigator(questions.length);
+  updateProgress();
+  startTimer(questions.length);
+  showPage('test');
+}
+
+function renderNavigator(total) {
+  const grid = document.getElementById('qnav-grid');
+  grid.innerHTML = Array.from({ length: total }, (_, i) => {
+    const cls = [
+      userAnswers[i] ? 'answered' : '',
+      markedForReview[i] ? 'marked' : ''
+    ].filter(Boolean).join(' ');
+    return `<button class="qnav-btn ${cls}" onclick="jumpToQuestion(${i})">${i + 1}</button>`;
+  }).join('');
+}
+
+function jumpToQuestion(i) {
+  document.getElementById(`qcard-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function toggleMarkForReview(i) {
+  markedForReview[i] = !markedForReview[i];
+  const btn = document.getElementById(`mark-${i}`);
+  btn.classList.toggle('active', markedForReview[i]);
+  btn.textContent = markedForReview[i] ? '🚩 Marked for Review' : '🚩 Mark for Review';
+  renderNavigator(currentQuestions.length);
+  scheduleAutosave();
+}
+
+function toggleBookmarkBox(i) {
+  const box = document.getElementById(`bmbox-${i}`);
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveBookmark(i, questionId) {
+  if (!questionId) { alert('This is a sample question and cannot be bookmarked.'); return; }
+  const remark = document.getElementById(`bmtext-${i}`).value.trim();
+  const { error } = await sb.from('bookmarks').upsert({
+    user_id: currentUser.id, question_id: questionId, remark
+  }, { onConflict: 'user_id,question_id' });
+  if (error) { alert('Error saving bookmark: ' + error.message); return; }
+  bookmarkedQuestions[i] = remark;
+  const btn = document.getElementById(`bm-${i}`);
+  btn.classList.add('active');
+  btn.textContent = '🔖 Bookmarked';
+}
 
   // Fetch questions
   let { data: questions, error } = await sb.from('questions')
@@ -861,8 +1070,24 @@ function selectAnswer(qIndex, option, labelEl) {
   document.querySelectorAll(`[id^="opt-${qIndex}-"]`).forEach(l => l.classList.remove('selected'));
   labelEl.classList.add('selected');
   updateProgress();
+  renderNavigator(currentQuestions.length);
+  scheduleAutosave();
 }
 
+let saveTimeout = null;
+function scheduleAutosave() {
+  const statusEl = document.getElementById('autosave-status');
+  if (statusEl) statusEl.textContent = 'Saving...';
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    const { error } = await sb.from('test_progress').upsert({
+      user_id: currentUser.id, class: currentProfile.class, test_type: currentTestType,
+      chapter: currentChapter, answers: userAnswers, marked: markedForReview,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,class,test_type,chapter' });
+    if (statusEl) statusEl.textContent = error ? '⚠ Save failed — check your connection' : '✓ All changes saved';
+  }, 800);
+}
 function updateProgress() {
   const answered = Object.keys(userAnswers).length;
   const total = currentQuestions.length;
