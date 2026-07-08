@@ -627,7 +627,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </div>
         <div>
           <label class="form-label">Image URL (Optional)</label>
-          <input id="uq-image" class="form-input" type="text" placeholder="Paste image link (e.g. from Supabase Storage or Imgur)"/>
+          <input id="uq-image" class="form-input" type="text" placeholder="Paste image link (Google Drive, Supabase Storage, or Imgur)"/>
         </div>
         <div class="upload-row">
           <div>
@@ -711,11 +711,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       ${f.admin_response
         ? `<p style="margin-top:0.8rem;padding:0.8rem;background:rgba(100,220,120,0.06);border-left:3px solid #64dc78;border-radius:3px;font-size:0.85rem;">
              <strong style="color:#64dc78;">Naveen Sir's reply:</strong><br>${f.admin_response}
+             ${f.reply_image_url ? `<br><img src="${f.reply_image_url}" alt="Reply attachment" style="max-width:100%;border-radius:3px;margin-top:0.6rem;"/>` : ''}
            </p>`
         : `<p style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted);">⏳ Awaiting response</p>`
       }
     </div>
   `).join('') || '<p style="color:var(--muted);">No submissions yet.</p>';
+
+  const unseenIds = (data || []).filter(f => f.admin_response && !f.seen_by_user).map(f => f.id);
+  if (unseenIds.length) {
+    await sb.from('feedback').update({ seen_by_user: true }).in('id', unseenIds);
+  }
 }
 // ═══════════════════════════════════════════
 // SUPABASE INIT
@@ -728,6 +734,10 @@ const sb = createClient(
 const urlAction = new URLSearchParams(window.location.search).get('action');
 if (urlAction === 'feedback' || urlAction === 'doubt') {
   sessionStorage.setItem('pendingAction', urlAction);
+}
+const urlGoto = new URLSearchParams(window.location.search).get('goto');
+if (urlGoto === 'admin-feedback' || urlGoto === 'my-feedback') {
+  sessionStorage.setItem('pendingGoto', urlGoto);
 }
 const MASTER_EMAIL = 'naganaveensir@gmail.com';
 const CLASS11_CHAPTERS = [
@@ -743,7 +753,13 @@ const CLASS12_CHAPTERS = [
   'Wave Optics','Dual Nature of Radiation and Matter','Atoms','Nuclei','Semiconductor Electronics'
 ];
 const TIMER_PER_Q = { Board: 90, CET: 80, JEE: 144 };
-
+// Turns a Google Drive "share" link into a direct, embeddable link (used for question images only)
+function driveDirectUrl(url) {
+  if (!url) return url;
+  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
 let currentUser = null;
 let currentProfile = null;
 let currentTestType = '';
@@ -882,6 +898,11 @@ async function onLogin(user) {
     showPage('master');
     populateChapterSelects();
     loadMasterQuestions();
+    const pendingGoto = sessionStorage.getItem('pendingGoto');
+    if (pendingGoto === 'admin-feedback') {
+      sessionStorage.removeItem('pendingGoto');
+      switchMasterTab('feedback');
+    }
     return;
   }
 
@@ -890,9 +911,14 @@ async function onLogin(user) {
   if (profile) {
     currentProfile = profile;
     const pendingAction = sessionStorage.getItem('pendingAction');
+    const pendingGoto = sessionStorage.getItem('pendingGoto');
     if (pendingAction === 'feedback' || pendingAction === 'doubt') {
       sessionStorage.removeItem('pendingAction');
       openFeedbackForm(pendingAction);
+    } else if (pendingGoto === 'my-feedback') {
+      sessionStorage.removeItem('pendingGoto');
+      loadMyFeedback();
+      showPage('myfeedback');
     } else {
       showPage('home');
     }
@@ -901,7 +927,6 @@ async function onLogin(user) {
     showPage('profile');
   }
 }
-
 async function saveProfile() {
   const name = document.getElementById('p-name').value.trim();
   const cls = document.getElementById('p-class').value;
@@ -1033,7 +1058,7 @@ async function startTest(chapter, chapterName) {
     <div class="question-card" id="qcard-${i}">
       <p class="q-number">Question ${i + 1} of ${questions.length}</p>
       <p class="q-text">${q.question}</p>
-      ${q.image_url ? `<img src="${q.image_url}" alt="Question image" style="max-width:100%;border-radius:3px;margin-bottom:1.2rem;"/>` : ''}
+      ${q.image_url ? `<img src="${driveDirectUrl(q.image_url)}" alt="Question image" style="max-width:100%;border-radius:3px;margin-bottom:1.2rem;"/>` : ''}
       <div class="options-list">
         ${['A','B','C','D'].map(opt => `
           <label class="option-label ${userAnswers[i] === opt ? 'selected' : ''}" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
@@ -1595,7 +1620,7 @@ async function uploadQuestion() {
     alert('Please fill all fields!'); return;
   }
 
-const imageUrl = document.getElementById('uq-image').value.trim();
+const imageUrl = driveDirectUrl(document.getElementById('uq-image').value.trim());
   const { error } = await sb.from('questions').insert({
     class: cls, test_type: type, chapter, chapter_name: chapterName,
     question, option_a: optA, option_b: optB, option_c: optC, option_d: optD,
@@ -1635,12 +1660,18 @@ async function loadFeedbackList() {
       <td style="min-width:220px;">
         ${f.admin_response
           ? `<p style="font-size:0.75rem;color:#64dc78;margin-bottom:0.4rem;">✓ ${f.admin_response}</p>
+             ${f.reply_image_url ? `<a href="${f.reply_image_url}" target="_blank" style="font-size:0.7rem;color:var(--gold);display:block;margin-bottom:0.3rem;">📎 View attached image</a>` : ''}
              <button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Edit Reply</button>`
           : `<button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Reply</button>`
         }
         <div id="reply-box-${f.id}" style="display:none;margin-top:0.5rem;">
           <textarea id="reply-text-${f.id}" class="form-input" rows="2" style="font-size:0.78rem;" placeholder="Type your response...">${f.admin_response || ''}</textarea>
-          <button class="btn-upload" style="margin-top:0.4rem;padding:0.3rem 0.8rem;font-size:0.55rem;" onclick="sendReply('${f.id}')">Send</button>
+          ${f.type === 'doubt' ? `
+          <label class="form-label" style="margin-top:0.5rem;">Attach an image (optional)</label>
+          <input id="reply-image-${f.id}" class="form-input" type="file" accept="image/*" style="font-size:0.7rem;padding:0.5rem;"/>
+          ${f.reply_image_url ? `<a href="${f.reply_image_url}" target="_blank" style="display:block;font-size:0.7rem;color:var(--gold);margin-top:0.3rem;">Current attached image →</a>` : ''}
+          ` : ''}
+          <button class="btn-upload" style="margin-top:0.4rem;padding:0.3rem 0.8rem;font-size:0.55rem;" onclick="sendReply('${f.id}','${f.type}')">Send</button>
         </div>
       </td>
     </tr>`).join('');
@@ -1651,12 +1682,26 @@ function toggleReplyBox(id) {
   box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
-async function sendReply(id) {
+async function sendReply(id, type) {
   const response = document.getElementById(`reply-text-${id}`).value.trim();
   if (!response) { alert('Please type a response'); return; }
-  const { error } = await sb.from('feedback').update({
-    admin_response: response, responded_at: new Date().toISOString()
-  }).eq('id', id);
+
+  let replyImageUrl = null;
+  if (type === 'doubt') {
+    const file = document.getElementById(`reply-image-${id}`)?.files[0];
+    if (file) {
+      const fileName = `reply_${id}_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
+      if (uploadError) { alert('Image upload failed: ' + uploadError.message); return; }
+      const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
+      replyImageUrl = urlData.publicUrl;
+    }
+  }
+
+  const updatePayload = { admin_response: response, responded_at: new Date().toISOString(), seen_by_user: false };
+  if (replyImageUrl) updatePayload.reply_image_url = replyImageUrl;
+
+  const { error } = await sb.from('feedback').update(updatePayload).eq('id', id);
   if (error) { alert('Error: ' + error.message); return; }
   loadFeedbackList();
 }
