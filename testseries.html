@@ -302,11 +302,27 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <div class="profile-card">
       <p class="form-eyebrow" id="fb-eyebrow">Feedback</p>
       <h2 class="form-title" id="fb-title">Share your thoughts</h2>
+
+      <div class="form-group" id="fb-class-group" style="display:none;">
+        <label class="form-label">Class</label>
+        <select id="fb-class" class="form-select" onchange="populateFbChapters()">
+          <option value="">Select Class</option>
+          <option value="11">Class XI</option>
+          <option value="12">Class XII</option>
+        </select>
+      </div>
+      <div class="form-group" id="fb-chapter-group" style="display:none;">
+        <label class="form-label">Chapter</label>
+        <select id="fb-chapter" class="form-select">
+          <option value="">Select Chapter</option>
+        </select>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Your Message</label>
         <textarea id="fb-message" class="form-input" rows="5" style="resize:vertical;" placeholder="Type your feedback or doubt here..."></textarea>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="fb-image-group" style="display:none;">
         <label class="form-label">Attach a Photo (Optional)</label>
         <input id="fb-image" class="form-input" type="file" accept="image/*"/>
       </div>
@@ -490,8 +506,23 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <div class="type-tabs" style="margin-bottom:2rem;">
       <button class="type-tab active" id="master-tab-questions" onclick="switchMasterTab('questions')">Question Manager</button>
       <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
+      <button class="type-tab" id="master-tab-feedback" onclick="switchMasterTab('feedback')">Feedback &amp; Doubts</button>
+    </div>
+<div id="master-view-feedback" style="display:none;">
+      <div class="upload-section">
+        <h3 class="upload-title">Feedback &amp; Doubts</h3>
+        <div style="overflow-x:auto;">
+          <table class="question-table">
+            <thead>
+              <tr><th>Type</th><th>Name</th><th>Email</th><th>Class/Chapter</th><th>Message</th><th>Photo</th><th>Date</th></tr>
+            </thead>
+            <tbody id="feedback-table-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
+    <div id="master-view-students" style="display:none;">
     <div id="master-view-students" style="display:none;">
       <div class="chart-section">
         <p class="chart-eyebrow">Overview</p>
@@ -712,24 +743,52 @@ function openFeedbackForm(type) {
   document.getElementById('fb-message').value = '';
   document.getElementById('fb-image').value = '';
   document.getElementById('fb-status').textContent = '';
+  document.getElementById('fb-class').value = '';
+  document.getElementById('fb-chapter').innerHTML = '<option value="">Select Chapter</option>';
+
+  const isDoubt = type === 'doubt';
+  document.getElementById('fb-image-group').style.display = isDoubt ? 'block' : 'none';
+  document.getElementById('fb-class-group').style.display = isDoubt ? 'block' : 'none';
+  document.getElementById('fb-chapter-group').style.display = isDoubt ? 'block' : 'none';
+
   showPage('feedback');
 }
 
+function populateFbChapters() {
+  const cls = document.getElementById('fb-class').value;
+  const chapterSelect = document.getElementById('fb-chapter');
+  if (!cls) { chapterSelect.innerHTML = '<option value="">Select Chapter</option>'; return; }
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  chapterSelect.innerHTML = '<option value="">Select Chapter</option>' +
+    chapters.map((n, i) => `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+}
 async function submitFeedback() {
   const message = document.getElementById('fb-message').value.trim();
-  const file = document.getElementById('fb-image').files[0];
   const statusEl = document.getElementById('fb-status');
   if (!message) { alert('Please enter a message'); return; }
+
+  const isDoubt = feedbackType === 'doubt';
+  let cls = null, chapter = null, chapterName = null;
+  if (isDoubt) {
+    cls = document.getElementById('fb-class').value;
+    chapter = document.getElementById('fb-chapter').value;
+    if (!cls || !chapter) { alert('Please select Class and Chapter for your doubt'); return; }
+    const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+    chapterName = chapters[parseInt(chapter) - 1];
+  }
 
   statusEl.textContent = 'Submitting...';
   let imageUrl = null;
 
-  if (file) {
-    const fileName = `${currentUser.id}_${Date.now()}_${file.name}`;
-    const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
-    if (uploadError) { statusEl.textContent = 'Image upload failed: ' + uploadError.message; return; }
-    const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
-    imageUrl = urlData.publicUrl;
+  if (isDoubt) {
+    const file = document.getElementById('fb-image').files[0];
+    if (file) {
+      const fileName = `${currentUser.id}_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
+      if (uploadError) { statusEl.textContent = 'Image upload failed: ' + uploadError.message; return; }
+      const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
+      imageUrl = urlData.publicUrl;
+    }
   }
 
   const { error } = await sb.from('feedback').insert({
@@ -737,12 +796,13 @@ async function submitFeedback() {
     name: currentProfile?.name || currentUser.user_metadata?.full_name,
     email: currentUser.email,
     type: feedbackType,
-    message, image_url: imageUrl
+    message, image_url: imageUrl,
+    class: cls, chapter: chapter ? parseInt(chapter) : null, chapter_name: chapterName
   });
 
   if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
   statusEl.textContent = '✅ Thank you! Your ' + feedbackType + ' has been recorded.';
-  setTimeout(() => showPage('home'), 1500);
+  setTimeout(() => { window.location.href = 'https://physicsnaveenified.github.io/main/'; }, 1500);
 } 
 // ═══════════════════════════════════════════
 // PAGE NAVIGATION
@@ -1529,9 +1589,28 @@ const imageUrl = document.getElementById('uq-image').value.trim();
 function switchMasterTab(tab) {
   document.getElementById('master-tab-questions').classList.toggle('active', tab === 'questions');
   document.getElementById('master-tab-students').classList.toggle('active', tab === 'students');
+  document.getElementById('master-tab-feedback').classList.toggle('active', tab === 'feedback');
   document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
   document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
+  document.getElementById('master-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
   if (tab === 'students') loadAdminDashboard();
+  if (tab === 'feedback') loadFeedbackList();
+}
+
+async function loadFeedbackList() {
+  const { data, error } = await sb.from('feedback').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  const tbody = document.getElementById('feedback-table-body');
+  tbody.innerHTML = (data || []).map(f => `
+    <tr>
+      <td><strong style="color:${f.type === 'doubt' ? 'var(--blue)' : 'var(--gold)'}">${f.type === 'doubt' ? 'Doubt' : 'Feedback'}</strong></td>
+      <td>${f.name || '-'}</td>
+      <td style="font-size:0.75rem;">${f.email || '-'}</td>
+      <td style="font-size:0.75rem;">${f.chapter_name ? `Class ${f.class} · Ch ${f.chapter}: ${f.chapter_name}` : '-'}</td>
+      <td style="max-width:280px;">${f.message}</td>
+      <td>${f.image_url ? `<a href="${f.image_url}" target="_blank" style="color:var(--gold);">View</a>` : '-'}</td>
+      <td style="font-size:0.7rem;color:var(--muted);">${new Date(f.created_at).toLocaleDateString()}</td>
+    </tr>`).join('');
 }
 
 async function loadAdminDashboard() {
