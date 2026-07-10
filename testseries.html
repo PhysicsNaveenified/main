@@ -327,7 +327,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
       <div class="form-group">
         <label class="form-label">Your Message</label>
-        <textarea id="fb-message" class="form-input" rows="5" style="resize:vertical;" placeholder="Type your feedback or doubt here..."></textarea>
+        <!-- NEW -->
+<textarea id="fb-message" class="form-input" rows="5" style="resize:vertical;" placeholder="Type your feedback or report bug"></textarea>
       </div>
       <div class="form-group" id="fb-image-group" style="display:none;">
         <label class="form-label">Attach a Photo (Optional)</label>
@@ -497,10 +498,22 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <button class="type-tab" onclick="switchChartType('JEE',this)">JEE</button>
       </div>
       <canvas id="perf-chart" height="100"></canvas>
-    </div>
+    <!-- NEW -->
     <div class="recent-tests">
-      <h3 class="recent-title">Recent Tests</h3>
-      <div id="recent-list"></div>
+      <div class="type-tabs" id="dash-tabs" style="margin-bottom:1.5rem;">
+        <button class="type-tab active" id="dash-tab-recent" onclick="switchDashTab('recent')">Recent Tests</button>
+        <button class="type-tab" id="dash-tab-bookmarks" onclick="switchDashTab('bookmarks')">Bookmarked Questions</button>
+        <button class="type-tab" id="dash-tab-feedback" onclick="switchDashTab('feedback')">Feedback &amp; Doubts</button>
+      </div>
+      <div id="dash-view-recent">
+        <div id="recent-list"></div>
+      </div>
+      <div id="dash-view-bookmarks" style="display:none;">
+        <div id="bookmarks-list"></div>
+      </div>
+      <div id="dash-view-feedback" style="display:none;">
+        <div id="dash-feedback-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -702,9 +715,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   </div>
 </div>
 <script>
-  async function loadMyFeedback() {
+  // NEW
+  async function loadMyFeedback(targetId = 'my-feedback-list') {
   const { data } = await sb.from('feedback').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-  document.getElementById('my-feedback-list').innerHTML = (data || []).map(f => `
+  document.getElementById(targetId).innerHTML = (data || []).map(f => `
     <div class="recent-item" style="flex-direction:column;align-items:flex-start;">
       <p class="ri-chapter">${f.type === 'doubt' ? 'Doubt' : 'Feedback'} · ${new Date(f.created_at).toLocaleDateString()}</p>
       <p style="margin-top:0.5rem;color:var(--white);font-size:0.88rem;">${f.message}</p>
@@ -783,8 +797,8 @@ function openFeedbackForm(type) {
   document.getElementById('fb-status').textContent = '';
   document.getElementById('fb-class').value = '';
   document.getElementById('fb-chapter').innerHTML = '<option value="">Select Chapter</option>';
-
   const isDoubt = type === 'doubt';
+  document.getElementById('fb-message').placeholder = isDoubt ? 'Type your question or doubt' : 'Type your feedback or report bug';
   document.getElementById('fb-image-group').style.display = isDoubt ? 'block' : 'none';
   document.getElementById('fb-class-group').style.display = isDoubt ? 'block' : 'none';
   document.getElementById('fb-chapter-group').style.display = isDoubt ? 'block' : 'none';
@@ -1338,8 +1352,10 @@ async function goToDashboard() {
     <div class="ds-card blue"><p class="ds-num">${bestResult ? bestResult.percentage + '%' : 'N/A'}</p><p class="ds-label">Best Score</p></div>
   `;
 
+  // NEW
   renderChart('Board');
   renderRecentTests();
+  switchDashTab('recent');
   showPage('dashboard');
 }
 
@@ -1448,7 +1464,43 @@ function renderRecentTests() {
         </div>
       </div>`).join('');
 }
+function switchDashTab(tab) {
+  document.getElementById('dash-tab-recent').classList.toggle('active', tab === 'recent');
+  document.getElementById('dash-tab-bookmarks').classList.toggle('active', tab === 'bookmarks');
+  document.getElementById('dash-tab-feedback').classList.toggle('active', tab === 'feedback');
+  document.getElementById('dash-view-recent').style.display = tab === 'recent' ? 'block' : 'none';
+  document.getElementById('dash-view-bookmarks').style.display = tab === 'bookmarks' ? 'block' : 'none';
+  document.getElementById('dash-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
+  if (tab === 'bookmarks') loadBookmarks();
+  if (tab === 'feedback') loadMyFeedback('dash-feedback-list');
+}
 
+async function loadBookmarks() {
+  const { data, error } = await sb.from('bookmarks')
+    .select('*, questions(question, option_a, option_b, option_c, option_d, correct_answer, concept, chapter, class, test_type)')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Bookmarks load failed:', error);
+    document.getElementById('bookmarks-list').innerHTML = '<p style="color:var(--muted);">Could not load bookmarks.</p>';
+    return;
+  }
+
+  document.getElementById('bookmarks-list').innerHTML = (data || []).length === 0
+    ? '<p style="color:var(--muted);font-size:0.88rem;">No bookmarked questions yet. Bookmark tough questions during a test to revise them later.</p>'
+    : data.map(b => {
+        const q = b.questions;
+        const chapters = q?.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+        const chapterName = q?.chapter ? chapters[q.chapter - 1] : '';
+        return `
+      <div class="recent-item" style="flex-direction:column;align-items:flex-start;">
+        <p class="ri-chapter">${q ? `${q.test_type} · Chapter ${q.chapter}: ${chapterName}` : 'Question unavailable'}</p>
+        <p style="margin-top:0.5rem;color:var(--white);font-size:0.88rem;">${q?.question || '-'}</p>
+        ${b.remark ? `<p style="margin-top:0.6rem;padding:0.6rem;background:rgba(255,216,77,0.06);border-left:3px solid var(--gold);border-radius:3px;font-size:0.8rem;color:var(--muted2);"><strong style="color:var(--gold);">My note:</strong> ${b.remark}</p>` : ''}
+      </div>`;
+      }).join('');
+}
 // ═══════════════════════════════════════════
 // MASTER — QUESTION UPLOAD
 // ═══════════════════════════════════════════
