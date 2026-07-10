@@ -751,7 +751,7 @@ if (urlAction === 'feedback' || urlAction === 'doubt') {
   sessionStorage.setItem('pendingAction', urlAction);
 }
 const urlGoto = new URLSearchParams(window.location.search).get('goto');
-if (urlGoto === 'admin-feedback' || urlGoto === 'my-feedback') {
+if (urlGoto === 'admin-feedback' || urlGoto === 'my-feedback' || urlGoto === 'dashboard') {
   sessionStorage.setItem('pendingGoto', urlGoto);
 }
 const MASTER_EMAIL = 'naganaveensir@gmail.com';
@@ -972,8 +972,10 @@ async function onLogin(user) {
       sessionStorage.removeItem('pendingGoto');
       await goToDashboard();
       switchDashTab('feedback');
-    } else {
-      showPage('home');
+    } else if (pendingGoto === 'dashboard') {
+      sessionStorage.removeItem('pendingGoto');
+      await goToDashboard();
+    } else {      showPage('home');
     }
   } else {
     document.getElementById('p-name').value = user.user_metadata?.full_name || '';
@@ -1796,8 +1798,12 @@ async function sendReply(id, type) {
   const updatePayload = { admin_response: response, responded_at: new Date().toISOString(), seen_by_user: false };
   if (replyImageUrl) updatePayload.reply_image_url = replyImageUrl;
 
-  const { error } = await sb.from('feedback').update(updatePayload).eq('id', id);
+  const { data, error } = await sb.from('feedback').update(updatePayload).eq('id', id).select();
   if (error) { alert('Error: ' + error.message); return; }
+  if (!data || data.length === 0) {
+    alert('The reply did not save — this is a database permissions (RLS) issue, not a code issue. Run the admin_update_feedback policy SQL and try again.');
+    return;
+  }
   loadFeedbackList();
   updateNavBell();
 }
