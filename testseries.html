@@ -332,7 +332,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       </div>
       <div class="form-group" id="fb-image-group" style="display:none;">
         <label class="form-label">Attach a Photo (Optional)</label>
-        <input id="fb-image" class="form-input" type="file" accept="image/*"/>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+          <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('fb-image-camera').click()">📷 Take Photo</button>
+          <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('fb-image-gallery').click()">🖼️ Choose from Gallery</button>
+        </div>
+        <input id="fb-image-camera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleFbImagePick(this)"/>
+        <input id="fb-image-gallery" type="file" accept="image/*" style="display:none;" onchange="handleFbImagePick(this)"/>
+        <p id="fb-image-name" style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem;"></p>
       </div>
       <button class="btn-primary" onclick="submitFeedback()">Submit →</button>
       <p id="fb-status" style="font-size:0.78rem;color:var(--muted);margin-top:1rem;"></p>
@@ -832,13 +838,18 @@ let perfChart = null;
 let allResults = [];
 
  let feedbackType = 'feedback';
-
+function handleFbImagePick(inputEl) {
+  const file = inputEl.files[0];
+  document.getElementById('fb-image-name').textContent = file ? `Selected: ${file.name}` : '';
+}
 function openFeedbackForm(type) {
   feedbackType = type;
   document.getElementById('fb-eyebrow').textContent = type === 'doubt' ? 'Ask a Doubt' : 'Feedback';
   document.getElementById('fb-title').textContent = type === 'doubt' ? 'What\'s your question?' : 'Share your thoughts';
   document.getElementById('fb-message').value = '';
-  document.getElementById('fb-image').value = '';
+  document.getElementById('fb-image-camera').value = '';
+  document.getElementById('fb-image-gallery').value = '';
+  document.getElementById('fb-image-name').textContent = '';
   document.getElementById('fb-status').textContent = '';
   document.getElementById('fb-class').value = '';
   document.getElementById('fb-chapter').innerHTML = '<option value="">Select Chapter</option>';
@@ -879,7 +890,7 @@ async function submitFeedback() {
   let imageUrl = null;
 
   if (isDoubt) {
-    const file = document.getElementById('fb-image').files[0];
+    const file = document.getElementById('fb-image-camera').files[0] || document.getElementById('fb-image-gallery').files[0];
     if (file) {
       const fileName = `${currentUser.id}_${Date.now()}_${file.name}`;
       const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
@@ -1689,8 +1700,20 @@ async function extractTextFromFile(file) {
       })
     });
     extractedImageMap = localImages;
+
+    // Word's automatic numbered lists (Home → Numbering) don't store "1." as real
+    // text — they're rendered list markers, invisible to the extracted text. If we
+    // don't reconstruct them, the parser sees zero question numbers and loads nothing.
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = result.value;
+    wrapper.querySelectorAll('ol').forEach(ol => {
+      Array.from(ol.children).forEach((li, idx) => {
+        if (li.tagName === 'LI') li.insertAdjacentHTML('afterbegin', `${idx + 1}. `);
+      });
+    });
+
     // Strip HTML tags (images are already replaced with plain-text [[IMG_DATA:n]] markers above)
-    const withBreaks = result.value.replace(/<\/p>|<br\s*\/?>/g, '\n');
+    const withBreaks = wrapper.innerHTML.replace(/<\/p>|<\/li>|<br\s*\/?>/g, '\n');
     const withoutImgWrapper = withBreaks.replace(/<img[^>]*src="(\[\[IMG_DATA:\d+\]\])"[^>]*>/g, '$1');
     const plain = withoutImgWrapper.replace(/<[^>]+>/g, '');
     const txt = document.createElement('textarea');
@@ -1710,21 +1733,22 @@ async function extractTextFromFile(file) {
 }
 
 function parseQuestions(text) {
-  const blocks = text.split(/\n(?=\s*\d+\.\s)/).map(b => b.trim()).filter(Boolean);
+  const OPT = (L) => `\\(?${L}\\)?[.)]\\s*`; // matches A) A. (A) (A.) — case-insensitive
+  const blocks = text.split(/\n(?=\s*\d+[.)]\s)/).map(b => b.trim()).filter(Boolean);
   const out = {};
   blocks.forEach(block => {
-    const numMatch = block.match(/^(\d+)\.\s*/);
+    const numMatch = block.match(/^(\d+)[.)]\s*/);
     if (!numMatch) return;
     const num = parseInt(numMatch[1]);
     const rest = block.slice(numMatch[0].length);
     const imgDataMatch = rest.match(/\[\[IMG_DATA:(\d+)\]\]/);
     const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
     const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
-    const qMatch = cleanedRest.match(/([\s\S]+?)A\)/);
-    const aMatch = rest.match(/A\)\s*(.+?)\s*B\)/s);
-    const bMatch = rest.match(/B\)\s*(.+?)\s*C\)/s);
-    const cMatch = rest.match(/C\)\s*(.+?)\s*D\)/s);
-    const dMatch = rest.match(/D\)\s*(.+)/s);
+    const qMatch = cleanedRest.match(new RegExp(`([\\s\\S]+?)${OPT('A')}`, 'i'));
+    const aMatch = rest.match(new RegExp(`${OPT('A')}(.+?)\\s*${OPT('B')}`, 'is'));
+    const bMatch = rest.match(new RegExp(`${OPT('B')}(.+?)\\s*${OPT('C')}`, 'is'));
+    const cMatch = rest.match(new RegExp(`${OPT('C')}(.+?)\\s*${OPT('D')}`, 'is'));
+    const dMatch = rest.match(new RegExp(`${OPT('D')}(.+)`, 'is'));
     if (qMatch && aMatch && bMatch && cMatch && dMatch) {
       out[num] = {
         question: qMatch[1].replace(/\s+/g,' ').trim(),
@@ -1739,10 +1763,9 @@ function parseQuestions(text) {
   });
   return out;
 }
-
 function parseAnswerKey(text) {
   const out = {};
-  const regex = /(\d+)\.\s*([A-D])\s*(?:-\s*(.+))?/g;
+  const regex = /(\d+)[.)]\s*([A-D])\s*(?:-\s*(.+))?/gi;
   let m;
   while ((m = regex.exec(text)) !== null) {
     out[parseInt(m[1])] = { answer: m[2].toUpperCase(), concept: m[3] ? m[3].trim() : '' };
@@ -1916,7 +1939,12 @@ async function loadFeedbackList() {
           <textarea id="reply-text-${f.id}" class="form-input" rows="2" style="font-size:0.78rem;" placeholder="Type your response...">${f.admin_response || ''}</textarea>
           ${f.type === 'doubt' ? `
           <label class="form-label" style="margin-top:0.5rem;">Attach an image (optional)</label>
-          <input id="reply-image-${f.id}" class="form-input" type="file" accept="image/*" style="font-size:0.7rem;padding:0.5rem;"/>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.3rem;">
+            <button type="button" class="btn-upload" style="padding:0.3rem 0.7rem;font-size:0.55rem;" onclick="document.getElementById('reply-image-camera-${f.id}').click()">📷 Take Photo</button>
+            <button type="button" class="btn-upload" style="padding:0.3rem 0.7rem;font-size:0.55rem;" onclick="document.getElementById('reply-image-gallery-${f.id}').click()">🖼️ Gallery</button>
+          </div>
+          <input id="reply-image-camera-${f.id}" type="file" accept="image/*" capture="environment" style="display:none;"/>
+          <input id="reply-image-gallery-${f.id}" type="file" accept="image/*" style="display:none;"/>
           ${f.reply_image_url ? `<a href="${f.reply_image_url}" target="_blank" style="display:block;font-size:0.7rem;color:var(--gold);margin-top:0.3rem;">Current attached image →</a>` : ''}
           ` : ''}
           <button class="btn-upload" style="margin-top:0.4rem;padding:0.3rem 0.8rem;font-size:0.55rem;" onclick="sendReply('${f.id}','${f.type}')">Send</button>
@@ -1942,7 +1970,7 @@ async function sendReply(id, type) {
 
   let replyImageUrl = null;
   if (type === 'doubt') {
-    const file = document.getElementById(`reply-image-${id}`)?.files[0];
+    const file = document.getElementById(`reply-image-camera-${id}`)?.files[0] || document.getElementById(`reply-image-gallery-${id}`)?.files[0];
     if (file) {
       const fileName = `reply_${id}_${Date.now()}_${file.name}`;
       const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
