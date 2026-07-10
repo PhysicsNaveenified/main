@@ -432,6 +432,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div class="test-wrap">
     <div class="test-header">
       <div class="test-title-wrap">
+        <button onclick="exitTest()" style="margin-bottom:0.6rem;padding:0.35rem 0.9rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;">← Exit to Chapters</button>
         <p class="test-eyebrow" id="test-eyebrow"></p>
         <p class="test-name" id="test-name"></p>
       </div>
@@ -1099,7 +1100,12 @@ async function goToChapters(type) {
 // ═══════════════════════════════════════════
 let markedForReview = {};
 let bookmarkedQuestions = {};
-
+function exitTest() {
+  if (!confirm('Leave this test? Your answers are saved — you can resume from where you left off later.')) return;
+  clearInterval(timerInterval);
+  sessionStorage.removeItem('testMeta');
+  goToChapters(currentTestType);
+}
 async function startTest(chapter, chapterName) {
   currentChapter = chapter;
   currentChapterName = chapterName;
@@ -1117,7 +1123,28 @@ async function startTest(chapter, chapterName) {
     questions = getSampleQuestions(chapter, chapterName, currentTestType);
   }
 
-  questions = questions.sort(() => Math.random() - 0.5);
+  // Load saved progress FIRST — decides whether this is a fresh attempt
+  // or a resume, which determines whether we reshuffle or reuse the order.
+  const { data: savedProgress } = await sb.from('test_progress')
+    .select('*').eq('user_id', currentUser.id).eq('class', currentProfile.class)
+    .eq('test_type', currentTestType).eq('chapter', chapter).maybeSingle();
+
+  let startedAt;
+  if (savedProgress && savedProgress.question_order && savedProgress.question_order.length) {
+    // Resume: reapply the SAME order so saved answers (keyed by index) still line up
+    const byId = {};
+    questions.forEach(q => { if (q.id) byId[q.id] = q; });
+    const ordered = savedProgress.question_order.map(id => byId[id]).filter(Boolean);
+    const orderedIds = new Set(savedProgress.question_order);
+    const extras = questions.filter(q => !q.id || !orderedIds.has(q.id));
+    questions = ordered.concat(extras);
+    userAnswers = savedProgress.answers || {};
+    markedForReview = savedProgress.marked || {};
+    startedAt = savedProgress.started_at ? new Date(savedProgress.started_at) : new Date();
+  } else {
+    questions = questions.sort(() => Math.random() - 0.5);
+    startedAt = new Date();
+  }
   currentQuestions = questions;
 
   // Load existing bookmarks for these questions
@@ -1129,15 +1156,6 @@ async function startTest(chapter, chapterName) {
       const bm = (existingBookmarks || []).find(b => b.question_id === q.id);
       if (bm) bookmarkedQuestions[i] = bm.remark || '';
     });
-  }
-
-  // Load saved progress (autosave recovery)
-  const { data: savedProgress } = await sb.from('test_progress')
-    .select('*').eq('user_id', currentUser.id).eq('class', currentProfile.class)
-    .eq('test_type', currentTestType).eq('chapter', chapter).maybeSingle();
-  if (savedProgress) {
-    userAnswers = savedProgress.answers || {};
-    markedForReview = savedProgress.marked || {};
   }
 
   document.getElementById('test-eyebrow').textContent = `${currentTestType} · Chapter ${chapter}`;
@@ -1174,11 +1192,27 @@ async function startTest(chapter, chapterName) {
 
   renderNavigator(questions.length);
   updateProgress();
-  startTimer(questions.length);
-  sessionStorage.setItem('testMeta', JSON.stringify({ type: currentTestType, chapter, chapterName }));
-  showPage('test');
-}
 
+  const totalSeconds = questions.length * TIMER_PER_Q[currentTestType];
+  const elapsedSeconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+  const remaining = Math.max(totalSeconds - elapsedSeconds, 0);
+  startTimer(questions.length, remaining);
+
+  sessionStorage.setItem('testMeta', JSON.stringify({ type: currentTestType, chapter, chapterName }));
+
+  if (!savedProgress || !savedProgress.question_order) {
+    await sb.from('test_progress').upsert({
+      user_id: currentUser.id, class: currentProfile.class, test_type: currentTestType,
+      chapter, answers: userAnswers, marked: markedForReview,
+      question_order: questions.filter(q => q.id).map(q => q.id),
+      started_at: startedAt.toISOString(),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,class,test_type,chapter' });
+  }
+
+  showPage('test');
+  if (remaining <= 0) submitTest();
+}
 function renderNavigator(total) {
   const grid = document.getElementById('qnav-grid');
   grid.innerHTML = Array.from({ length: total }, (_, i) => {
@@ -1250,9 +1284,9 @@ function updateProgress() {
   document.getElementById('progress-bar').style.width = (answered / total * 100) + '%';
 }
 
-function startTimer(numQuestions) {
+function startTimer(numQuestions, remainingSeconds) {
   clearInterval(timerInterval);
-  timeLeft = numQuestions * TIMER_PER_Q[currentTestType];
+  timeLeft = (remainingSeconds !== undefined) ? remainingSeconds : numQuestions * TIMER_PER_Q[currentTestType];
   timerFrozen = false;
   const freezeBtn = document.getElementById('freeze-timer-btn');
   freezeBtn.style.display = (currentUser && currentUser.email === FREEZE_TIMER_EMAIL) ? 'inline-block' : 'none';
@@ -1301,7 +1335,7 @@ async function submitTest() {
     const warn = document.getElementById('unattempted-warning');
     warn.textContent = `⚠ ${unattempted} question(s) unattempted. Submit anyway?`;
     if (!confirm(`${unattempted} questions unattempted. Submit anyway?`)) {
-      startTimer(currentQuestions.length); return;
+      runTimerInterval(); return;
     }
   }
 
@@ -1345,9 +1379,11 @@ async function submitTest() {
   });
 
   showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum);
+  await sb.from('test_progress').delete()
+    .eq('user_id', currentUser.id).eq('class', currentProfile.class)
+    .eq('test_type', currentTestType).eq('chapter', currentChapter);
   sessionStorage.removeItem('testMeta');
 }
-
 // ═══════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════
