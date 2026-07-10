@@ -131,7 +131,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .btn-bookmark.active{background:var(--gold);color:var(--navy);}
 .bookmark-remark{display:none;margin-top:0.8rem;}
 .bookmark-remark textarea{width:100%;padding:0.7rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,216,77,0.2);border-radius:3px;color:var(--white);font-family:'Inter',sans-serif;font-size:0.82rem;resize:vertical;}
-@media(max-width:900px){.qnav-panel{display:none;}}
+@media(max-width:900px){.qnav-panel{position:static;width:100%;max-height:none;margin:2rem 0;top:auto;right:auto;}}
 .test-wrap{padding:2rem 8vw 4rem;max-width:860px;margin:0 auto;}
 .test-header{position:sticky;top:70px;background:rgba(11,19,48,0.97);backdrop-filter:blur(16px);padding:1rem 0;margin-bottom:2rem;border-bottom:1px solid rgba(255,216,77,0.1);display:flex;justify-content:space-between;align-items:center;z-index:100;}
 .test-title-wrap .test-eyebrow{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
@@ -246,15 +246,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .question-table td{padding:0.8rem 1rem;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--muted2);vertical-align:top;}
 .btn-delete{background:none;border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;padding:0.2rem 0.6rem;border-radius:2px;font-size:0.7rem;cursor:pointer;}
 
-/* FLOATING CALL BUTTON */
-.fab{position:fixed;bottom:2rem;right:2rem;width:52px;height:52px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 30px rgba(255,216,77,0.4);z-index:900;transition:transform 0.25s;text-decoration:none;font-size:1.3rem;}
-.fab:hover{transform:scale(1.1);}
-
 @media(max-width:768px){
-  nav{padding:1rem 1.5rem;}
+  nav{padding:1rem 1.2rem;flex-wrap:wrap;row-gap:0.6rem;}
   .home-wrap,.chapter-wrap,.test-wrap,.result-wrap,.dash-wrap,.master-wrap{padding-left:5vw;padding-right:5vw;}
   .upload-row{grid-template-columns:1fr;}
-  .test-header{flex-direction:column;gap:0.5rem;}
+  .test-header{flex-direction:column;gap:0.5rem;align-items:flex-start;}
+  .timer-wrap{text-align:left;}
+  .login-title{font-size:2.6rem;}
+  .result-score-big{font-size:4.5rem;}
+  .dash-name{font-size:2.1rem;}
+  .type-tabs{flex-wrap:wrap;}
+  .type-tab{padding:0.6rem 1rem;}
+  .history-popup,#student-modal{max-width:92vw;min-width:0;}
+  .nav-user-name{display:none;}
 }
 </style>
 </head>
@@ -276,8 +280,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   </div>
 </nav>
 
-<!-- FLOATING CALL BUTTON -->
-<a href="tel:+919999999999" class="fab" title="Call Naveen Sir">📞</a>
 
 <!-- HISTORY POPUP -->
 <div class="history-popup" id="history-popup">
@@ -436,6 +438,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <div class="timer-wrap">
         <p class="timer-label">Time Remaining</p>
         <p class="timer-display" id="timer-display">00:00</p>
+        <button class="btn-mark" id="freeze-timer-btn" style="display:none;margin-top:0.5rem;font-size:0.55rem;padding:0.35rem 0.8rem;" onclick="toggleFreezeTimer()">❄️ Freeze Timer</button>
       </div>
     </div>
     <div class="progress-bar-wrap">
@@ -570,8 +573,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <strong>Question file</strong> — just number and options, nothing fancy:<br>
     <code>1. What is the SI unit of force?<br>A) Joule&nbsp; B) Newton&nbsp; C) Watt&nbsp; D) Pascal</code><br><br>
     <strong>Answer key file</strong> — number, dot, correct letter (concept optional after a dash):<br>
-    <code>1. B - Newton's Laws<br>2. C</code>
+    <code>1. B - Newton's Laws<br>2. C</code><br><br>
+    <strong>Images/diagrams (Word only):</strong> just insert the picture directly under the relevant question in the .docx — it's picked up automatically and uploaded with the question, no <code>[IMG: url]</code> tag needed. For equations, insert them as a picture too (Word's native typed equations aren't picture objects, so they can't be auto-extracted) — e.g. use Word's "Save as Picture" on the equation, or paste a screenshot of it.
   </p>
+
 
   <div class="upload-row">
     <div>
@@ -755,6 +760,7 @@ if (urlGoto === 'admin-feedback' || urlGoto === 'my-feedback' || urlGoto === 'da
   sessionStorage.setItem('pendingGoto', urlGoto);
 }
 const MASTER_EMAIL = 'naganaveensir@gmail.com';
+const FREEZE_TIMER_EMAIL = 'naganaveen.mobile2@gmail.com';
 const CLASS11_CHAPTERS = [
   'Units and Measurements','Motion in a Straight Line','Motion in a Plane',
   'Laws of Motion','Work Energy and Power','System of Particles and Rotational Motion',
@@ -781,7 +787,8 @@ function driveDirectUrl(url) {
   let count = 0;
 
   if (currentUser.email === MASTER_EMAIL) {
-    const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true }).is('admin_response', null);
+    const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true })
+      .or('seen_by_admin.is.null,seen_by_admin.eq.false');
     count = c || 0;
   } else {
     const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true })
@@ -819,6 +826,7 @@ let currentQuestions = [];
 let userAnswers = {};
 let timerInterval = null;
 let timeLeft = 0;
+let timerFrozen = false;
 let perfChart = null;
 let allResults = [];
 
@@ -900,6 +908,7 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   window.scrollTo(0, 0);
+  if (name !== 'login') sessionStorage.setItem('lastPage', name);
 }
 
 // ═══════════════════════════════════════════
@@ -975,11 +984,36 @@ async function onLogin(user) {
     } else if (pendingGoto === 'dashboard') {
       sessionStorage.removeItem('pendingGoto');
       await goToDashboard();
-    } else {      showPage('home');
+    } else {
+      await restoreLastSession();
     }
   } else {
     document.getElementById('p-name').value = user.user_metadata?.full_name || '';
     showPage('profile');
+  }
+}
+
+// Restores whatever the student was doing before a page refresh: an in-progress
+// test takes priority (so refreshing mid-exam no longer bumps them to Home/Dashboard),
+// otherwise the last page they were viewing is restored where practical.
+async function restoreLastSession() {
+  const savedTestMeta = sessionStorage.getItem('testMeta');
+  if (savedTestMeta) {
+    try {
+      const meta = JSON.parse(savedTestMeta);
+      currentTestType = meta.type;
+      await startTest(meta.chapter, meta.chapterName);
+      return;
+    } catch (e) { sessionStorage.removeItem('testMeta'); }
+  }
+  const lastPage = sessionStorage.getItem('lastPage');
+  const lastChaptersType = sessionStorage.getItem('lastChaptersType');
+  if (lastPage === 'dashboard') {
+    await goToDashboard();
+  } else if (lastPage === 'chapters' && lastChaptersType) {
+    await goToChapters(lastChaptersType);
+  } else {
+    showPage('home');
   }
 }
 async function saveProfile() {
@@ -1057,6 +1091,7 @@ async function goToChapters(type) {
   }).join('');
 
   showPage('chapters');
+  sessionStorage.setItem('lastChaptersType', type);
 }
 
 // ═══════════════════════════════════════════
@@ -1140,6 +1175,7 @@ async function startTest(chapter, chapterName) {
   renderNavigator(questions.length);
   updateProgress();
   startTimer(questions.length);
+  sessionStorage.setItem('testMeta', JSON.stringify({ type: currentTestType, chapter, chapterName }));
   showPage('test');
 }
 
@@ -1217,13 +1253,38 @@ function updateProgress() {
 function startTimer(numQuestions) {
   clearInterval(timerInterval);
   timeLeft = numQuestions * TIMER_PER_Q[currentTestType];
+  timerFrozen = false;
+  const freezeBtn = document.getElementById('freeze-timer-btn');
+  freezeBtn.style.display = (currentUser && currentUser.email === FREEZE_TIMER_EMAIL) ? 'inline-block' : 'none';
+  freezeBtn.textContent = '❄️ Freeze Timer';
+  freezeBtn.classList.remove('active');
   updateTimerDisplay();
+  runTimerInterval();
+}
+
+function runTimerInterval() {
+  clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     timeLeft--;
     updateTimerDisplay();
     if (timeLeft <= 60) document.getElementById('timer-display').classList.add('warning');
     if (timeLeft <= 0) { clearInterval(timerInterval); submitTest(); }
   }, 1000);
+}
+
+function toggleFreezeTimer() {
+  if (currentUser.email !== FREEZE_TIMER_EMAIL) return;
+  const freezeBtn = document.getElementById('freeze-timer-btn');
+  timerFrozen = !timerFrozen;
+  if (timerFrozen) {
+    clearInterval(timerInterval);
+    freezeBtn.textContent = '▶️ Resume Timer';
+    freezeBtn.classList.add('active');
+  } else {
+    runTimerInterval();
+    freezeBtn.textContent = '❄️ Freeze Timer';
+    freezeBtn.classList.remove('active');
+  }
 }
 
 function updateTimerDisplay() {
@@ -1284,6 +1345,7 @@ async function submitTest() {
   });
 
   showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum);
+  sessionStorage.removeItem('testMeta');
 }
 
 // ═══════════════════════════════════════════
@@ -1573,13 +1635,33 @@ function populateChapterSelects() {
 
 let loadedQuestions = null;
 let loadedAnswerKey = null;
+let loadedQuestionImages = {};
 
+let extractedImageMap = {};
 async function extractTextFromFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'docx') {
-    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-    return result.value;
+    let imgIdx = 0;
+    const localImages = {};
+    const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
+      convertImage: mammoth.images.imgElement(function(element) {
+        return element.read('base64').then(function(imageBuffer) {
+          const idx = imgIdx++;
+          localImages[idx] = 'data:' + element.contentType + ';base64,' + imageBuffer;
+          return { src: `[[IMG_DATA:${idx}]]` };
+        });
+      })
+    });
+    extractedImageMap = localImages;
+    // Strip HTML tags (images are already replaced with plain-text [[IMG_DATA:n]] markers above)
+    const withBreaks = result.value.replace(/<\/p>|<br\s*\/?>/g, '\n');
+    const withoutImgWrapper = withBreaks.replace(/<img[^>]*src="(\[\[IMG_DATA:\d+\]\])"[^>]*>/g, '$1');
+    const plain = withoutImgWrapper.replace(/<[^>]+>/g, '');
+    const txt = document.createElement('textarea');
+    txt.innerHTML = plain;
+    return txt.value;
   } else if (ext === 'pdf') {
+    extractedImageMap = {};
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     let text = '';
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -1599,8 +1681,9 @@ function parseQuestions(text) {
     if (!numMatch) return;
     const num = parseInt(numMatch[1]);
     const rest = block.slice(numMatch[0].length);
-    const imgMatch = rest.match(/\[IMG:\s*(.+?)\]/);
-    const cleanedRest = rest.replace(/\[IMG:\s*.+?\]/, '');
+    const imgDataMatch = rest.match(/\[\[IMG_DATA:(\d+)\]\]/);
+    const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
+    const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
     const qMatch = cleanedRest.match(/([\s\S]+?)A\)/);
     const aMatch = rest.match(/A\)\s*(.+?)\s*B\)/s);
     const bMatch = rest.match(/B\)\s*(.+?)\s*C\)/s);
@@ -1612,7 +1695,9 @@ function parseQuestions(text) {
         option_a: aMatch[1].replace(/\s+/g,' ').trim(),
         option_b: bMatch[1].replace(/\s+/g,' ').trim(),
         option_c: cMatch[1].replace(/\s+/g,' ').trim(),
-        option_d: dMatch[1].replace(/\s+/g,' ').trim()
+        option_d: dMatch[1].replace(/\s+/g,' ').trim(),
+        image_data_idx: imgDataMatch ? parseInt(imgDataMatch[1]) : null,
+        image_url: imgUrlMatch ? imgUrlMatch[1].trim() : null
       };
     }
   });
@@ -1637,7 +1722,11 @@ async function loadQuestionFile() {
   try {
     const text = await extractTextFromFile(file);
     loadedQuestions = parseQuestions(text);
-    statusEl.textContent = `Loaded ${Object.keys(loadedQuestions).length} questions. Now load the answer key.`;
+    loadedQuestionImages = extractedImageMap;
+    const imgCount = Object.keys(loadedQuestionImages).length;
+    statusEl.textContent = `Loaded ${Object.keys(loadedQuestions).length} questions` +
+      (imgCount ? ` (${imgCount} embedded image${imgCount > 1 ? 's' : ''} found)` : '') +
+      `. Now load the answer key.`;
   } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
 }
 
@@ -1667,17 +1756,24 @@ async function submitBulkUpload() {
 
   const rows = [];
   const missing = [];
-  Object.keys(loadedQuestions).forEach(num => {
+  for (const num of Object.keys(loadedQuestions)) {
     const q = loadedQuestions[num];
     const key = loadedAnswerKey[num];
-    if (!key) { missing.push(num); return; }
+    if (!key) { missing.push(num); continue; }
+
+    let imageUrl = q.image_url || null;
+    if (q.image_data_idx !== null && q.image_data_idx !== undefined && loadedQuestionImages[q.image_data_idx]) {
+      statusEl.textContent = `Uploading image for question ${num}...`;
+      imageUrl = await uploadExtractedImage(loadedQuestionImages[q.image_data_idx], num);
+    }
+
     rows.push({
       class: cls, test_type: type, chapter, chapter_name: chapterName,
       question: q.question, option_a: q.option_a, option_b: q.option_b,
       option_c: q.option_c, option_d: q.option_d,
-      correct_answer: key.answer, concept: key.concept
+      correct_answer: key.answer, concept: key.concept, image_url: imageUrl
     });
-  });
+  }
 
   if (missing.length > 0) {
     statusEl.textContent = `⚠ Question(s) #${missing.join(', ')} have no matching answer in the key — fix numbering and reload.`;
@@ -1691,9 +1787,28 @@ async function submitBulkUpload() {
   statusEl.textContent = `✅ Uploaded ${rows.length} questions successfully!`;
   loadedQuestions = null;
   loadedAnswerKey = null;
+  loadedQuestionImages = {};
   document.getElementById('q-file').value = '';
   document.getElementById('key-file').value = '';
   loadMasterQuestions();
+}
+
+// Uploads a base64 data URL (an image embedded in the uploaded Word doc) to the
+// public "question-images" Supabase Storage bucket and returns its public URL.
+async function uploadExtractedImage(dataUrl, questionNum) {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const fileName = `q_${Date.now()}_${questionNum}.${ext}`;
+    const { error } = await sb.storage.from('question-images').upload(fileName, blob);
+    if (error) { console.error('Image upload failed:', error); return null; }
+    const { data } = sb.storage.from('question-images').getPublicUrl(fileName);
+    return data.publicUrl;
+  } catch (e) {
+    console.error('Image upload failed:', e);
+    return null;
+  }
 }
 async function uploadQuestion() {
   const cls = document.getElementById('uq-class').value;
@@ -1772,6 +1887,12 @@ async function loadFeedbackList() {
         </div>
       </td>
     </tr>`).join('');
+
+  const unseenIds = (data || []).filter(f => !f.seen_by_admin).map(f => f.id);
+  if (unseenIds.length) {
+    await sb.from('feedback').update({ seen_by_admin: true }).in('id', unseenIds);
+    updateNavBell();
+  }
 }
 
 function toggleReplyBox(id) {
@@ -1973,6 +2094,13 @@ document.addEventListener('click', (e) => {
 });
 
 // Initi
+window.addEventListener('beforeunload', function(e) {
+  if (document.getElementById('page-test').classList.contains('active')) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 initAuth();
 </script>
 </body>
