@@ -503,7 +503,11 @@ nav {
   background: rgba(4,9,31,0.95);
   backdrop-filter: blur(16px);
   z-index: 100;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.tab-nav::-webkit-scrollbar { display: none; }
 .c12 .tab-nav { border-bottom-color: rgba(58,143,255,0.12); }
 .tab-btn {
   padding: 1.1rem 2rem;
@@ -512,6 +516,7 @@ nav {
   cursor: pointer; background: none; border: none;
   color: var(--muted); border-bottom: 2px solid transparent;
   margin-bottom: -1px; transition: all 0.2s;
+  white-space: nowrap; flex-shrink: 0;
 }
 .tab-btn:hover, .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
 .c12 .tab-btn:hover, .c12 .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
@@ -827,6 +832,9 @@ footer {
   .about-orb { width: 180px; height: 180px; }
   .orb-letter { font-size: 5.5rem; }
   footer { flex-direction: column; text-align: center; }
+  .tab-nav { padding: 0 4vw; }
+  .tab-btn { padding: 1rem 1.2rem; }
+  .tab-panel { padding: 2.5rem 5vw; }
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
