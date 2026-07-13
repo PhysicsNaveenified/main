@@ -539,6 +539,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <button class="type-tab active" id="master-tab-questions" onclick="switchMasterTab('questions')">Question Manager</button>
       <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
       <button class="type-tab" id="master-tab-feedback" onclick="switchMasterTab('feedback')">Feedback &amp; Doubts</button>
+      <button class="type-tab" id="master-tab-insights" onclick="switchMasterTab('insights')">Insights</button>
+    </div>
+<div id="master-view-insights" style="display:none;">
+      <div class="upload-section">
+        <h3 class="upload-title">Visitor Insights</h3>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem;">Day-wise unique visitors. Click a day to see the names of logged-in visitors that day (anonymous visitors aren't identifiable).</p>
+        <div id="insights-list"><p style="color:var(--muted);">Loading...</p></div>
+      </div>
     </div>
 <div id="master-view-feedback" style="display:none;">
       <div class="upload-section">
@@ -1690,42 +1698,86 @@ async function extractTextFromFile(file) {
   if (ext === 'docx') {
     let imgIdx = 0;
     const localImages = {};
-    const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
-      convertImage: mammoth.images.imgElement(function(element) {
-        return element.read('base64').then(function(imageBuffer) {
-          const idx = imgIdx++;
-          localImages[idx] = 'data:' + element.contentType + ';base64,' + imageBuffer;
-          return { src: `[[IMG_DATA:${idx}]]` };
-        });
-      })
-    });
-    extractedImageMap = localImages;
-
-    // Word's automatic numbered lists (Home → Numbering) don't store "1." as real
-    // text — they're rendered list markers, invisible to the extracted text. If we
-    // don't reconstruct them, the parser sees zero question numbers and loads nothing.
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = result.value;
-    wrapper.querySelectorAll('ol').forEach(ol => {
-      Array.from(ol.children).forEach((li, idx) => {
-        if (li.tagName === 'LI') li.insertAdjacentHTML('afterbegin', `${idx + 1}. `);
+    let html = null;
+    try {
+      const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
+        convertImage: mammoth.images.imgElement(function(element) {
+          return element.read('base64').then(function(imageBuffer) {
+            const idx = imgIdx++;
+            localImages[idx] = 'data:' + element.contentType + ';base64,' + imageBuffer;
+            return { src: `[[IMG_DATA:${idx}]]` };
+          });
+        })
       });
-    });
+      html = result.value;
+    } catch (e) { html = null; }
 
-    // Strip HTML tags (images are already replaced with plain-text [[IMG_DATA:n]] markers above)
-    const withBreaks = wrapper.innerHTML.replace(/<\/p>|<\/li>|<br\s*\/?>/g, '\n');
-    const withoutImgWrapper = withBreaks.replace(/<img[^>]*src="(\[\[IMG_DATA:\d+\]\])"[^>]*>/g, '$1');
-    const plain = withoutImgWrapper.replace(/<[^>]+>/g, '');
-    const txt = document.createElement('textarea');
-    txt.innerHTML = plain;
-    return txt.value;
+    if (html) {
+      // Word's automatic numbered lists (Home → Numbering) don't store "1." as
+      // real text — they're rendered list markers. Reconstructing "N." from
+      // each <ol>'s position is unreliable: if Word/mammoth ever splits the
+      // questions across more than one <ol> (a blank line, a stray paragraph,
+      // a restarted list), each list restarts at 1, so two different questions
+      // both become "1.", "2." ... and silently overwrite each other, quietly
+      // dropping questions. Instead, treat every paragraph / list item / heading
+      // as ONE question block, numbered purely by its position in the whole
+      // document — this works regardless of how mammoth grouped any lists,
+      // and regardless of whether literal numbers exist in the text at all.
+      const paraMatches = [...html.matchAll(/<(p|li|h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi)];
+      let blocks = paraMatches.map(m => {
+        const inner = m[2].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+        const txt = document.createElement('textarea');
+        txt.innerHTML = inner;
+        return txt.value.trim();
+      }).filter(Boolean);
+
+      // A paragraph that's just an image (a diagram on its own line) gets
+      // folded into the question that follows it.
+      const merged = [];
+      let pendingImage = '';
+      blocks.forEach(b => {
+        if (/^\[\[IMG_DATA:\d+\]\]$/.test(b)) { pendingImage += b + '\n'; return; }
+        merged.push(pendingImage + b);
+        pendingImage = '';
+      });
+      if (pendingImage && merged.length) merged[merged.length - 1] += '\n' + pendingImage;
+
+      const candidate = merged.join('\n@@QBLOCK@@\n');
+      // Safety net: only trust this if it actually yields parseable questions
+      // (or at least found images) — otherwise fall through to plain text below,
+      // so an unusual document structure never silently breaks bulk upload.
+      if (merged.length > 0 && (Object.keys(parseQuestions(candidate)).length > 0 || Object.keys(localImages).length > 0)) {
+        extractedImageMap = localImages;
+        return candidate;
+      }
+    }
+
+    extractedImageMap = {};
+    const fallback = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return fallback.value;
   } else if (ext === 'pdf') {
     extractedImageMap = {};
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     let text = '';
     for (let i = 1; i <= pdf.numPages; i++) {
       const content = await (await pdf.getPage(i)).getTextContent();
-      text += content.items.map(it => it.str).join(' ') + '\n';
+      // Group text items into visual lines (by y-position) instead of joining
+      // the whole page with plain spaces — preserves line breaks so numbered
+      // questions/options don't get glued together end-to-end.
+      const lines = [];
+      let curY = null, curLine = [];
+      content.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        if (curY === null || Math.abs(y - curY) > 2) {
+          if (curLine.length) lines.push(curLine.join(' '));
+          curLine = [it.str];
+          curY = y;
+        } else {
+          curLine.push(it.str);
+        }
+      });
+      if (curLine.length) lines.push(curLine.join(' '));
+      text += lines.join('\n') + '\n';
     }
     return text;
   }
@@ -1734,8 +1786,43 @@ async function extractTextFromFile(file) {
 
 function parseQuestions(text) {
   const OPT = (L) => `\\(?${L}\\)?[.)]\\s*`; // matches A) A. (A) (A.) — case-insensitive
-  const blocks = text.split(/\n(?=\s*\d+[.)]\s)/).map(b => b.trim()).filter(Boolean);
   const out = {};
+
+  if (text.includes('@@QBLOCK@@')) {
+    // Position-based blocks from the docx paragraph extractor — one block per
+    // Word paragraph/list item, in document order. Numbers come from position,
+    // not from any literal "N." text, so this works whether the question file
+    // uses Word's auto-numbered list or manually typed numbers (a leading
+    // "N." is tolerated and simply stripped, not required).
+    const blocks = text.split('@@QBLOCK@@').map(b => b.trim()).filter(Boolean);
+    blocks.forEach((block, i) => {
+      const num = i + 1;
+      const rest = block.replace(/^\s*\d+[.)]\s*/, '');
+      const imgDataMatch = rest.match(/\[\[IMG_DATA:(\d+)\]\]/);
+      const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
+      const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
+      const qMatch = cleanedRest.match(new RegExp(`([\\s\\S]+?)${OPT('A')}`, 'i'));
+      const aMatch = rest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
+      const bMatch = rest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
+      const cMatch = rest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
+      const dMatch = rest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
+      if (qMatch && aMatch && bMatch && cMatch && dMatch) {
+        out[num] = {
+          question: qMatch[1].replace(/\s+/g,' ').trim(),
+          option_a: aMatch[1].replace(/\s+/g,' ').trim(),
+          option_b: bMatch[1].replace(/\s+/g,' ').trim(),
+          option_c: cMatch[1].replace(/\s+/g,' ').trim(),
+          option_d: dMatch[1].replace(/\s+/g,' ').trim(),
+          image_data_idx: imgDataMatch ? parseInt(imgDataMatch[1]) : null,
+          image_url: imgUrlMatch ? imgUrlMatch[1].trim() : null
+        };
+      }
+    });
+    return out;
+  }
+
+  // Legacy fallback (PDF text, or plain text with manually-typed numbers).
+  const blocks = text.split(/\n(?=\s*\d+[.)]\s)/).map(b => b.trim()).filter(Boolean);
   blocks.forEach(block => {
     const numMatch = block.match(/^(\d+)[.)]\s*/);
     if (!numMatch) return;
@@ -1745,10 +1832,10 @@ function parseQuestions(text) {
     const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
     const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
     const qMatch = cleanedRest.match(new RegExp(`([\\s\\S]+?)${OPT('A')}`, 'i'));
-    const aMatch = rest.match(new RegExp(`${OPT('A')}(.+?)\\s*${OPT('B')}`, 'is'));
-    const bMatch = rest.match(new RegExp(`${OPT('B')}(.+?)\\s*${OPT('C')}`, 'is'));
-    const cMatch = rest.match(new RegExp(`${OPT('C')}(.+?)\\s*${OPT('D')}`, 'is'));
-    const dMatch = rest.match(new RegExp(`${OPT('D')}(.+)`, 'is'));
+    const aMatch = rest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
+    const bMatch = rest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
+    const cMatch = rest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
+    const dMatch = rest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
     if (qMatch && aMatch && bMatch && cMatch && dMatch) {
       out[num] = {
         question: qMatch[1].replace(/\s+/g,' ').trim(),
@@ -1783,9 +1870,14 @@ async function loadQuestionFile() {
     loadedQuestions = parseQuestions(text);
     loadedQuestionImages = extractedImageMap;
     const imgCount = Object.keys(loadedQuestionImages).length;
+    const blankOptionNums = Object.keys(loadedQuestions).filter(n => {
+      const q = loadedQuestions[n];
+      return !q.option_a || !q.option_b || !q.option_c || !q.option_d;
+    });
     statusEl.textContent = `Loaded ${Object.keys(loadedQuestions).length} questions` +
       (imgCount ? ` (${imgCount} embedded image${imgCount > 1 ? 's' : ''} found)` : '') +
-      `. Now load the answer key.`;
+      `. Now load the answer key.` +
+      (blankOptionNums.length ? ` ⚠ Question(s) #${blankOptionNums.join(', ')} have a blank option — likely a native Word equation with no picture fallback; edit them manually in Question Manager after upload.` : '');
   } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
 }
 
@@ -1904,11 +1996,49 @@ function switchMasterTab(tab) {
   document.getElementById('master-tab-questions').classList.toggle('active', tab === 'questions');
   document.getElementById('master-tab-students').classList.toggle('active', tab === 'students');
   document.getElementById('master-tab-feedback').classList.toggle('active', tab === 'feedback');
+  document.getElementById('master-tab-insights').classList.toggle('active', tab === 'insights');
   document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
   document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
   document.getElementById('master-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
+  document.getElementById('master-view-insights').style.display = tab === 'insights' ? 'block' : 'none';
   if (tab === 'students') loadAdminDashboard();
   if (tab === 'feedback') loadFeedbackList();
+  if (tab === 'insights') loadInsights();
+}
+
+// Groups the visits table by day, showing unique anonymous vs logged-in
+// counts; clicking a day reveals the names/emails of that day's logged-in visitors.
+async function loadInsights() {
+  const container = document.getElementById('insights-list');
+  const { data, error } = await sb.from('visits').select('*').order('visit_date', { ascending: false });
+  if (error) { container.innerHTML = `<p style="color:var(--muted);">Couldn't load insights — has the "visits" table been created? (${error.message})</p>`; return; }
+
+  const byDate = {};
+  (data || []).forEach(v => {
+    if (!byDate[v.visit_date]) byDate[v.visit_date] = { anon: 0, logged: [] };
+    if (v.is_logged_in) byDate[v.visit_date].logged.push({ name: v.user_name || v.user_email || 'Unnamed', email: v.user_email || '' });
+    else byDate[v.visit_date].anon++;
+  });
+
+  const dates = Object.keys(byDate).sort().reverse();
+  container.innerHTML = dates.length ? dates.map(date => {
+    const d = byDate[date];
+    return `
+      <div class="insight-day" style="border:1px solid rgba(255,216,77,0.12);border-radius:4px;margin-bottom:0.8rem;overflow:hidden;">
+        <div onclick="toggleInsightDay('${date}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.9rem 1.2rem;cursor:pointer;background:rgba(255,216,77,0.03);">
+          <strong style="font-family:'Space Mono',monospace;font-size:0.8rem;">${date}</strong>
+          <span style="font-size:0.75rem;color:var(--muted);">👤 ${d.anon} anonymous &nbsp;·&nbsp; 🔑 ${d.logged.length} logged-in</span>
+        </div>
+        <div id="insight-users-${date}" style="display:none;padding:0.9rem 1.2rem;border-top:1px solid rgba(255,216,77,0.08);">
+          ${d.logged.length ? d.logged.map(u => `<p style="font-size:0.8rem;margin:0.3rem 0;">• ${u.name}${u.email ? ' <span style="color:var(--muted);">(' + u.email + ')</span>' : ''}</p>`).join('') : '<p style="color:var(--muted);font-size:0.8rem;">No logged-in visitors this day.</p>'}
+        </div>
+      </div>`;
+  }).join('') : '<p style="color:var(--muted);">No visit data yet.</p>';
+}
+
+function toggleInsightDay(date) {
+  const el = document.getElementById('insight-users-' + date);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 async function loadFeedbackList() {
@@ -2164,6 +2294,30 @@ window.addEventListener('beforeunload', function(e) {
     e.returnValue = '';
   }
 });
+
+// Records one row per unique visitor per day (upsert on date+visitor key), for
+// the admin's Insights tab. Works for both anonymous and logged-in visitors.
+async function trackVisit() {
+  try {
+    let anonId = localStorage.getItem('anon_visitor_id');
+    if (!anonId) {
+      anonId = 'anon_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+      localStorage.setItem('anon_visitor_id', anonId);
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    const user = session && session.user;
+    await sb.from('visits').upsert({
+      visit_date: new Date().toISOString().slice(0, 10),
+      visitor_key: user ? user.id : anonId,
+      user_id: user ? user.id : null,
+      user_name: user ? (user.user_metadata?.full_name || user.email) : null,
+      user_email: user ? user.email : null,
+      is_logged_in: !!user,
+      page: 'testseries.html'
+    }, { onConflict: 'visit_date,visitor_key' });
+  } catch (e) { console.error('visit tracking failed', e); }
+}
+trackVisit();
 
 initAuth();
 </script>
