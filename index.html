@@ -1549,11 +1549,12 @@ async function initNav() {
   let count = 0;
 
   if (isMasterUser) {
-    const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true }).is('admin_response', null);
+    const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true })
+      .or('seen_by_admin.is.null,seen_by_admin.eq.false');
     count = c || 0;
   } else {
     const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('seen_by_user', false).not('admin_response', 'is', null);
+      .eq('user_id', user.id).or('seen_by_user.is.null,seen_by_user.eq.false').not('admin_response', 'is', null);
     count = c || 0;
   }
 
@@ -1569,6 +1570,28 @@ function handleBellClick() {
     ? 'testseries.html?goto=admin-feedback'
     : 'testseries.html?goto=my-feedback';
 }
+
+async function trackVisit() {
+  try {
+    let anonId = localStorage.getItem('anon_visitor_id');
+    if (!anonId) {
+      anonId = 'anon_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+      localStorage.setItem('anon_visitor_id', anonId);
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    const user = session && session.user;
+    await sb.from('visits').upsert({
+      visit_date: new Date().toISOString().slice(0, 10),
+      visitor_key: user ? user.id : anonId,
+      user_id: user ? user.id : null,
+      user_name: user ? (user.user_metadata?.full_name || user.email) : null,
+      user_email: user ? user.email : null,
+      is_logged_in: !!user,
+      page: 'index.html'
+    }, { onConflict: 'visit_date,visitor_key' });
+  } catch (e) { console.error('visit tracking failed', e); }
+}
+trackVisit();
 
 initNav();
   function toggleMobileNav() {
