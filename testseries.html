@@ -293,6 +293,34 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div id="history-popup-content"></div>
 </div>
 
+<!-- EDIT QUESTION MODAL -->
+<div class="history-popup" id="edit-question-modal" style="max-width:600px;min-width:320px;">
+  <button class="history-close" onclick="closeEditQuestion()">✕</button>
+  <p class="history-popup-title">Edit Question</p>
+  <input type="hidden" id="eq-id"/>
+  <div class="form-group"><label class="form-label">Question</label>
+    <textarea id="eq-question" class="form-input" rows="3"></textarea></div>
+  <div class="form-group"><label class="form-label">Image URL (optional)</label>
+    <input id="eq-image" class="form-input" type="text"/></div>
+  <div class="form-group"><label class="form-label">Option A</label>
+    <input id="eq-a" class="form-input" type="text"/></div>
+  <div class="form-group"><label class="form-label">Option B</label>
+    <input id="eq-b" class="form-input" type="text"/></div>
+  <div class="form-group"><label class="form-label">Option C</label>
+    <input id="eq-c" class="form-input" type="text"/></div>
+  <div class="form-group"><label class="form-label">Option D</label>
+    <input id="eq-d" class="form-input" type="text"/></div>
+  <div class="form-group"><label class="form-label">Correct Answer</label>
+    <select id="eq-correct" class="form-input">
+      <option value="A">A</option><option value="B">B</option>
+      <option value="C">C</option><option value="D">D</option>
+    </select></div>
+  <div class="form-group"><label class="form-label">Concept (optional)</label>
+    <input id="eq-concept" class="form-input" type="text"/></div>
+  <button class="btn-primary" onclick="saveEditedQuestion()">Save Changes</button>
+  <p id="eq-status" style="font-size:0.78rem;color:var(--muted);margin-top:0.8rem;"></p>
+</div>
+
 <!-- ═══ LOGIN PAGE ═══ -->
 <div id="page-login" class="page active">
   <div class="login-wrap">
@@ -2225,6 +2253,7 @@ async function loadMasterQuestions() {
   const { data, error } = await sb.from('questions').select('*')
     .eq('class', cls).eq('test_type', type).eq('chapter', parseInt(chapter));
   if (error) return;
+  masterQuestionsCache = data || [];
 const tbody = document.getElementById('questions-table-body');
   tbody.innerHTML = (data || []).map((q, i) => `
     <tr>
@@ -2233,10 +2262,63 @@ const tbody = document.getElementById('questions-table-body');
       <td style="font-size:0.75rem;">A:${q.option_a}<br>B:${q.option_b}<br>C:${q.option_c}<br>D:${q.option_d}</td>
       <td><strong style="color:var(--gold)">${q.correct_answer}</strong></td>
       <td style="font-size:0.75rem;">${q.concept || '-'}</td>
-      <td><button class="btn-delete" onclick="deleteQuestion('${q.id}')">Delete</button></td>
+      <td>
+        <button class="btn-mark" onclick="editQuestion('${q.id}')">Edit</button>
+        <button class="btn-delete" onclick="deleteQuestion('${q.id}')">Delete</button>
+      </td>
     </tr>`).join('');
 
   if (window.MathJax) MathJax.typesetPromise([tbody]);
+}
+
+let masterQuestionsCache = [];
+
+function editQuestion(id) {
+  const q = masterQuestionsCache.find(r => String(r.id) === String(id));
+  if (!q) return;
+  document.getElementById('eq-id').value = q.id;
+  document.getElementById('eq-question').value = q.question || '';
+  document.getElementById('eq-image').value = q.image_url || '';
+  document.getElementById('eq-a').value = q.option_a || '';
+  document.getElementById('eq-b').value = q.option_b || '';
+  document.getElementById('eq-c').value = q.option_c || '';
+  document.getElementById('eq-d').value = q.option_d || '';
+  document.getElementById('eq-correct').value = q.correct_answer || 'A';
+  document.getElementById('eq-concept').value = q.concept || '';
+  document.getElementById('eq-status').textContent = '';
+  const modal = document.getElementById('edit-question-modal');
+  modal.style.left = '50%';
+  modal.style.top = '50%';
+  modal.style.transform = 'translate(-50%,-50%)';
+  modal.classList.add('show');
+}
+
+function closeEditQuestion() {
+  document.getElementById('edit-question-modal').classList.remove('show');
+}
+
+async function saveEditedQuestion() {
+  const id = document.getElementById('eq-id').value;
+  const statusEl = document.getElementById('eq-status');
+  const updated = {
+    question: document.getElementById('eq-question').value.trim(),
+    image_url: document.getElementById('eq-image').value.trim() || null,
+    option_a: document.getElementById('eq-a').value.trim(),
+    option_b: document.getElementById('eq-b').value.trim(),
+    option_c: document.getElementById('eq-c').value.trim(),
+    option_d: document.getElementById('eq-d').value.trim(),
+    correct_answer: document.getElementById('eq-correct').value,
+    concept: document.getElementById('eq-concept').value.trim() || null
+  };
+  if (!updated.question || !updated.option_a || !updated.option_b || !updated.option_c || !updated.option_d) {
+    statusEl.textContent = '⚠ Question and all four options are required.';
+    return;
+  }
+  statusEl.textContent = 'Saving...';
+  const { error } = await sb.from('questions').update(updated).eq('id', id);
+  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
+  closeEditQuestion();
+  loadMasterQuestions();
 }
 
 async function deleteQuestion(id) {
