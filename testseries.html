@@ -225,8 +225,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .h-attempt{color:var(--muted);}
 .h-score{color:var(--gold);font-family:'Space Mono',monospace;}
 .history-close{position:absolute;top:0.8rem;right:0.8rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;}
-  #edit-question-modal{max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
-#eq-fields{overflow-y:auto;flex:1;padding-right:0.4rem;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(5,9,24,0.72);z-index:998;}
+.modal-overlay.show{display:block;}
+#edit-question-modal{width:92vw;max-width:640px;max-height:88vh;flex-direction:column;overflow:hidden;z-index:999;}
+#edit-question-modal.show{display:flex;}
+#eq-fields{overflow-y:auto;flex:1;padding-right:0.4rem;margin-top:0.5rem;}
 .recent-tests{margin-top:2rem;}
 .recent-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--white);margin-bottom:1.5rem;}
 .recent-item{display:flex;justify-content:space-between;align-items:center;padding:1.2rem 1.5rem;background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.08);border-radius:3px;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;}
@@ -260,7 +263,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   .type-tabs{flex-wrap:wrap;}
   .type-tab{padding:0.6rem 1rem;}
   .history-popup,#student-modal{max-width:92vw;min-width:0;}
-  #edit-question-modal{max-height:92vh;}
+  #edit-question-modal{width:96vw;max-width:96vw;max-height:94vh;}
   .nav-user-name{display:none;}
 }
 </style>
@@ -297,7 +300,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 </div>
 
 <!-- EDIT QUESTION MODAL -->
-<div class="history-popup" id="edit-question-modal" style="max-width:600px;min-width:320px;">
+<div class="modal-overlay" id="edit-question-overlay" onclick="closeEditQuestion()"></div>
+<div class="history-popup" id="edit-question-modal">
   <button class="history-close" onclick="closeEditQuestion()">✕</button>
   <div id="eq-fields">
   <p class="history-popup-title">Edit Question</p>
@@ -323,8 +327,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <input id="eq-concept" class="form-input" type="text"/></div>
   <button class="btn-primary" onclick="saveEditedQuestion()">Save Changes</button>
   <p id="eq-status" style="font-size:0.78rem;color:var(--muted);margin-top:0.8rem;"></p>
-</div>
   </div>
+</div>
 
 <!-- ═══ LOGIN PAGE ═══ -->
 <div id="page-login" class="page active">
@@ -2296,11 +2300,17 @@ function editQuestion(id) {
   modal.style.top = '50%';
   modal.style.transform = 'translate(-50%,-50%)';
   modal.classList.add('show');
+  document.getElementById('edit-question-overlay').classList.add('show');
 }
 
 function closeEditQuestion() {
   document.getElementById('edit-question-modal').classList.remove('show');
+  document.getElementById('edit-question-overlay').classList.remove('show');
 }
+
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeEditQuestion();
+});
 
 async function saveEditedQuestion() {
   const id = document.getElementById('eq-id').value;
