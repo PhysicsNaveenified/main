@@ -12,6 +12,7 @@ window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 :root {
@@ -753,10 +754,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </select>
         <select id="filter-chapter" class="form-select" style="width:auto;" onchange="loadMasterQuestions()"></select>
       </div>
+      <div id="bulk-actions-bar" style="display:none;align-items:center;gap:1rem;margin-bottom:0.8rem;padding:0.6rem 1rem;background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:3px;">
+        <span id="bulk-selected-count" style="font-size:0.8rem;color:var(--muted2);"></span>
+        <button class="btn-delete" onclick="deleteSelectedQuestions()">Delete Selected</button>
+        <button class="btn-mark" onclick="clearQuestionSelection()">Clear Selection</button>
+      </div>
       <div style="overflow-x:auto;">
         <table class="question-table">
           <thead>
             <tr>
+              <th style="width:2.2rem;"><input type="checkbox" id="select-all-questions" onchange="toggleSelectAllQuestions(this)"/></th>
               <th>#</th>
               <th>Question</th>
               <th>Options</th>
@@ -1730,9 +1737,168 @@ let loadedAnswerKey = null;
 let loadedQuestionImages = {};
 
 let extractedImageMap = {};
+// ---- Word equation (OMML -> MathML) support -------------------------------
+// Word stores typed equations as OMML XML, not plain text or pictures, so
+// mammoth silently drops them. Modern browsers can transform OMML into real
+// MathML using their built-in XSLTProcessor and the same open-source
+// stylesheet Microsoft Word itself uses when you copy a formula out of Word
+// as MathML. Since MathJax (loaded at the top of this file, tex-mml-chtml
+// bundle) already renders native <math> tags automatically, embedding the
+// converted MathML directly into the question/option text is enough — no
+// extra MathJax config needed.
+let _ommlXsltDocPromise = null;
+function loadOmmlStylesheet() {
+  if (!_ommlXsltDocPromise) {
+    _ommlXsltDocPromise = fetch('https://raw.githubusercontent.com/lavakumarThatisetti/Extracting-Math-formulas-using-Apache-poi-in-java/master/OMML2MML.XSL')
+      .then(r => r.text())
+      .then(txt => new DOMParser().parseFromString(txt, 'application/xml'));
+  }
+  return _ommlXsltDocPromise;
+}
+
+function findAllByLocalName(root, name) {
+  const out = [];
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    const children = n.children ? Array.from(n.children) : [];
+    for (const c of children) {
+      const ln = c.localName || c.nodeName.replace(/^.*:/, '');
+      if (ln === name) out.push(c);
+      stack.push(c);
+    }
+  }
+  return out;
+}
+
+// Converts one <m:oMath>/<m:oMathPara> node into a plain '<math>...</math>'
+// HTML string. Each equation is transformed independently, wrapped in its
+// own try/catch — if one unusual/complex equation fails, it's simply left
+// out (same as today's behavior) instead of breaking the whole upload.
+function ommlNodeToMathHtml(node, xsltDoc) {
+  try {
+    const ommlXml = new XMLSerializer().serializeToString(node);
+    const ommlDoc = new DOMParser().parseFromString(ommlXml, 'application/xml');
+    const xproc = new XSLTProcessor();
+    xproc.importStylesheet(xsltDoc);
+    const frag = xproc.transformToFragment(ommlDoc, document);
+    let s = new XMLSerializer().serializeToString(frag);
+    // HTML only recognizes MathML via the literal (unprefixed) tag name
+    // "math" — strip the mml: namespace prefix the stylesheet outputs.
+    s = s.replace(/<(\/?)mml:/g, '<$1').replace(/\sxmlns:mml="[^"]*"/g, '');
+    return s;
+  } catch (e) {
+    return '';
+  }
+}
+
+async function getRelTargetDataUrl(zip, rels, rId, cache) {
+  if (cache[rId] !== undefined) return cache[rId];
+  const target = rels[rId];
+  if (!target) { cache[rId] = null; return null; }
+  const path = 'word/' + target.replace(/^\.\.\//, '').replace(/^\.?\//, '');
+  const imgFile = zip.file(path) || zip.file('word/' + target);
+  if (!imgFile) { cache[rId] = null; return null; }
+  const base64 = await imgFile.async('base64');
+  const ext = path.split('.').pop().toLowerCase();
+  const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp' }[ext] || 'image/png';
+  const url = 'data:' + mime + ';base64,' + base64;
+  cache[rId] = url;
+  return url;
+}
+
+// Reads a .docx directly (bypassing mammoth) so that equations AND images
+// AND text can all be placed in the correct order within each paragraph.
+// Returns the same { candidate, images } shape the rest of the upload
+// pipeline already expects (see the mammoth-based path below), so nothing
+// downstream (parseQuestions, bullet detection, etc.) needs to change.
+async function parseDocxRawWithMath(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const docFile = zip.file('word/document.xml');
+  if (!docFile) throw new Error('word/document.xml not found');
+  const docText = await docFile.async('text');
+  const doc = new DOMParser().parseFromString(docText, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('could not parse document.xml');
+
+  let rels = {};
+  const relsFile = zip.file('word/_rels/document.xml.rels');
+  if (relsFile) {
+    const relsDoc = new DOMParser().parseFromString(await relsFile.async('text'), 'application/xml');
+    Array.from(relsDoc.getElementsByTagName('Relationship')).forEach(r => {
+      rels[r.getAttribute('Id')] = r.getAttribute('Target');
+    });
+  }
+
+  const xsltDoc = await loadOmmlStylesheet();
+  const imgCache = {};
+  let imgIdx = 0;
+  const localImages = {};
+
+  async function walk(node, ctx) {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType !== 1) continue;
+      const ln = child.localName || child.nodeName.replace(/^.*:/, '');
+      if (ln === 'oMathPara' || ln === 'oMath') {
+        ctx.text += ommlNodeToMathHtml(child, xsltDoc);
+        continue; // don't also walk into the equation's own text runs
+      }
+      if (ln === 't') { ctx.text += child.textContent; continue; }
+      if (ln === 'tab') { ctx.text += '\t'; continue; }
+      if (ln === 'br' || ln === 'cr') { ctx.text += '\n'; continue; }
+      if (ln === 'drawing' || ln === 'pict') {
+        const blip = findAllByLocalName(child, 'blip')[0];
+        const rId = blip && (blip.getAttribute('r:embed') || blip.getAttribute('embed'));
+        if (rId) {
+          const url = await getRelTargetDataUrl(zip, rels, rId, imgCache);
+          if (url) {
+            const idx = imgIdx++;
+            localImages[idx] = url;
+            ctx.text += `[[IMG_DATA:${idx}]]`;
+          }
+        }
+        continue;
+      }
+      await walk(child, ctx);
+    }
+  }
+
+  const paragraphs = Array.from(doc.getElementsByTagName('w:p'));
+  const blocks = [];
+  for (const p of paragraphs) {
+    const ctx = { text: '' };
+    await walk(p, ctx);
+    const t = ctx.text.trim();
+    if (t) blocks.push(t);
+  }
+
+  const merged = [];
+  let pendingImage = '';
+  blocks.forEach(b => {
+    if (/^\[\[IMG_DATA:\d+\]\]$/.test(b)) { pendingImage += b + '\n'; return; }
+    merged.push(pendingImage + b);
+    pendingImage = '';
+  });
+  if (pendingImage && merged.length) merged[merged.length - 1] += '\n' + pendingImage;
+
+  return { candidate: merged.join('\n@@QBLOCK@@\n'), images: localImages };
+}
+
 async function extractTextFromFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'docx') {
+    // Try the equation-aware path first: reads the .docx directly so any
+    // Word-typed formulas (and images) come through in place, instead of
+    // being silently dropped. If anything about this document trips it up,
+    // fall straight through to the mammoth-based path below (unchanged),
+    // so a bulk upload never breaks outright.
+    try {
+      const raw = await parseDocxRawWithMath(file);
+      if (raw.candidate && Object.keys(parseQuestions(raw.candidate)).length > 0) {
+        extractedImageMap = raw.images;
+        return raw.candidate;
+      }
+    } catch (e) { /* fall through to mammoth below */ }
+
     let imgIdx = 0;
     const localImages = {};
     let html = null;
@@ -2263,9 +2429,12 @@ async function loadMasterQuestions() {
     .eq('class', cls).eq('test_type', type).eq('chapter', parseInt(chapter));
   if (error) return;
   masterQuestionsCache = data || [];
-const tbody = document.getElementById('questions-table-body');
+  selectedQuestionIds.clear();
+  updateBulkActionsBar();
+  const tbody = document.getElementById('questions-table-body');
   tbody.innerHTML = (data || []).map((q, i) => `
     <tr>
+      <td><input type="checkbox" class="q-select-checkbox" data-id="${q.id}" onchange="toggleQuestionSelect('${q.id}', this.checked)"/></td>
       <td>${i+1}</td>
       <td style="max-width:300px;">${q.question}</td>
       <td style="font-size:0.75rem;">A:${q.option_a}<br>B:${q.option_b}<br>C:${q.option_c}<br>D:${q.option_d}</td>
@@ -2276,6 +2445,8 @@ const tbody = document.getElementById('questions-table-body');
         <button class="btn-delete" onclick="deleteQuestion('${q.id}')">Delete</button>
       </td>
     </tr>`).join('');
+  const selectAllBox = document.getElementById('select-all-questions');
+  if (selectAllBox) selectAllBox.checked = false;
 
   if (window.MathJax) MathJax.typesetPromise([tbody]);
 }
@@ -2339,6 +2510,60 @@ async function saveEditedQuestion() {
 async function deleteQuestion(id) {
   if (!confirm('Delete this question?')) return;
   await sb.from('questions').delete().eq('id', id);
+  loadMasterQuestions();
+}
+
+// ---- Bulk select / delete ---------------------------------------------
+let selectedQuestionIds = new Set();
+
+function updateBulkActionsBar() {
+  const bar = document.getElementById('bulk-actions-bar');
+  const countEl = document.getElementById('bulk-selected-count');
+  const n = selectedQuestionIds.size;
+  if (n > 0) {
+    bar.style.display = 'flex';
+    countEl.textContent = n + ' question' + (n === 1 ? '' : 's') + ' selected';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function toggleQuestionSelect(id, checked) {
+  if (checked) selectedQuestionIds.add(String(id));
+  else selectedQuestionIds.delete(String(id));
+
+  const total = document.querySelectorAll('.q-select-checkbox').length;
+  const selectAllBox = document.getElementById('select-all-questions');
+  if (selectAllBox) selectAllBox.checked = total > 0 && selectedQuestionIds.size === total;
+
+  updateBulkActionsBar();
+}
+
+function toggleSelectAllQuestions(checkbox) {
+  const boxes = document.querySelectorAll('.q-select-checkbox');
+  boxes.forEach(b => {
+    b.checked = checkbox.checked;
+    if (checkbox.checked) selectedQuestionIds.add(b.dataset.id);
+    else selectedQuestionIds.delete(b.dataset.id);
+  });
+  updateBulkActionsBar();
+}
+
+function clearQuestionSelection() {
+  selectedQuestionIds.clear();
+  document.querySelectorAll('.q-select-checkbox').forEach(b => b.checked = false);
+  const selectAllBox = document.getElementById('select-all-questions');
+  if (selectAllBox) selectAllBox.checked = false;
+  updateBulkActionsBar();
+}
+
+async function deleteSelectedQuestions() {
+  const ids = Array.from(selectedQuestionIds);
+  if (ids.length === 0) return;
+  if (!confirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+  const { error } = await sb.from('questions').delete().in('id', ids);
+  if (error) { alert('Error deleting questions: ' + error.message); return; }
+  selectedQuestionIds.clear();
   loadMasterQuestions();
 }
 
