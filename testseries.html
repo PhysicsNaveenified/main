@@ -309,7 +309,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <input type="hidden" id="eq-id"/>
   <div class="form-group"><label class="form-label">Question</label>
     <textarea id="eq-question" class="form-input" rows="3"></textarea></div>
-  <div class="form-group"><label class="form-label">Image URL (optional)</label>
+  <div class="form-group"><label class="form-label">Question Image (optional)</label>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+      <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('eq-image-camera').click()">📷 Take Photo</button>
+      <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('eq-image-gallery').click()">🖼️ Choose from Gallery</button>
+    </div>
+    <input id="eq-image-camera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleEqImagePick(this)"/>
+    <input id="eq-image-gallery" type="file" accept="image/*" style="display:none;" onchange="handleEqImagePick(this)"/>
+    <p id="eq-image-name" style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem;"></p>
+    <p style="font-size:0.72rem;color:var(--muted);margin:0.6rem 0 0.3rem;">...or paste/edit a link instead:</p>
     <input id="eq-image" class="form-input" type="text"/></div>
   <div class="form-group"><label class="form-label">Option A</label>
     <input id="eq-a" class="form-input" type="text"/></div>
@@ -705,7 +713,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
           <textarea id="uq-question" class="form-input" rows="3" style="resize:vertical;" placeholder="Enter the question text"></textarea>
         </div>
         <div>
-          <label class="form-label">Image URL (Optional)</label>
+          <label class="form-label">Question Image (Optional)</label>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+            <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('uq-image-camera').click()">📷 Take Photo</button>
+            <button type="button" class="btn-upload" style="padding:0.5rem 1rem;font-size:0.65rem;" onclick="document.getElementById('uq-image-gallery').click()">🖼️ Choose from Gallery</button>
+          </div>
+          <input id="uq-image-camera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleUqImagePick(this)"/>
+          <input id="uq-image-gallery" type="file" accept="image/*" style="display:none;" onchange="handleUqImagePick(this)"/>
+          <p id="uq-image-name" style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem;"></p>
+          <p style="font-size:0.72rem;color:var(--muted);margin:0.6rem 0 0.3rem;">...or paste a link instead (Google Drive, Supabase Storage, Imgur):</p>
           <input id="uq-image" class="form-input" type="text" placeholder="Paste image link (Google Drive, Supabase Storage, or Imgur)"/>
         </div>
         <div class="upload-row">
@@ -2088,10 +2104,10 @@ function parseQuestions(text) {
       const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
       const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
       const qMatch = cleanedRest.match(new RegExp(`([\\s\\S]+?)${OPT('A')}`, 'i'));
-      const aMatch = rest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
-      const bMatch = rest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
-      const cMatch = rest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
-      const dMatch = rest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
+      const aMatch = cleanedRest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
+      const bMatch = cleanedRest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
+      const cMatch = cleanedRest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
+      const dMatch = cleanedRest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
       if (qMatch && aMatch && bMatch && cMatch && dMatch) {
         out[num] = {
           question: qMatch[1].replace(/\s+/g,' ').trim(),
@@ -2118,10 +2134,10 @@ function parseQuestions(text) {
     const imgUrlMatch = rest.match(/\[IMG:\s*(.+?)\]/);
     const cleanedRest = rest.replace(/\[\[IMG_DATA:\d+\]\]/g, '').replace(/\[IMG:\s*.+?\]/, '');
     const qMatch = cleanedRest.match(new RegExp(`([\\s\\S]+?)${OPT('A')}`, 'i'));
-    const aMatch = rest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
-    const bMatch = rest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
-    const cMatch = rest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
-    const dMatch = rest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
+    const aMatch = cleanedRest.match(new RegExp(`${OPT('A')}([\\s\\S]*?)\\s*${OPT('B')}`, 'i'));
+    const bMatch = cleanedRest.match(new RegExp(`${OPT('B')}([\\s\\S]*?)\\s*${OPT('C')}`, 'i'));
+    const cMatch = cleanedRest.match(new RegExp(`${OPT('C')}([\\s\\S]*?)\\s*${OPT('D')}`, 'i'));
+    const dMatch = cleanedRest.match(new RegExp(`${OPT('D')}([\\s\\S]*)`, 'i'));
     if (qMatch && aMatch && bMatch && cMatch && dMatch) {
       out[num] = {
         question: qMatch[1].replace(/\s+/g,' ').trim(),
@@ -2247,6 +2263,22 @@ async function uploadExtractedImage(dataUrl, questionNum) {
     return null;
   }
 }
+function handleUqImagePick(input) {
+  const other = input.id === 'uq-image-camera' ? 'uq-image-gallery' : 'uq-image-camera';
+  document.getElementById(other).value = '';
+  const file = input.files[0];
+  document.getElementById('uq-image-name').textContent = file ? `Selected: ${file.name}` : '';
+}
+
+async function uploadQuestionImageFile(file) {
+  const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  const fileName = `q_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await sb.storage.from('question-images').upload(fileName, file);
+  if (error) { alert('Image upload failed: ' + error.message); return null; }
+  const { data } = sb.storage.from('question-images').getPublicUrl(fileName);
+  return data.publicUrl;
+}
+
 async function uploadQuestion() {
   const cls = document.getElementById('uq-class').value;
   const type = document.getElementById('uq-type').value;
@@ -2265,7 +2297,14 @@ async function uploadQuestion() {
     alert('Please fill all fields!'); return;
   }
 
-const imageUrl = driveDirectUrl(document.getElementById('uq-image').value.trim());
+  let imageUrl = null;
+  const pickedFile = document.getElementById('uq-image-camera').files[0] || document.getElementById('uq-image-gallery').files[0];
+  if (pickedFile) {
+    imageUrl = await uploadQuestionImageFile(pickedFile);
+    if (!imageUrl) return; // upload failed, alert already shown
+  } else {
+    imageUrl = driveDirectUrl(document.getElementById('uq-image').value.trim());
+  }
   const { error } = await sb.from('questions').insert({
     class: cls, test_type: type, chapter, chapter_name: chapterName,
     question, option_a: optA, option_b: optB, option_c: optC, option_d: optD,
@@ -2274,8 +2313,11 @@ const imageUrl = driveDirectUrl(document.getElementById('uq-image').value.trim()
 
   if (error) { alert('Error: ' + error.message); return; }
   alert('Question added successfully!');
-  ['uq-question','uq-a','uq-b','uq-c','uq-d','uq-concept'].forEach(id =>
+  ['uq-question','uq-a','uq-b','uq-c','uq-d','uq-concept','uq-image'].forEach(id =>
     document.getElementById(id).value = '');
+  document.getElementById('uq-image-camera').value = '';
+  document.getElementById('uq-image-gallery').value = '';
+  document.getElementById('uq-image-name').textContent = '';
   loadMasterQuestions();
 }
 function switchMasterTab(tab) {
@@ -2542,6 +2584,9 @@ function editQuestion(id) {
   document.getElementById('eq-id').value = q.id;
   document.getElementById('eq-question').value = q.question || '';
   document.getElementById('eq-image').value = q.image_url || '';
+  document.getElementById('eq-image-camera').value = '';
+  document.getElementById('eq-image-gallery').value = '';
+  document.getElementById('eq-image-name').textContent = '';
   document.getElementById('eq-a').value = q.option_a || '';
   document.getElementById('eq-b').value = q.option_b || '';
   document.getElementById('eq-c').value = q.option_c || '';
@@ -2566,12 +2611,30 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') closeEditQuestion();
 });
 
+function handleEqImagePick(input) {
+  const other = input.id === 'eq-image-camera' ? 'eq-image-gallery' : 'eq-image-camera';
+  document.getElementById(other).value = '';
+  const file = input.files[0];
+  document.getElementById('eq-image-name').textContent = file ? `Selected: ${file.name}` : '';
+}
+
 async function saveEditedQuestion() {
   const id = document.getElementById('eq-id').value;
   const statusEl = document.getElementById('eq-status');
+
+  let imageUrl;
+  const pickedFile = document.getElementById('eq-image-camera').files[0] || document.getElementById('eq-image-gallery').files[0];
+  if (pickedFile) {
+    statusEl.textContent = 'Uploading image...';
+    imageUrl = await uploadQuestionImageFile(pickedFile);
+    if (!imageUrl) { statusEl.textContent = 'Image upload failed.'; return; }
+  } else {
+    imageUrl = document.getElementById('eq-image').value.trim() || null;
+  }
+
   const updated = {
     question: document.getElementById('eq-question').value.trim(),
-    image_url: document.getElementById('eq-image').value.trim() || null,
+    image_url: imageUrl,
     option_a: document.getElementById('eq-a').value.trim(),
     option_b: document.getElementById('eq-b').value.trim(),
     option_c: document.getElementById('eq-c').value.trim(),
