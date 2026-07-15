@@ -432,6 +432,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <p class="section-eyebrow">Test Series</p>
     <h1 class="section-title">Choose your <em>exam</em></h1>
     <p class="section-sub">Select the exam type to access chapter-wise tests designed specifically for that syllabus and pattern.</p>
+    <div id="dual-class-toggle" style="display:none;margin-bottom:2rem;">
+      <p style="font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem;">Viewing</p>
+      <div style="display:inline-flex;border:1px solid rgba(255,216,77,0.25);border-radius:3px;overflow:hidden;">
+        <button class="type-tab" id="dual-class-11" onclick="setActiveClass('11')">Class XI</button>
+        <button class="type-tab" id="dual-class-12" onclick="setActiveClass('12')">Class XII</button>
+      </div>
+    </div>
     <div class="type-grid">
       <div class="type-card gold" onclick="goToChapters('Board')">
         <p class="type-label">State Board</p>
@@ -820,6 +827,27 @@ if (urlGoto === 'admin-feedback' || urlGoto === 'my-feedback' || urlGoto === 'da
 }
 const MASTER_EMAIL = 'naganaveensir@gmail.com';
 const FREEZE_TIMER_EMAIL = 'naganaveen.mobile2@gmail.com';
+const DUAL_CLASS_EMAIL = 'naganaveen.mobile2@gmail.com'; // access to both Class XI and XII test series
+let activeClassOverride = null;
+
+// Returns the class whose content should currently be shown/queried. Normally
+// this is just the student's own registered class; for the dual-class account
+// it's whichever class they've toggled to on the Home page (kept in
+// sessionStorage so it survives a refresh), without altering their saved profile.
+function getActiveClass() {
+  return activeClassOverride || currentProfile.class;
+}
+
+function setActiveClass(cls) {
+  activeClassOverride = cls;
+  sessionStorage.setItem('activeClassOverride', cls);
+  const b11 = document.getElementById('dual-class-11');
+  const b12 = document.getElementById('dual-class-12');
+  if (b11 && b12) {
+    b11.classList.toggle('active', cls === '11');
+    b12.classList.toggle('active', cls === '12');
+  }
+}
 const CLASS11_CHAPTERS = [
   'Units and Measurements','Motion in a Straight Line','Motion in a Plane',
   'Laws of Motion','Work Energy and Power','System of Particles and Rotational Motion',
@@ -1003,10 +1031,18 @@ async function initAuth() {
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      await onLogin(session.user);
-    } else if (event === 'SIGNED_OUT') {
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
       showPage('login');
+      return;
+    }
+    // Supabase re-emits SIGNED_IN (and similar) on things like switching back
+    // to this browser tab or a background token refresh — not just a genuine
+    // new sign-in. Re-running onLogin() in those cases was what reset the
+    // master's Class/Chapter filters and scroll position. Only treat it as a
+    // real sign-in if the logged-in user has actually changed.
+    if (session && (!currentUser || currentUser.id !== session.user.id)) {
+      await onLogin(session.user);
     }
   });
 }
@@ -1019,9 +1055,12 @@ async function onLogin(user) {
 
   // Check if master
   if (user.email === MASTER_EMAIL) {
-    showPage('master');
-    populateChapterSelects();
-    loadMasterQuestions();
+    const alreadyOnMaster = document.getElementById('page-master').classList.contains('active');
+    if (!alreadyOnMaster) {
+      showPage('master');
+      populateChapterSelects();
+      loadMasterQuestions();
+    }
     updateNavBell();
     const pendingGoto = sessionStorage.getItem('pendingGoto');
     if (pendingGoto === 'admin-feedback') {
@@ -1036,6 +1075,10 @@ async function onLogin(user) {
   if (profile) {
     currentProfile = profile;
     updateNavBell();
+    if (currentUser.email === DUAL_CLASS_EMAIL) {
+      document.getElementById('dual-class-toggle').style.display = 'block';
+      setActiveClass(sessionStorage.getItem('activeClassOverride') || currentProfile.class);
+    }
     const pendingAction = sessionStorage.getItem('pendingAction');
     const pendingGoto = sessionStorage.getItem('pendingGoto');
     if (pendingAction === 'feedback' || pendingAction === 'doubt') {
@@ -1102,12 +1145,12 @@ async function saveProfile() {
 // ═══════════════════════════════════════════
 async function goToChapters(type) {
   currentTestType = type;
-  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const chapters = getActiveClass() === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
   const tileClass = type === 'Board' ? '' : type === 'CET' ? 'blue-tile' : 'green-tile';
   const colors = { Board: 'var(--gold)', CET: 'var(--blue)', JEE: '#64dc78' };
 
   document.getElementById('breadcrumb-type').textContent = type;
-  document.getElementById('chapters-eyebrow').textContent = `Class ${currentProfile.class} · ${type}`;
+  document.getElementById('chapters-eyebrow').textContent = `Class ${getActiveClass()} · ${type}`;
   document.getElementById('chapters-title').innerHTML = `Choose a <em style="color:${colors[type]};font-style:italic;">Chapter</em>`;
   document.getElementById('chapters-sub').textContent = `Select a chapter to start your ${type} test. Questions are loaded from the database.`;
 
@@ -1116,7 +1159,7 @@ async function goToChapters(type) {
     .select('chapter,percentage')
     .eq('user_id', currentUser.id)
     .eq('test_type', type)
-    .eq('class', currentProfile.class);
+    .eq('class', getActiveClass());
 
   // Best score per chapter
   const bestScores = {};
@@ -1131,7 +1174,7 @@ async function goToChapters(type) {
   // Count questions per chapter
   const { data: qCounts } = await sb.from('questions')
     .select('chapter')
-    .eq('class', currentProfile.class)
+    .eq('class', getActiveClass())
     .eq('test_type', type);
 
   const countMap = {};
@@ -1178,7 +1221,7 @@ async function startTest(chapter, chapterName) {
 
   let { data: questions, error } = await sb.from('questions')
     .select('*')
-    .eq('class', currentProfile.class)
+    .eq('class', getActiveClass())
     .eq('test_type', currentTestType)
     .eq('chapter', chapter);
 
@@ -1189,7 +1232,7 @@ async function startTest(chapter, chapterName) {
   // Load saved progress FIRST — decides whether this is a fresh attempt
   // or a resume, which determines whether we reshuffle or reuse the order.
   const { data: savedProgress } = await sb.from('test_progress')
-    .select('*').eq('user_id', currentUser.id).eq('class', currentProfile.class)
+    .select('*').eq('user_id', currentUser.id).eq('class', getActiveClass())
     .eq('test_type', currentTestType).eq('chapter', chapter).maybeSingle();
 
   let startedAt;
@@ -1265,7 +1308,7 @@ async function startTest(chapter, chapterName) {
 
   if (!savedProgress || !savedProgress.question_order) {
     await sb.from('test_progress').upsert({
-      user_id: currentUser.id, class: currentProfile.class, test_type: currentTestType,
+      user_id: currentUser.id, class: getActiveClass(), test_type: currentTestType,
       chapter, answers: userAnswers, marked: markedForReview,
       question_order: questions.filter(q => q.id).map(q => q.id),
       started_at: startedAt.toISOString(),
@@ -1334,7 +1377,7 @@ function scheduleAutosave() {
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     const { error } = await sb.from('test_progress').upsert({
-      user_id: currentUser.id, class: currentProfile.class, test_type: currentTestType,
+      user_id: currentUser.id, class: getActiveClass(), test_type: currentTestType,
       chapter: currentChapter, answers: userAnswers, marked: markedForReview,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id,class,test_type,chapter' });
@@ -1421,7 +1464,7 @@ async function submitTest() {
   const { data: prevAttempts } = await sb.from('test_results')
     .select('attempt_number')
     .eq('user_id', currentUser.id)
-    .eq('class', currentProfile.class)
+    .eq('class', getActiveClass())
     .eq('test_type', currentTestType)
     .eq('chapter', currentChapter);
 
@@ -1430,7 +1473,7 @@ async function submitTest() {
   // Save result
   await sb.from('test_results').insert({
     user_id: currentUser.id,
-    class: currentProfile.class,
+    class: getActiveClass(),
     test_type: currentTestType,
     chapter: currentChapter,
     chapter_name: currentChapterName,
@@ -1443,7 +1486,7 @@ async function submitTest() {
 
   showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum);
   await sb.from('test_progress').delete()
-    .eq('user_id', currentUser.id).eq('class', currentProfile.class)
+    .eq('user_id', currentUser.id).eq('class', getActiveClass())
     .eq('test_type', currentTestType).eq('chapter', currentChapter);
   sessionStorage.removeItem('testMeta');
 }
@@ -1598,7 +1641,7 @@ async function loadBookmarks() {
   }).join('') || '<p style="color:var(--muted);">No bookmarked questions yet.</p>';
 }
 function renderChart(type) {
-  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const chapters = getActiveClass() === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
   const filtered = allResults.filter(r => r.test_type === type);
 
   // Best score per chapter
@@ -1667,7 +1710,7 @@ function switchChartType(type, btn) {
 }
 
 function showHistory(chapter, attempts, event) {
-  const chapters = currentProfile.class === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const chapters = getActiveClass() === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
   const popup = document.getElementById('history-popup');
   document.getElementById('history-popup-title').textContent = `Ch ${chapter}: ${chapters[chapter-1]}`;
   document.getElementById('history-popup-content').innerHTML = attempts
@@ -1711,17 +1754,23 @@ function populateChapterSelects() {
   selects.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    sel.innerHTML = CLASS11_CHAPTERS.map((n, i) =>
+    const cls = (id === 'filter-chapter') ? document.getElementById('filter-class').value : '11';
+    const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+    sel.innerHTML = chapters.map((n, i) =>
       `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
   });
 
   document.getElementById('uq-class').addEventListener('change', function() {
     const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
-    ['uq-chapter','filter-chapter'].forEach(id => {
-      const sel = document.getElementById(id);
-      if (sel) sel.innerHTML = chapters.map((n,i) =>
-        `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
-    });
+    document.getElementById('uq-chapter').innerHTML = chapters.map((n,i) =>
+      `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+  });
+
+  document.getElementById('filter-class').addEventListener('change', function() {
+    const chapters = this.value === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+    document.getElementById('filter-chapter').innerHTML = chapters.map((n,i) =>
+      `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+    loadMasterQuestions();
   });
 
   document.getElementById('bulk-class').addEventListener('change', function() {
