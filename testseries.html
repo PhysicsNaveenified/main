@@ -913,11 +913,14 @@ const CLASS12_CHAPTERS = [
   'Wave Optics','Dual Nature of Radiation and Matter','Atoms','Nuclei','Semiconductor Electronics'
 ];
 const TIMER_PER_Q = { Board: 90, CET: 80, JEE: 144 };
-// Turns a Google Drive "share" link into a direct, embeddable link (used for question images only)
+// Turns a Google Drive "share" link into a direct, embeddable link (used for question images only).
+// Drive's old uc?export=view endpoint frequently serves a broken-image response now, even for
+// correctly-shared files — the thumbnail endpoint is the format Google still reliably supports
+// for hotlinked <img> tags. w1000 keeps resolution reasonable for a question diagram.
 function driveDirectUrl(url) {
   if (!url) return url;
   const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  if (m && m[1]) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
   return url;
 }
   async function updateNavBell() {
