@@ -923,6 +923,15 @@ function driveDirectUrl(url) {
   if (m && m[1]) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
   return url;
 }
+
+// Options can contain an embedded <img> tag (added via the option-image picker).
+// Rewrites its src through driveDirectUrl at render time — this fixes both newly
+// added option images and ones already saved earlier with a stale Drive URL
+// format baked into the text, without needing to re-edit every question.
+function fixOptionImages(text) {
+  if (!text) return text;
+  return text.replace(/<img([^>]*)src="([^"]+)"/gi, (match, attrs, src) => `<img${attrs}src="${driveDirectUrl(src)}"`);
+}
   async function updateNavBell() {
   const bell = document.getElementById('nav-bell');
   const badge = document.getElementById('bell-badge');
@@ -1332,7 +1341,7 @@ async function startTest(chapter, chapterName) {
         ${['A','B','C','D'].map(opt => `
           <label class="option-label ${userAnswers[i] === opt ? 'selected' : ''}" id="opt-${i}-${opt}" onclick="selectAnswer(${i},'${opt}',this)">
             <input type="radio" name="q${i}" value="${opt}" ${userAnswers[i] === opt ? 'checked' : ''}/>
-            <span><strong>${opt}.</strong> ${q['option_' + opt.toLowerCase()]}</span>
+            <span><strong>${opt}.</strong> ${fixOptionImages(q['option_' + opt.toLowerCase()])}</span>
           </label>
         `).join('')}
       </div>
@@ -1690,7 +1699,7 @@ async function loadBookmarks() {
         <p class="ri-chapter">Class ${q.class} · ${q.test_type} · Ch ${q.chapter}${q.chapter_name ? ': ' + q.chapter_name : ''}</p>
         <p style="margin-top:0.5rem;color:var(--white);font-size:0.88rem;">${q.question}</p>
         ${q.image_url ? `<img src="${driveDirectUrl(q.image_url)}" alt="Question image" style="max-width:100%;border-radius:3px;margin-top:0.6rem;"/>` : ''}
-        <p style="margin-top:0.6rem;font-size:0.78rem;color:var(--gold);"><strong>Correct answer:</strong> ${q.correct_answer} — ${q['option_' + (q.correct_answer || '').toLowerCase()] || ''}</p>
+        <p style="margin-top:0.6rem;font-size:0.78rem;color:var(--gold);"><strong>Correct answer:</strong> ${q.correct_answer} — ${fixOptionImages(q['option_' + (q.correct_answer || '').toLowerCase()]) || ''}</p>
         ${b.remark ? `<p style="margin-top:0.5rem;padding:0.6rem;background:rgba(255,216,77,0.06);border-left:3px solid var(--gold);border-radius:3px;font-size:0.8rem;">📝 ${b.remark}</p>` : ''}
       </div>`;
   }).join('') || '<p style="color:var(--muted);">No bookmarked questions yet.</p>';
@@ -2444,7 +2453,7 @@ async function loadMasterQuestions() {
       <td><input type="checkbox" class="q-select-checkbox" data-id="${q.id}" onchange="toggleQuestionSelect('${q.id}', this.checked)"/></td>
       <td>${i+1}</td>
       <td style="max-width:300px;">${q.question}</td>
-      <td style="font-size:0.75rem;">A:${q.option_a}<br>B:${q.option_b}<br>C:${q.option_c}<br>D:${q.option_d}</td>
+      <td style="font-size:0.75rem;">A:${fixOptionImages(q.option_a)}<br>B:${fixOptionImages(q.option_b)}<br>C:${fixOptionImages(q.option_c)}<br>D:${fixOptionImages(q.option_d)}</td>
       <td><strong style="color:var(--gold)">${q.correct_answer}</strong></td>
       <td style="font-size:0.75rem;">${q.concept || '-'}</td>
       <td>
