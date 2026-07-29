@@ -116,7 +116,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .tile-score{margin-top:0.8rem;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold);}
 .blue-tile .tile-score{color:var(--blue);}
 .green-tile .tile-score{color:#64dc78;}
-
+.feature-tile{border-style:dashed;}
+.qa-marks-heading{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:2rem 0 1rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(255,216,77,0.15);}
+.qa-item{padding:1.4rem;margin-bottom:1rem;background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.1);border-radius:3px;}
+.qa-item .qa-q{font-weight:600;margin-bottom:0.6rem;}
+.qa-item .qa-a{color:var(--muted2);font-size:0.9rem;}
+.qa-discuss-label{display:inline-flex;align-items:center;gap:0.5rem;margin-top:0.8rem;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--blue);cursor:pointer;}
 /* TEST PAGE */
   .qnav-panel{position:fixed;right:1.5rem;top:140px;width:170px;max-height:65vh;overflow-y:auto;background:rgba(11,19,48,0.95);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:1rem;z-index:150;}
 .qnav-title{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;}
@@ -518,10 +523,29 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <p class="section-eyebrow" id="chapters-eyebrow"></p>
     <h1 class="section-title" id="chapters-title"></h1>
     <p class="section-sub" id="chapters-sub"></p>
+    <div class="chapter-grid" id="board-feature-tiles" style="display:none;margin-bottom:2.5rem;">
+  <div class="chapter-tile feature-tile" onclick="openQAList('theory')">
+    <p class="tile-num">Board Exams</p>
+    <p class="tile-name">📝 Theory Questions</p>
+    <p class="tile-count">Marks-wise · Chapter-wise</p>
+  </div>
+  <div class="chapter-tile feature-tile blue-tile" onclick="openQAList('numerical')">
+    <p class="tile-num">Board Exams</p>
+    <p class="tile-name">🔢 Numericals</p>
+    <p class="tile-count">Marks-wise · Chapter-wise</p>
+  </div>
+</div>
     <div class="chapter-grid" id="chapter-grid"></div>
   </div>
 </div>
-
+<div id="page-qalist" class="page">
+  <div class="chapter-wrap">
+    <p class="breadcrumb" onclick="goToChapters('Board')">← <span id="qalist-breadcrumb"></span></p>
+    <p class="section-eyebrow" id="qalist-eyebrow"></p>
+    <h1 class="section-title" id="qalist-title"></h1>
+    <div id="qalist-container"></div>
+  </div>
+</div>
 <!-- ═══ TEST PAGE ═══ -->
 <div id="page-test" class="page">
   <div class="test-wrap">
@@ -629,6 +653,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <button class="type-tab" id="master-tab-students" onclick="switchMasterTab('students')">Student Dashboard</button>
       <button class="type-tab" id="master-tab-feedback" onclick="switchMasterTab('feedback')">Feedback &amp; Doubts</button>
       <button class="type-tab" id="master-tab-insights" onclick="switchMasterTab('insights')">Insights</button>
+      <button class="type-tab" id="master-tab-boardqa" onclick="switchMasterTab('boardqa')">Board Q&amp;A Upload</button>
     </div>
 <div id="master-view-insights" style="display:none;">
       <div class="upload-section">
@@ -669,7 +694,35 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </div>
       </div>
     </div>
-
+<div id="master-view-boardqa" style="display:none;">
+  <div class="upload-section">
+    <h3 class="upload-title">Theory Questions / Numericals — Bulk Upload (Word)</h3>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
+      Upload a <code>.docx</code> with a 3-column table: <strong>S.No | Question | Answer</strong>.
+      Type equations directly using <code>$...$</code> for inline or <code>$$...$$</code> for block MathJax,
+      or insert them as pictures — both survive the upload.
+    </p>
+    <div class="upload-row">
+      <div><label class="form-label">Class</label>
+        <select id="qa-class" class="form-select"><option value="11">Class XI</option><option value="12">Class XII</option></select>
+      </div>
+      <div><label class="form-label">Category</label>
+        <select id="qa-category" class="form-select"><option value="theory">Theory Questions</option><option value="numerical">Numericals</option></select>
+      </div>
+      <div><label class="form-label">Chapter Number</label><select id="qa-chapter" class="form-select"></select></div>
+      <div><label class="form-label">Marks</label>
+        <select id="qa-marks" class="form-select"><option>1</option><option>2</option><option>3</option><option>5</option></select>
+      </div>
+    </div>
+    <div class="upload-row">
+      <div><label class="form-label">Word File (S.No / Question / Answer table)</label>
+        <input type="file" id="qa-file" accept=".docx" class="form-input"/>
+      </div>
+    </div>
+    <button class="btn-upload" style="margin-top:1rem;background:var(--blue);" onclick="submitQABulkUpload()">Parse &amp; Upload →</button>
+    <div id="qa-upload-status" style="margin-top:1rem;font-size:0.8rem;color:var(--muted2);"></div>
+  </div>
+</div>
     <div id="master-view-questions">
 <div class="upload-section">
   <h3 class="upload-title">Bulk Upload (Word / PDF)</h3>
@@ -1234,7 +1287,120 @@ async function goToChapters(type) {
       }
     });
   }
+// ═══════════════════════════════════════════
+// BOARD: THEORY / NUMERICAL Q&A LIST
+// ═══════════════════════════════════════════
+const CAN_MARK_DISCUSSED = FREEZE_TIMER_EMAIL; // naganaveen.mobile2@gmail.com
 
+async function openQAList(category) {
+  const cls = getActiveClass();
+  document.getElementById('qalist-breadcrumb').textContent = 'Board Exams';
+  document.getElementById('qalist-eyebrow').textContent = `Class ${cls} · Board Exams`;
+  document.getElementById('qalist-title').innerHTML =
+    category === 'theory' ? 'Theory <em>Questions</em>' : '<em>Numericals</em>';
+
+  const { data, error } = await sb.from('theory_numerical_questions')
+    .select('*').eq('class', cls).eq('category', category)
+    .order('marks').order('chapter').order('s_no');
+
+  const container = document.getElementById('qalist-container');
+  if (error || !data || data.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);">No questions uploaded yet for this section.</p>';
+    showPage('qalist');
+    return;
+  }
+
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  const byMarks = {};
+  data.forEach(q => { (byMarks[q.marks] = byMarks[q.marks] || []).push(q); });
+
+  const canMark = currentUser && currentUser.email === CAN_MARK_DISCUSSED;
+
+  container.innerHTML = Object.keys(byMarks).sort((a,b)=>a-b).map(marks => {
+    const rows = byMarks[marks];
+    const byChapter = {};
+    rows.forEach(q => { (byChapter[q.chapter] = byChapter[q.chapter] || []).push(q); });
+    const chapterBlocks = Object.keys(byChapter).sort((a,b)=>a-b).map(ch => {
+      const items = byChapter[ch].map(q => `
+        <div class="qa-item">
+          <p class="qa-q">${q.s_no}. ${q.question_html}</p>
+          <p class="qa-a"><strong>Answer:</strong> ${q.answer_html}</p>
+          ${canMark ? `
+          <label class="qa-discuss-label">
+            <input type="checkbox" ${q.discussed ? 'checked' : ''} onchange="toggleDiscussed(${q.id}, this.checked)"/>
+            Discussed in class
+          </label>` : (q.discussed ? '<p class="qa-discuss-label">✓ Discussed in class</p>' : '')}
+        </div>`).join('');
+      return `<h4 style="margin:1.2rem 0 0.6rem;color:var(--muted2);">Chapter ${ch}: ${chapters[ch-1] || ''}</h4>${items}`;
+    }).join('');
+    return `<p class="qa-marks-heading">${marks}-Mark Questions</p>${chapterBlocks}`;
+  }).join('');
+
+  showPage('qalist');
+  if (window.MathJax) MathJax.typesetPromise([container]);
+}
+
+async function toggleDiscussed(id, checked) {
+  const { error } = await sb.from('theory_numerical_questions')
+    .update({ discussed: checked, discussed_at: checked ? new Date().toISOString() : null })
+    .eq('id', id);
+  if (error) alert('Could not save: ' + error.message);
+}
+
+// ── Admin upload ──
+function populateQAChapterSelect() {
+  const cls = document.getElementById('qa-class').value;
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  document.getElementById('qa-chapter').innerHTML =
+    chapters.map((n,i) => `<option value="${i+1}">Chapter ${i+1}: ${n}</option>`).join('');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('qa-class');
+  if (sel) sel.addEventListener('change', populateQAChapterSelect);
+});
+
+// Reads a 3-column Word table (S.No | Question | Answer). Equations typed as
+// $...$/$$...$$ pass through as plain text (MathJax renders them at display
+// time); equations inserted as pictures are preserved as base64 <img> tags.
+async function parseQATableDocx(file) {
+  let imgIdx = 0;
+  const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
+    convertImage: mammoth.images.imgElement(el => el.read('base64').then(buf =>
+      ({ src: 'data:' + el.contentType + ';base64,' + buf })))
+  });
+  const div = document.createElement('div');
+  div.innerHTML = result.value;
+  const rows = [...div.querySelectorAll('table tr')].slice(1); // skip header row
+  return rows.map(tr => {
+    const cells = tr.querySelectorAll('td,th');
+    return {
+      s_no: parseInt(cells[0]?.innerHTML.replace(/<[^>]+>/g,'').trim()) || 0,
+      question_html: (cells[1]?.innerHTML || '').trim(),
+      answer_html: (cells[2]?.innerHTML || '').trim()
+    };
+  }).filter(r => r.question_html);
+}
+
+async function submitQABulkUpload() {
+  const status = document.getElementById('qa-upload-status');
+  const file = document.getElementById('qa-file').files[0];
+  if (!file) { status.textContent = 'Choose a .docx file first.'; return; }
+  status.textContent = 'Parsing...';
+  try {
+    const rows = await parseQATableDocx(file);
+    if (rows.length === 0) throw new Error('No table rows found — check the file has a 3-column table.');
+    const payload = rows.map(r => ({
+      class: document.getElementById('qa-class').value,
+      category: document.getElementById('qa-category').value,
+      chapter: parseInt(document.getElementById('qa-chapter').value),
+      marks: parseInt(document.getElementById('qa-marks').value),
+      s_no: r.s_no, question_html: r.question_html, answer_html: r.answer_html
+    }));
+    const { error } = await sb.from('theory_numerical_questions').insert(payload);
+    if (error) throw error;
+    status.textContent = `Uploaded ${payload.length} question(s).`;
+  } catch (e) { status.textContent = 'Error: ' + e.message; }
+}
   // Count questions per chapter
   const { data: qCounts } = await sb.from('questions')
     .select('chapter')
@@ -2216,13 +2382,16 @@ function switchMasterTab(tab) {
   document.getElementById('master-tab-students').classList.toggle('active', tab === 'students');
   document.getElementById('master-tab-feedback').classList.toggle('active', tab === 'feedback');
   document.getElementById('master-tab-insights').classList.toggle('active', tab === 'insights');
+  document.getElementById('master-tab-boardqa').classList.toggle('active', tab === 'boardqa');
   document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
   document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
   document.getElementById('master-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
   document.getElementById('master-view-insights').style.display = tab === 'insights' ? 'block' : 'none';
+  document.getElementById('master-view-boardqa').style.display = tab === 'boardqa' ? 'block' : 'none';
   if (tab === 'students') loadAdminDashboard();
   if (tab === 'feedback') loadFeedbackList();
   if (tab === 'insights') loadInsights();
+  if (tab === 'boardqa') populateQAChapterSelect();
 }
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
