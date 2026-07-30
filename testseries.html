@@ -1552,8 +1552,14 @@ async function parseQATableDocx(file) {
 
   async function runToHtml(rNode) {
     let out = '';
+    const rPr = [...rNode.children].find(c => c.localName === 'rPr');
+    const vertAlignEl = rPr && [...rPr.children].find(c => c.localName === 'vertAlign');
+    const vertAlign = vertAlignEl && mVal(vertAlignEl);
     for (const child of rNode.children) {
-      if (child.localName === 't') out += escapeHtml(child.textContent);
+      if (child.localName === 't') {
+        const t = escapeHtml(child.textContent);
+        out += vertAlign === 'subscript' ? `<sub>${t}</sub>` : vertAlign === 'superscript' ? `<sup>${t}</sup>` : t;
+      }
       else if (child.localName === 'br' || child.localName === 'cr') out += '<br/>';
       else if (child.localName === 'tab') out += '&emsp;';
       else if (child.localName === 'drawing') {
