@@ -122,6 +122,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .qa-item .qa-q{font-weight:600;margin-bottom:0.6rem;}
 .qa-item .qa-a{color:var(--muted2);font-size:0.9rem;}
 .qa-discuss-label{display:inline-flex;align-items:center;gap:0.5rem;margin-top:0.8rem;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--blue);cursor:pointer;}
+
 /* TEST PAGE */
   .qnav-panel{position:fixed;right:1.5rem;top:140px;width:170px;max-height:65vh;overflow-y:auto;background:rgba(11,19,48,0.95);border:1px solid rgba(255,216,77,0.15);border-radius:4px;padding:1rem;z-index:150;}
 .qnav-title{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;}
@@ -524,20 +525,22 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <h1 class="section-title" id="chapters-title"></h1>
     <p class="section-sub" id="chapters-sub"></p>
     <div class="chapter-grid" id="board-feature-tiles" style="display:none;margin-bottom:2.5rem;">
-  <div class="chapter-tile feature-tile" onclick="openQAList('theory')">
-    <p class="tile-num">Board Exams</p>
-    <p class="tile-name">📝 Theory Questions</p>
-    <p class="tile-count">Marks-wise · Chapter-wise</p>
-  </div>
-  <div class="chapter-tile feature-tile blue-tile" onclick="openQAList('numerical')">
-    <p class="tile-num">Board Exams</p>
-    <p class="tile-name">🔢 Numericals</p>
-    <p class="tile-count">Marks-wise · Chapter-wise</p>
-  </div>
-</div>
+      <div class="chapter-tile feature-tile" onclick="openQAList('theory')">
+        <p class="tile-num">Board Exams</p>
+        <p class="tile-name">📝 Theory Questions</p>
+        <p class="tile-count">Marks-wise · Chapter-wise</p>
+      </div>
+      <div class="chapter-tile feature-tile blue-tile" onclick="openQAList('numerical')">
+        <p class="tile-num">Board Exams</p>
+        <p class="tile-name">🔢 Numericals</p>
+        <p class="tile-count">Marks-wise · Chapter-wise</p>
+      </div>
+    </div>
     <div class="chapter-grid" id="chapter-grid"></div>
   </div>
 </div>
+
+<!-- ═══ Q&A LIST PAGE (Theory Questions / Numericals) ═══ -->
 <div id="page-qalist" class="page">
   <div class="chapter-wrap">
     <p class="breadcrumb" onclick="goToChapters('Board')">← <span id="qalist-breadcrumb"></span></p>
@@ -546,6 +549,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <div id="qalist-container"></div>
   </div>
 </div>
+
 <!-- ═══ TEST PAGE ═══ -->
 <div id="page-test" class="page">
   <div class="test-wrap">
@@ -694,35 +698,35 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </div>
       </div>
     </div>
-<div id="master-view-boardqa" style="display:none;">
-  <div class="upload-section">
-    <h3 class="upload-title">Theory Questions / Numericals — Bulk Upload (Word)</h3>
-    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
-      Upload a <code>.docx</code> with a 3-column table: <strong>S.No | Question | Answer</strong>.
-      Type equations directly using <code>$...$</code> for inline or <code>$$...$$</code> for block MathJax,
-      or insert them as pictures — both survive the upload.
-    </p>
-    <div class="upload-row">
-      <div><label class="form-label">Class</label>
-        <select id="qa-class" class="form-select"><option value="11">Class XI</option><option value="12">Class XII</option></select>
-      </div>
-      <div><label class="form-label">Category</label>
-        <select id="qa-category" class="form-select"><option value="theory">Theory Questions</option><option value="numerical">Numericals</option></select>
-      </div>
-      <div><label class="form-label">Chapter Number</label><select id="qa-chapter" class="form-select"></select></div>
-      <div><label class="form-label">Marks</label>
-        <select id="qa-marks" class="form-select"><option>1</option><option>2</option><option>3</option><option>5</option></select>
+
+    <div id="master-view-boardqa" style="display:none;">
+      <div class="upload-section">
+        <h3 class="upload-title">Theory Questions / Numericals — Bulk Upload (Word)</h3>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
+          Upload a <code>.docx</code> file. Before each table, add a heading line like
+          <strong>"Chapter 5 - 2 Marks"</strong>, then the 3-column table: <strong>S.No | Question | Answer</strong>.
+          One file can contain multiple chapter/marks sections, each with its own heading + table.
+          Type equations directly using <code>$...$</code> for inline or <code>$$...$$</code> for block MathJax,
+          or insert them as pictures — both survive the upload intact.
+        </p>
+        <div class="upload-row">
+          <div>
+            <label class="form-label">Class</label>
+            <select id="qa-class" class="form-select"><option value="11">Class XI</option><option value="12">Class XII</option></select>
+          </div>
+          <div>
+            <label class="form-label">Section</label>
+            <select id="qa-category" class="form-select"><option value="theory">Theory Questions</option><option value="numerical">Numericals</option></select>
+          </div>
+          <div>
+            <label class="form-label">Word File (Chapter/Marks headings + tables)</label>
+            <input type="file" id="qa-file" accept=".docx" class="form-input"/>
+          </div>
+        </div>
+        <button class="btn-upload" style="margin-top:1rem;background:var(--blue);" onclick="submitQABulkUpload()">Parse &amp; Upload →</button>
+        <div id="qa-upload-status" style="margin-top:1rem;font-size:0.8rem;color:var(--muted2);"></div>
       </div>
     </div>
-    <div class="upload-row">
-      <div><label class="form-label">Word File (S.No / Question / Answer table)</label>
-        <input type="file" id="qa-file" accept=".docx" class="form-input"/>
-      </div>
-    </div>
-    <button class="btn-upload" style="margin-top:1rem;background:var(--blue);" onclick="submitQABulkUpload()">Parse &amp; Upload →</button>
-    <div id="qa-upload-status" style="margin-top:1rem;font-size:0.8rem;color:var(--muted2);"></div>
-  </div>
-</div>
     <div id="master-view-questions">
 <div class="upload-section">
   <h3 class="upload-title">Bulk Upload (Word / PDF)</h3>
@@ -1270,6 +1274,7 @@ async function goToChapters(type) {
   document.getElementById('chapters-eyebrow').textContent = `Class ${getActiveClass()} · ${type}`;
   document.getElementById('chapters-title').innerHTML = `Choose a <em style="color:${colors[type]};font-style:italic;">Chapter</em>`;
   document.getElementById('chapters-sub').textContent = `Select a chapter to start your ${type} test. Questions are loaded from the database.`;
+  document.getElementById('board-feature-tiles').style.display = type === 'Board' ? 'grid' : 'none';
 
   // Load best scores for this student
   const { data: results } = await sb.from('test_results')
@@ -1287,6 +1292,37 @@ async function goToChapters(type) {
       }
     });
   }
+
+  // Count questions per chapter
+  const { data: qCounts } = await sb.from('questions')
+    .select('chapter')
+    .eq('class', getActiveClass())
+    .eq('test_type', type);
+
+  const countMap = {};
+  if (qCounts) qCounts.forEach(q => { countMap[q.chapter] = (countMap[q.chapter] || 0) + 1; });
+
+  const grid = document.getElementById('chapter-grid');
+  grid.innerHTML = chapters.map((name, i) => {
+    const ch = i + 1;
+    const count = countMap[ch] || 0;
+    const best = bestScores[ch];
+    const scoreHTML = best !== undefined
+      ? `<p class="tile-score">Best: ${best.toFixed(0)}%</p>`
+      : `<p class="tile-score" style="color:var(--muted);">Not attempted</p>`;
+    return `
+      <div class="chapter-tile ${tileClass}" onclick="startTest(${ch},'${name.replace(/'/g,"\\'")}')">
+        <p class="tile-num">Chapter ${ch}</p>
+        <p class="tile-name">${name}</p>
+        <p class="tile-count">${count} questions</p>
+        ${scoreHTML}
+      </div>`;
+  }).join('');
+
+  showPage('chapters');
+  sessionStorage.setItem('lastChaptersType', type);
+}
+
 // ═══════════════════════════════════════════
 // BOARD: THEORY / NUMERICAL Q&A LIST
 // ═══════════════════════════════════════════
@@ -1316,11 +1352,11 @@ async function openQAList(category) {
 
   const canMark = currentUser && currentUser.email === CAN_MARK_DISCUSSED;
 
-  container.innerHTML = Object.keys(byMarks).sort((a,b)=>a-b).map(marks => {
+  container.innerHTML = Object.keys(byMarks).sort((a, b) => a - b).map(marks => {
     const rows = byMarks[marks];
     const byChapter = {};
     rows.forEach(q => { (byChapter[q.chapter] = byChapter[q.chapter] || []).push(q); });
-    const chapterBlocks = Object.keys(byChapter).sort((a,b)=>a-b).map(ch => {
+    const chapterBlocks = Object.keys(byChapter).sort((a, b) => a - b).map(ch => {
       const items = byChapter[ch].map(q => `
         <div class="qa-item">
           <p class="qa-q">${q.s_no}. ${q.question_html}</p>
@@ -1331,7 +1367,7 @@ async function openQAList(category) {
             Discussed in class
           </label>` : (q.discussed ? '<p class="qa-discuss-label">✓ Discussed in class</p>' : '')}
         </div>`).join('');
-      return `<h4 style="margin:1.2rem 0 0.6rem;color:var(--muted2);">Chapter ${ch}: ${chapters[ch-1] || ''}</h4>${items}`;
+      return `<h4 style="margin:1.2rem 0 0.6rem;color:var(--muted2);">Chapter ${ch}: ${chapters[ch - 1] || ''}</h4>${items}`;
     }).join('');
     return `<p class="qa-marks-heading">${marks}-Mark Questions</p>${chapterBlocks}`;
   }).join('');
@@ -1347,38 +1383,47 @@ async function toggleDiscussed(id, checked) {
   if (error) alert('Could not save: ' + error.message);
 }
 
-// ── Admin upload ──
-function populateQAChapterSelect() {
-  const cls = document.getElementById('qa-class').value;
-  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
-  document.getElementById('qa-chapter').innerHTML =
-    chapters.map((n,i) => `<option value="${i+1}">Chapter ${i+1}: ${n}</option>`).join('');
-}
-document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('qa-class');
-  if (sel) sel.addEventListener('change', populateQAChapterSelect);
-});
-
-// Reads a 3-column Word table (S.No | Question | Answer). Equations typed as
-// $...$/$$...$$ pass through as plain text (MathJax renders them at display
-// time); equations inserted as pictures are preserved as base64 <img> tags.
+// Reads a Word file containing one or more "Chapter N - M Marks" heading
+// paragraphs, each followed by a 3-column table (S.No | Question | Answer).
+// Equations typed as $...$ / $$...$$ pass through as plain text (MathJax
+// renders them on display); equations inserted as pictures become <img> tags.
 async function parseQATableDocx(file) {
-  let imgIdx = 0;
   const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
     convertImage: mammoth.images.imgElement(el => el.read('base64').then(buf =>
       ({ src: 'data:' + el.contentType + ';base64,' + buf })))
   });
   const div = document.createElement('div');
   div.innerHTML = result.value;
-  const rows = [...div.querySelectorAll('table tr')].slice(1); // skip header row
-  return rows.map(tr => {
-    const cells = tr.querySelectorAll('td,th');
-    return {
-      s_no: parseInt(cells[0]?.innerHTML.replace(/<[^>]+>/g,'').trim()) || 0,
-      question_html: (cells[1]?.innerHTML || '').trim(),
-      answer_html: (cells[2]?.innerHTML || '').trim()
-    };
-  }).filter(r => r.question_html);
+
+  const rows = [];
+  let currentChapter = null, currentMarks = null;
+
+  [...div.children].forEach(node => {
+    const text = node.textContent.trim();
+    const chMatch = text.match(/chapter\s*(\d+)/i);
+    const markMatch = text.match(/(\d+)\s*mark/i);
+    if (node.tagName !== 'TABLE' && (chMatch || markMatch)) {
+      if (chMatch) currentChapter = parseInt(chMatch[1]);
+      if (markMatch) currentMarks = parseInt(markMatch[1]);
+      return;
+    }
+    if (node.tagName === 'TABLE') {
+      const trs = [...node.querySelectorAll('tr')].slice(1); // skip header row
+      trs.forEach(tr => {
+        const cells = tr.querySelectorAll('td,th');
+        const q = (cells[1]?.innerHTML || '').trim();
+        if (!q) return;
+        rows.push({
+          chapter: currentChapter,
+          marks: currentMarks,
+          s_no: parseInt(cells[0]?.innerHTML.replace(/<[^>]+>/g, '').trim()) || 0,
+          question_html: q,
+          answer_html: (cells[2]?.innerHTML || '').trim()
+        });
+      });
+    }
+  });
+  return rows;
 }
 
 async function submitQABulkUpload() {
@@ -1388,47 +1433,25 @@ async function submitQABulkUpload() {
   status.textContent = 'Parsing...';
   try {
     const rows = await parseQATableDocx(file);
-    if (rows.length === 0) throw new Error('No table rows found — check the file has a 3-column table.');
+    const missingInfo = rows.filter(r => !r.chapter || !r.marks);
+    if (rows.length === 0) throw new Error('No table rows found — check the file has "Chapter N - M Marks" headings above each table.');
+    if (missingInfo.length > 0) throw new Error(`${missingInfo.length} row(s) are missing a Chapter/Marks heading above their table. Please check the file.`);
+
     const payload = rows.map(r => ({
       class: document.getElementById('qa-class').value,
       category: document.getElementById('qa-category').value,
-      chapter: parseInt(document.getElementById('qa-chapter').value),
-      marks: parseInt(document.getElementById('qa-marks').value),
-      s_no: r.s_no, question_html: r.question_html, answer_html: r.answer_html
+      chapter: r.chapter,
+      marks: r.marks,
+      s_no: r.s_no,
+      question_html: r.question_html,
+      answer_html: r.answer_html
     }));
     const { error } = await sb.from('theory_numerical_questions').insert(payload);
     if (error) throw error;
     status.textContent = `Uploaded ${payload.length} question(s).`;
-  } catch (e) { status.textContent = 'Error: ' + e.message; }
-}
-  // Count questions per chapter
-  const { data: qCounts } = await sb.from('questions')
-    .select('chapter')
-    .eq('class', getActiveClass())
-    .eq('test_type', type);
-
-  const countMap = {};
-  if (qCounts) qCounts.forEach(q => { countMap[q.chapter] = (countMap[q.chapter] || 0) + 1; });
-
-  const grid = document.getElementById('chapter-grid');
-  grid.innerHTML = chapters.map((name, i) => {
-    const ch = i + 1;
-    const count = countMap[ch] || 0;
-    const best = bestScores[ch];
-    const scoreHTML = best !== undefined
-      ? `<p class="tile-score">Best: ${best.toFixed(0)}%</p>`
-      : `<p class="tile-score" style="color:var(--muted);">Not attempted</p>`;
-    return `
-      <div class="chapter-tile ${tileClass}" onclick="startTest(${ch},'${name.replace(/'/g,"\\'")}')">
-        <p class="tile-num">Chapter ${ch}</p>
-        <p class="tile-name">${name}</p>
-        <p class="tile-count">${count} questions</p>
-        ${scoreHTML}
-      </div>`;
-  }).join('');
-
-  showPage('chapters');
-  sessionStorage.setItem('lastChaptersType', type);
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -2391,7 +2414,6 @@ function switchMasterTab(tab) {
   if (tab === 'students') loadAdminDashboard();
   if (tab === 'feedback') loadFeedbackList();
   if (tab === 'insights') loadInsights();
-  if (tab === 'boardqa') populateQAChapterSelect();
 }
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
