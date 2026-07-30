@@ -1426,27 +1426,101 @@ async function toggleDiscussed(id, checked) {
 // Reads a Word file containing one or more "Chapter N - M Marks" heading
 // paragraphs, each followed by a 3-column table (S.No | Question | Answer).
 // Word's native equations (Insert > Equation, stored as OMML XML) are
-// converted to real <math> MathML using Microsoft's public OMML2MML.XSL
-// stylesheet, so fractions/Greek letters/symbols render exactly as typed.
-// Typed $...$ text still works too, and embedded pictures become <img> tags.
+// converted directly to MathML (fractions, subscripts, superscripts, roots,
+// Greek letters/symbols) so they render exactly as typed. Typed $...$ text
+// still works too, and embedded pictures become <img> tags.
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-let _ommlXsltDoc = null;
-async function getOmmlXsltDoc() {
-  if (_ommlXsltDoc) return _ommlXsltDoc;
-  const xslText = await (await fetch('https://cdn.jsdelivr.net/gh/Versal/word2markdown@master/libs/omml2mml.xsl')).text();
-  _ommlXsltDoc = new DOMParser().parseFromString(xslText, 'application/xml');
-  return _ommlXsltDoc;
-}
+const MML_NS = 'http://www.w3.org/1998/Math/MathML';
 function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function mml(doc, tag, kids) { const el = doc.createElementNS(MML_NS, tag); (kids || []).forEach(k => el.appendChild(k)); return el; }
+function mmlText(doc, tag, text) { const el = doc.createElementNS(MML_NS, tag); el.textContent = text; return el; }
+function ommlKids(node) { return [...node.children].filter(c => !c.localName.endsWith('Pr')); }
+function ommlChild(node, name) { return [...node.children].find(c => c.localName === name); }
+function mVal(el) { return el ? (el.getAttribute('m:val') || el.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/math', 'val') || el.getAttribute('val')) : null; }
+function tokenizeRun(text, doc) {
+  const out = [];
+  const re = /([0-9]+(?:\.[0-9]+)?)|([A-Za-zΑ-Ωα-ω]+)|(\s+)|(.)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[1]) out.push(mmlText(doc, 'mn', m[1]));
+    else if (m[2]) out.push(mmlText(doc, 'mi', m[2]));
+    else if (m[4]) out.push(mmlText(doc, 'mo', m[4]));
+  }
+  return out;
+}
+function wrapRow(doc, nodes) { return nodes.length === 1 ? nodes[0] : mml(doc, 'mrow', nodes); }
+function convertContainer(node, doc) { return node ? ommlKids(node).flatMap(k => convertOmml(k, doc)) : []; }
+
+function convertOmml(node, doc) {
+  const e = (name) => ommlChild(node, name);
+  switch (node.localName) {
+    case 'oMath': case 'oMathPara':
+      return ommlKids(node).flatMap(k => convertOmml(k, doc));
+    case 'r':
+      return tokenizeRun(node.textContent, doc);
+    case 'f':
+      return [mml(doc, 'mfrac', [wrapRow(doc, convertContainer(e('num'), doc)), wrapRow(doc, convertContainer(e('den'), doc))])];
+    case 'sSub':
+      return [mml(doc, 'msub', [wrapRow(doc, convertContainer(e('e'), doc)), wrapRow(doc, convertContainer(e('sub'), doc))])];
+    case 'sSup':
+      return [mml(doc, 'msup', [wrapRow(doc, convertContainer(e('e'), doc)), wrapRow(doc, convertContainer(e('sup'), doc))])];
+    case 'sSubSup':
+      return [mml(doc, 'msubsup', [wrapRow(doc, convertContainer(e('e'), doc)), wrapRow(doc, convertContainer(e('sub'), doc)), wrapRow(doc, convertContainer(e('sup'), doc))])];
+    case 'rad': {
+      const deg = e('deg'), radicand = e('e');
+      const hideDeg = mVal(ommlChild(e('radPr') || node, 'degHide')) === '1' || !deg || !deg.textContent.trim();
+      return hideDeg
+        ? [mml(doc, 'msqrt', [wrapRow(doc, convertContainer(radicand, doc))])]
+        : [mml(doc, 'mroot', [wrapRow(doc, convertContainer(radicand, doc)), wrapRow(doc, convertContainer(deg, doc))])];
+    }
+    case 'd': {
+      const dPr = e('dPr');
+      const beg = mVal(ommlChild(dPr, 'begChr')) || '(';
+      const end = mVal(ommlChild(dPr, 'endChr')) || ')';
+      const parts = ommlKids(node).filter(k => k.localName === 'e').flatMap(k => convertContainer(k, doc));
+      return [mml(doc, 'mrow', [mmlText(doc, 'mo', beg), ...parts, mmlText(doc, 'mo', end)])];
+    }
+    case 'func': {
+      const name = convertContainer(e('fName'), doc);
+      const arg = convertContainer(e('e'), doc);
+      return [mml(doc, 'mrow', [wrapRow(doc, name), mmlText(doc, 'mo', '\u2061'), wrapRow(doc, arg)])];
+    }
+    case 'limLow':
+      return [mml(doc, 'munder', [wrapRow(doc, convertContainer(e('e'), doc)), wrapRow(doc, convertContainer(e('lim'), doc))])];
+    case 'limUpp':
+      return [mml(doc, 'mover', [wrapRow(doc, convertContainer(e('e'), doc)), wrapRow(doc, convertContainer(e('lim'), doc))])];
+    case 'acc': {
+      const chr = mVal(ommlChild(e('accPr'), 'chr')) || '^';
+      return [mml(doc, 'mover', [wrapRow(doc, convertContainer(e('e'), doc)), mmlText(doc, 'mo', chr)])];
+    }
+    case 'bar': {
+      const pos = mVal(ommlChild(e('barPr'), 'pos'));
+      const tag = pos === 'bot' ? 'munder' : 'mover';
+      return [mml(doc, tag, [wrapRow(doc, convertContainer(e('e'), doc)), mmlText(doc, 'mo', '\u2015')])];
+    }
+    case 'nary': {
+      const naryPr = e('naryPr');
+      const chr = mVal(ommlChild(naryPr, 'chr')) || '\u2211';
+      const sub = convertContainer(e('sub'), doc), sup = convertContainer(e('sup'), doc);
+      const opNode = sub.length || sup.length
+        ? mml(doc, 'msubsup', [mmlText(doc, 'mo', chr), wrapRow(doc, sub.length ? sub : [mmlText(doc,'mrow','')]), wrapRow(doc, sup.length ? sup : [mmlText(doc,'mrow','')])])
+        : mmlText(doc, 'mo', chr);
+      return [mml(doc, 'mrow', [opNode, ...convertContainer(e('e'), doc)])];
+    }
+    default:
+      return convertContainer(node, doc);
+  }
+}
+function omathToMathML(node, doc) {
+  return mml(doc, 'math', [mml(doc, 'mrow', convertOmml(node, doc))]);
+}
 
 async function parseQATableDocx(file) {
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const xmlText = await zip.file('word/document.xml').async('text');
   const xmlDoc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  const xsltDoc = await getOmmlXsltDoc();
-  const xsltProc = new XSLTProcessor();
-  xsltProc.importStylesheet(xsltDoc);
 
   // Map relationship IDs -> media file paths (for embedded pictures)
   const relsMap = {};
@@ -1473,8 +1547,7 @@ async function parseQATableDocx(file) {
   }
 
   function omathToHtml(node) {
-    const frag = xsltProc.transformToFragment(node, xmlDoc);
-    return frag ? new XMLSerializer().serializeToString(frag) : '';
+    return new XMLSerializer().serializeToString(omathToMathML(node, xmlDoc));
   }
 
   async function runToHtml(rNode) {
@@ -1622,9 +1695,15 @@ async function submitQAPdfUpload() {
   status.textContent = 'Uploading...';
   const { error: upErr } = await sb.storage.from('qa-pdfs').upload(path, file, { contentType: 'application/pdf' });
   if (upErr) {
-    status.textContent = /bucket not found/i.test(upErr.message)
-      ? 'Setup needed: create a Storage bucket named "qa-pdfs" (Supabase Dashboard → Storage → New bucket → Public) then try again.'
-      : 'Error: ' + upErr.message;
+    if (/bucket not found/i.test(upErr.message)) {
+      const { data: buckets } = await sb.storage.listBuckets();
+      const existing = buckets && buckets.length ? buckets.map(b => b.name).join(', ') : '(none found — none exist yet in this Supabase project)';
+      status.innerHTML = `Setup needed: create a Storage bucket named exactly <code>qa-pdfs</code>
+        (Supabase Dashboard → Storage → New bucket → Public), then try again.<br/>
+        Buckets currently visible to this app: ${existing}`;
+    } else {
+      status.textContent = 'Error: ' + upErr.message;
+    }
     return;
   }
   const { data: pub } = sb.storage.from('qa-pdfs').getPublicUrl(path);
