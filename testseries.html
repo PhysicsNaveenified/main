@@ -1425,44 +1425,121 @@ async function toggleDiscussed(id, checked) {
 
 // Reads a Word file containing one or more "Chapter N - M Marks" heading
 // paragraphs, each followed by a 3-column table (S.No | Question | Answer).
-// Equations typed as $...$ / $$...$$ pass through as plain text (MathJax
-// renders them on display); equations inserted as pictures become <img> tags.
-async function parseQATableDocx(file) {
-  const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, {
-    convertImage: mammoth.images.imgElement(el => el.read('base64').then(buf =>
-      ({ src: 'data:' + el.contentType + ';base64,' + buf })))
-  });
-  const div = document.createElement('div');
-  div.innerHTML = result.value;
+// Word's native equations (Insert > Equation, stored as OMML XML) are
+// converted to real <math> MathML using Microsoft's public OMML2MML.XSL
+// stylesheet, so fractions/Greek letters/symbols render exactly as typed.
+// Typed $...$ text still works too, and embedded pictures become <img> tags.
+const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+let _ommlXsltDoc = null;
+async function getOmmlXsltDoc() {
+  if (_ommlXsltDoc) return _ommlXsltDoc;
+  const xslText = await (await fetch('https://cdn.jsdelivr.net/gh/Versal/word2markdown@master/libs/omml2mml.xsl')).text();
+  _ommlXsltDoc = new DOMParser().parseFromString(xslText, 'application/xml');
+  return _ommlXsltDoc;
+}
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+async function parseQATableDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const xmlText = await zip.file('word/document.xml').async('text');
+  const xmlDoc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  const xsltDoc = await getOmmlXsltDoc();
+  const xsltProc = new XSLTProcessor();
+  xsltProc.importStylesheet(xsltDoc);
+
+  // Map relationship IDs -> media file paths (for embedded pictures)
+  const relsMap = {};
+  const relsFile = zip.file('word/_rels/document.xml.rels');
+  if (relsFile) {
+    const relsDoc = new DOMParser().parseFromString(await relsFile.async('text'), 'application/xml');
+    [...relsDoc.getElementsByTagName('Relationship')].forEach(r => {
+      relsMap[r.getAttribute('Id')] = r.getAttribute('Target');
+    });
+  }
+  const imgCache = {};
+  async function imgTag(embedId) {
+    const target = relsMap[embedId];
+    if (!target) return '';
+    if (!imgCache[embedId]) {
+      const path = 'word/' + target.replace(/^\/?word\//, '').replace(/^\.\//, '');
+      const f = zip.file(path) || zip.file('word/' + target);
+      if (!f) return '';
+      const ext = path.split('.').pop().toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : 'image/png';
+      imgCache[embedId] = 'data:' + mime + ';base64,' + await f.async('base64');
+    }
+    return `<img src="${imgCache[embedId]}"/>`;
+  }
+
+  function omathToHtml(node) {
+    const frag = xsltProc.transformToFragment(node, xmlDoc);
+    return frag ? new XMLSerializer().serializeToString(frag) : '';
+  }
+
+  async function runToHtml(rNode) {
+    let out = '';
+    for (const child of rNode.children) {
+      if (child.localName === 't') out += escapeHtml(child.textContent);
+      else if (child.localName === 'br' || child.localName === 'cr') out += '<br/>';
+      else if (child.localName === 'tab') out += '&emsp;';
+      else if (child.localName === 'drawing') {
+        const blip = child.getElementsByTagName('a:blip')[0] || [...child.getElementsByTagName('*')].find(e => e.localName === 'blip');
+        if (blip) out += await imgTag(blip.getAttributeNS(R_NS, 'embed'));
+      }
+    }
+    return out;
+  }
+
+  async function paragraphToHtml(pNode) {
+    let out = '';
+    for (const child of pNode.children) {
+      if (child.localName === 'r') out += await runToHtml(child);
+      else if (child.localName === 'oMath' || child.localName === 'oMathPara') out += omathToHtml(child);
+    }
+    return out;
+  }
+
+  async function cellToHtml(tcNode) {
+    const parts = [];
+    for (const p of [...tcNode.children].filter(c => c.localName === 'p')) parts.push(await paragraphToHtml(p));
+    return parts.join('<br/>').trim();
+  }
+
+  const body = xmlDoc.getElementsByTagNameNS(W_NS, 'body')[0];
   const rows = [];
   let currentChapter = null, currentMarks = null;
 
-  [...div.children].forEach(node => {
-    const text = node.textContent.trim();
-    const chMatch = text.match(/chapter\s*(\d+)/i);
-    const markMatch = text.match(/(\d+)\s*mark/i);
-    if (node.tagName !== 'TABLE' && (chMatch || markMatch)) {
+  for (const node of [...body.children]) {
+    if (node.localName === 'p') {
+      const text = node.textContent.trim();
+      const chMatch = text.match(/chapter\s*(\d+)/i);
+      const markMatch = text.match(/(\d+)\s*mark/i);
       if (chMatch) currentChapter = parseInt(chMatch[1]);
       if (markMatch) currentMarks = parseInt(markMatch[1]);
-      return;
-    }
-    if (node.tagName === 'TABLE') {
-      const trs = [...node.querySelectorAll('tr')].slice(1); // skip header row
-      trs.forEach(tr => {
-        const cells = tr.querySelectorAll('td,th');
-        const q = (cells[1]?.innerHTML || '').trim();
-        if (!q) return;
+    } else if (node.localName === 'tbl') {
+      let trs = [...node.getElementsByTagNameNS(W_NS, 'tr')];
+      // Only treat row 1 as a header to skip if its first cell ISN'T a number
+      // (i.e. real files with no header row, like "1 | Derive..." , are kept intact)
+      if (trs.length) {
+        const firstCellText = trs[0].getElementsByTagNameNS(W_NS, 'tc')[0]?.textContent.trim();
+        if (firstCellText && isNaN(parseInt(firstCellText))) trs = trs.slice(1);
+      }
+      for (const tr of trs) {
+        const cells = [...tr.getElementsByTagNameNS(W_NS, 'tc')];
+        const q = await cellToHtml(cells[1]);
+        if (!q) continue;
+        const sNoText = (await cellToHtml(cells[0])).replace(/<[^>]+>/g, '').trim();
         rows.push({
           chapter: currentChapter,
           marks: currentMarks,
-          s_no: parseInt(cells[0]?.innerHTML.replace(/<[^>]+>/g, '').trim()) || 0,
+          s_no: parseInt(sNoText) || 0,
           question_html: q,
-          answer_html: (cells[2]?.innerHTML || '').trim()
+          answer_html: await cellToHtml(cells[2])
         });
-      });
+      }
     }
-  });
+  }
   return rows;
 }
 
@@ -1544,7 +1621,12 @@ async function submitQAPdfUpload() {
   const path = `${cls}-${category}-${Date.now()}.pdf`;
   status.textContent = 'Uploading...';
   const { error: upErr } = await sb.storage.from('qa-pdfs').upload(path, file, { contentType: 'application/pdf' });
-  if (upErr) { status.textContent = 'Error: ' + upErr.message; return; }
+  if (upErr) {
+    status.textContent = /bucket not found/i.test(upErr.message)
+      ? 'Setup needed: create a Storage bucket named "qa-pdfs" (Supabase Dashboard → Storage → New bucket → Public) then try again.'
+      : 'Error: ' + upErr.message;
+    return;
+  }
   const { data: pub } = sb.storage.from('qa-pdfs').getPublicUrl(path);
   const { error: dbErr } = await sb.from('qa_pdfs')
     .upsert({ class: cls, category, pdf_url: pub.publicUrl }, { onConflict: 'class,category' });
