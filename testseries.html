@@ -121,6 +121,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 .qa-item{padding:1.4rem;margin-bottom:1rem;background:rgba(255,216,77,0.03);border:1px solid rgba(255,216,77,0.1);border-radius:3px;}
 .qa-item .qa-q{font-weight:600;margin-bottom:0.6rem;}
 .qa-item .qa-a{color:var(--muted2);font-size:0.9rem;}
+.qa-item img{max-width:100%;height:auto;display:block;margin:0.6rem 0;background:#fff;border-radius:2px;}
+.qa-manage-item{display:flex;align-items:flex-start;gap:0.8rem;padding:0.9rem;border-bottom:1px solid rgba(255,216,77,0.08);}
+.qa-manage-item input[type=checkbox]{margin-top:0.3rem;width:16px;height:16px;flex-shrink:0;}
 .qa-discuss-label{display:inline-flex;align-items:center;gap:0.5rem;margin-top:0.8rem;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--blue);cursor:pointer;}
 
 /* TEST PAGE */
@@ -707,7 +710,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
           <strong>"Chapter 5 - 2 Marks"</strong>, then the 3-column table: <strong>S.No | Question | Answer</strong>.
           One file can contain multiple chapter/marks sections, each with its own heading + table.
           Type equations directly using <code>$...$</code> for inline or <code>$$...$$</code> for block MathJax,
-          or insert them as pictures — both survive the upload intact.
+          or insert them as a <strong>picture/screenshot</strong> — both survive the upload intact.
+          <strong>Note:</strong> equations made with Word's built-in Equation Editor (Insert → Equation) cannot be
+          extracted and will appear blank — please retype those using <code>$...$</code> or paste them in as an image instead.
         </p>
         <div class="upload-row">
           <div>
@@ -725,6 +730,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </div>
         <button class="btn-upload" style="margin-top:1rem;background:var(--blue);" onclick="submitQABulkUpload()">Parse &amp; Upload →</button>
         <div id="qa-upload-status" style="margin-top:1rem;font-size:0.8rem;color:var(--muted2);"></div>
+      </div>
+
+      <div class="upload-section" style="margin-top:1.5rem;">
+        <h3 class="upload-title">Manage / Delete Existing Questions</h3>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Shows questions for the Class + Section selected above.</p>
+        <label style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;font-size:0.85rem;">
+          <input type="checkbox" id="qa-select-all" onchange="toggleSelectAllQA(this.checked)"/> Select All
+        </label>
+        <div id="qa-manage-list" style="max-height:400px;overflow-y:auto;border:1px solid rgba(255,216,77,0.1);border-radius:3px;"></div>
+        <button class="btn-upload" style="margin-top:1rem;background:#c94040;" onclick="deleteSelectedQA()">Delete Selected</button>
       </div>
     </div>
     <div id="master-view-questions">
@@ -1337,7 +1352,7 @@ async function openQAList(category) {
 
   const { data, error } = await sb.from('theory_numerical_questions')
     .select('*').eq('class', cls).eq('category', category)
-    .order('marks').order('chapter').order('s_no');
+    .order('marks', { ascending: false }).order('chapter').order('s_no');
 
   const container = document.getElementById('qalist-container');
   if (error || !data || data.length === 0) {
@@ -1352,7 +1367,7 @@ async function openQAList(category) {
 
   const canMark = currentUser && currentUser.email === CAN_MARK_DISCUSSED;
 
-  container.innerHTML = Object.keys(byMarks).sort((a, b) => a - b).map(marks => {
+  container.innerHTML = Object.keys(byMarks).sort((a, b) => b - a).map(marks => {
     const rows = byMarks[marks];
     const byChapter = {};
     rows.forEach(q => { (byChapter[q.chapter] = byChapter[q.chapter] || []).push(q); });
@@ -1449,9 +1464,50 @@ async function submitQABulkUpload() {
     const { error } = await sb.from('theory_numerical_questions').insert(payload);
     if (error) throw error;
     status.textContent = `Uploaded ${payload.length} question(s).`;
+    loadQAManageList();
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
   }
+}
+
+async function loadQAManageList() {
+  const cls = document.getElementById('qa-class').value;
+  const category = document.getElementById('qa-category').value;
+  const { data, error } = await sb.from('theory_numerical_questions')
+    .select('id,chapter,marks,s_no,question_html')
+    .eq('class', cls).eq('category', category)
+    .order('marks', { ascending: false }).order('chapter').order('s_no');
+
+  const list = document.getElementById('qa-manage-list');
+  document.getElementById('qa-select-all').checked = false;
+  if (error || !data || data.length === 0) {
+    list.innerHTML = '<p style="padding:1rem;color:var(--muted);font-size:0.85rem;">No questions found for this Class/Section.</p>';
+    return;
+  }
+  list.innerHTML = data.map(q => `
+    <div class="qa-manage-item">
+      <input type="checkbox" class="qa-manage-check" value="${q.id}"/>
+      <span style="font-size:0.85rem;">Ch.${q.chapter} · ${q.marks}-Mark · #${q.s_no}: ${q.question_html.replace(/<[^>]+>/g, '').slice(0, 100)}</span>
+    </div>`).join('');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  ['qa-class', 'qa-category'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', loadQAManageList);
+  });
+});
+
+function toggleSelectAllQA(checked) {
+  document.querySelectorAll('.qa-manage-check').forEach(cb => cb.checked = checked);
+}
+
+async function deleteSelectedQA() {
+  const ids = [...document.querySelectorAll('.qa-manage-check:checked')].map(cb => parseInt(cb.value));
+  if (ids.length === 0) { alert('No questions selected.'); return; }
+  if (!confirm(`Delete ${ids.length} question(s)? This cannot be undone.`)) return;
+  const { error } = await sb.from('theory_numerical_questions').delete().in('id', ids);
+  if (error) { alert('Delete failed: ' + error.message); return; }
+  loadQAManageList();
 }
 
 // ═══════════════════════════════════════════
@@ -2414,6 +2470,7 @@ function switchMasterTab(tab) {
   if (tab === 'students') loadAdminDashboard();
   if (tab === 'feedback') loadFeedbackList();
   if (tab === 'insights') loadInsights();
+  if (tab === 'boardqa') loadQAManageList();
 }
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
