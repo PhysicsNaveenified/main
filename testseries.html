@@ -537,7 +537,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <p class="tile-name">📝 Theory Questions</p>
         <p class="tile-count">Marks-wise · Chapter-wise</p>
       </div>
-      <div class="chapter-tile feature-tile blue-tile" onclick="openQAList('numerical')">
+      <div class="chapter-tile feature-tile blue-tile" onclick="openNumericals()">
         <p class="tile-num">Board Exams</p>
         <p class="tile-name">🔢 Numericals</p>
         <p class="tile-count">Marks-wise · Chapter-wise</p>
@@ -1360,6 +1360,19 @@ async function goToChapters(type) {
 // BOARD: THEORY / NUMERICAL Q&A LIST
 // ═══════════════════════════════════════════
 const CAN_MARK_DISCUSSED = FREEZE_TIMER_EMAIL; // naganaveen.mobile2@gmail.com
+
+function openNumericals() {
+  const urls = {
+    '11': '#REPLACE_NUMERICALS_XI',
+    '12': 'https://drive.google.com/file/d/1_fhDCa_T_IwRrcRTPBB5ZmReUxCm7th1/view?usp=drive_link'
+  };
+  const url = urls[getActiveClass()];
+  if (url && !url.includes('REPLACE')) {
+    window.open(url, '_blank');
+  } else {
+    alert('Class 11 Numericals link coming soon!');
+  }
+}
 
 async function openQAList(category) {
   const cls = getActiveClass();
