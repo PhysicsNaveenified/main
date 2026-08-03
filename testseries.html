@@ -657,7 +657,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
           <button class="type-tab" onclick="switchChartType('CET',this)">CET/NEET</button>
           <button class="type-tab" onclick="switchChartType('JEE',this)">JEE</button>
         </div>
-        <canvas id="perf-chart" height="100"></canvas>
+        <div style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+          <div id="perf-chart-inner" style="min-width:320px;">
+            <canvas id="perf-chart" height="100"></canvas>
+          </div>
+        </div>
       </div>
       <div class="recent-tests">
         <h3 class="recent-title">Recent Tests</h3>
@@ -683,7 +687,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </div>
         <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;">
           <textarea id="chat-message" class="form-input" rows="2" style="flex:1;min-width:200px;resize:vertical;" placeholder="Type a message..."></textarea>
-          <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('chat-image-input').click()">📷</button>
+          <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('chat-image-camera').click()">📷 Camera</button>
+          <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('chat-image-gallery').click()">🖼️ Gallery</button>
+          <input id="chat-image-camera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleChatImagePick(this)"/>
+          <input id="chat-image-gallery" type="file" accept="image/*" style="display:none;" onchange="handleChatImagePick(this)"/>
           <input id="chat-image-input" type="file" accept="image/*" style="display:none;" onchange="handleChatImagePick(this)"/>
           <button class="btn-primary" style="padding:0.6rem 1.3rem;" onclick="sendMyChatMessage()">Send →</button>
         </div>
@@ -1141,7 +1148,8 @@ async function sendMyChatMessage() {
   });
   if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
   document.getElementById('chat-message').value = '';
-  document.getElementById('chat-image-input').value = '';
+  document.getElementById('chat-image-camera').value = '';
+  document.getElementById('chat-image-gallery').value = '';
   document.getElementById('chat-image-name').textContent = '';
   chatImageFile = null;
   statusEl.textContent = '';
@@ -2896,12 +2904,12 @@ function switchMasterTab(tab) {
 let insightsByDate = {};
 let insightsChart = null;
 async function loadInsights() {
-  const container = document.getElementById('insights-list');
-  const { data, error } = await sb.from('visits').select('*').neq('user_email', MASTER_EMAIL).order('visit_date', { ascending: false });
+  const { data, error } = await sb.from('visits').select('*').order('visit_date', { ascending: false });
   if (error) { container.innerHTML = `<p style="color:var(--muted);">Couldn't load insights — has the "visits" table been created? (${error.message})</p>`; return; }
 
   insightsByDate = {};
   (data || []).forEach(v => {
+    if (v.user_email === MASTER_EMAIL) return; // exclude admin's own visits
     if (!insightsByDate[v.visit_date]) insightsByDate[v.visit_date] = { anon: 0, logged: [] };
     if (v.is_logged_in) insightsByDate[v.visit_date].logged.push({ name: v.user_name || v.user_email || 'Unnamed', email: v.user_email || '' });
     else insightsByDate[v.visit_date].anon++;
@@ -2911,10 +2919,14 @@ async function loadInsights() {
   const allDates = Object.keys(insightsByDate).sort();
   const pastDates = allDates.filter(d => d !== todayStr);
 
-  container.innerHTML = `
+container.innerHTML = `
     <div id="insight-today"></div>
     <h4 style="font-size:0.85rem;color:var(--muted);margin:1.4rem 0 0.6rem;">Previous Days</h4>
-    <canvas id="insights-chart" height="90"></canvas>
+    <div style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+      <div style="min-width:${Math.max(pastDates.length * 60, 320)}px;">
+        <canvas id="insights-chart" height="90"></canvas>
+      </div>
+    </div>
     <div id="insight-day-detail" style="margin-top:1rem;"></div>
   `;
   renderInsightToday(todayStr);
