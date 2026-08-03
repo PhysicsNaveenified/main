@@ -293,7 +293,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
   /* Search bars */
   #my-chat-search,#admin-chat-search{font-size:0.85rem;}
-  #insights-chart{height:260px !important;}
+#insights-chart{height:520px !important;}
 
   /* Registration form card — full width with breathing room */
   .profile-card{width:92vw;padding:1.5rem 1.2rem;}
@@ -2960,8 +2960,8 @@ async function loadInsights() {
     data: {
       labels: pastDates,
       datasets: [
-        { label: 'Logged-in', data: loggedData, backgroundColor: 'rgba(255,216,77,0.8)' },
-        { label: 'Anonymous', data: anonData, backgroundColor: 'rgba(90,175,255,0.6)' }
+        { label: 'Logged-in', data: loggedData, backgroundColor: 'rgba(255,216,77,0.8)', maxBarThickness: 28 },
+        { label: 'Anonymous', data: anonData, backgroundColor: 'rgba(90,175,255,0.6)', maxBarThickness: 28 }
       ]
     },
     options: {
