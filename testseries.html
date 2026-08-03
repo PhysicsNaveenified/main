@@ -2961,37 +2961,6 @@ async function loadInsights() {
       plugins: { legend: { labels: { color: '#faf8f2' } } }
     }
   });
-}  renderInsightToday(todayStr);
-
-  if (!pastDates.length) {
-    document.getElementById('insights-chart').outerHTML = '<p style="color:var(--muted);">No previous visit data yet.</p>';
-    return;
-  }
-  const ctx = document.getElementById('insights-chart').getContext('2d');
-  const anonData = pastDates.map(d => insightsByDate[d].anon);
-  const loggedData = pastDates.map(d => insightsByDate[d].logged.length);
-  if (insightsChart) insightsChart.destroy();
-  insightsChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: pastDates,
-      datasets: [
-        { label: 'Logged-in', data: loggedData, backgroundColor: 'rgba(255,216,77,0.8)' },
-        { label: 'Anonymous', data: anonData, backgroundColor: 'rgba(90,175,255,0.6)' }
-      ]
-    },
-    options: {
-      responsive: true,
-      onClick: (evt, els) => {
-        if (!els.length) return;
-        const date = pastDates[els[0].index];
-        renderInsightDayDetail(date);
-      },
-      scales: { x: { stacked: true, ticks: { color: '#faf8f2' } }, y: { stacked: true, ticks: { color: '#faf8f2' } } },
-      plugins: { legend: { labels: { color: '#faf8f2' } } }
-    }
-  });
-}
 
 function renderInsightToday(todayStr) {
   const d = insightsByDate[todayStr] || { anon: 0, logged: [] };
