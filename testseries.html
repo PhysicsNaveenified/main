@@ -293,12 +293,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
   /* Search bars */
   #my-chat-search,#admin-chat-search{font-size:0.85rem;}
-
-  /* Insights chart — shrink height so bars don't get too cramped on narrow screens */
-  #insights-chart{height:70px !important;}
+  #insights-chart{height:260px !important;}
 
   /* Registration form card — full width with breathing room */
   .profile-card{width:92vw;padding:1.5rem 1.2rem;}
+}
+  @media(min-width:769px){
+  #dash-feedback-list p[style*="white-space:pre-wrap"],
+  #admin-chat-messages p[style*="white-space:pre-wrap"]{font-size:1.05rem !important;}
+  .chat-bubble-img{max-width:260px !important;}
 }
 </style>
 </head>
@@ -1048,7 +1051,7 @@ function renderChatBubbles(msgs, viewerIsAdmin) {
           ${!isMe && m.from === 'admin' ? `<p style="font-size:0.6rem;color:#64dc78;font-weight:600;margin-bottom:0.2rem;">Naveen Sir</p>` : ''}
           ${m.tag ? `<p style="font-size:0.58rem;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.25rem;">${m.tag === 'doubt' ? '❓ Doubt' : '💬 Feedback'}${m.chapterInfo ? ' · ' + m.chapterInfo : ''}</p>` : ''}
           <p style="font-size:0.85rem;color:var(--white);white-space:pre-wrap;">${escapeHtml(m.text || '')}</p>
-          ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;cursor:pointer;" onclick="openImageLightbox('${m.image}')"/>` : ''}
+          ${m.image ? `<img class="chat-bubble-img" src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;cursor:pointer;" onclick="openImageLightbox('${m.image}')"/>` : ''}
           <p style="font-size:0.58rem;color:var(--muted);text-align:right;margin-top:0.3rem;">${chatTimeLabel(m.at)}</p>
         </div>
       </div>`;
