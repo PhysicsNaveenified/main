@@ -645,7 +645,30 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </div>
 
     <div id="dash-view-feedback" style="display:none;">
-      <div id="dash-feedback-list" style="margin-top:1rem;"></div>
+      <div style="margin-top:1rem;">
+        <input id="my-chat-search" class="form-input" placeholder="🔍 Search this chat..." oninput="searchMyChat(this.value)"/>
+      </div>
+      <div id="dash-feedback-list" style="margin-top:0.8rem;max-height:440px;overflow-y:auto;padding:0.8rem;border:1px solid rgba(255,216,77,0.12);border-radius:6px;background:rgba(255,255,255,0.015);"></div>
+      <div style="margin-top:1rem;padding:0.9rem;border:1px solid rgba(255,216,77,0.12);border-radius:6px;">
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.7rem;">
+          <button class="type-tab active" id="chat-type-feedback" onclick="setChatComposeType('feedback')">💬 Feedback</button>
+          <button class="type-tab" id="chat-type-doubt" onclick="setChatComposeType('doubt')">❓ Doubt</button>
+        </div>
+        <div id="chat-doubt-meta" style="display:none;gap:0.6rem;margin-bottom:0.6rem;">
+          <select id="chat-class" class="form-select" onchange="populateChatChapters()" style="flex:1;">
+            <option value="">Select Class</option><option value="11">Class XI</option><option value="12">Class XII</option>
+          </select>
+          <select id="chat-chapter" class="form-select" style="flex:1;"><option value="">Select Chapter</option></select>
+        </div>
+        <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;">
+          <textarea id="chat-message" class="form-input" rows="2" style="flex:1;min-width:200px;resize:vertical;" placeholder="Type a message..."></textarea>
+          <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('chat-image-input').click()">📷</button>
+          <input id="chat-image-input" type="file" accept="image/*" style="display:none;" onchange="handleChatImagePick(this)"/>
+          <button class="btn-primary" style="padding:0.6rem 1.3rem;" onclick="sendMyChatMessage()">Send →</button>
+        </div>
+        <p id="chat-image-name" style="font-size:0.68rem;color:var(--muted);margin-top:0.35rem;"></p>
+        <p id="chat-send-status" style="font-size:0.72rem;color:var(--muted);margin-top:0.35rem;"></p>
+      </div>
     </div>
 
     <div id="dash-view-bookmarks" style="display:none;">
@@ -675,14 +698,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </div>
 <div id="master-view-feedback" style="display:none;">
       <div class="upload-section">
-        <h3 class="upload-title">Feedback &amp; Doubts</h3>
-        <div style="overflow-x:auto;">
-          <table class="question-table">
-            <thead>
-              <tr><th>Type</th><th>Name</th><th>Email</th><th>Class/Chapter</th><th>Message</th><th>Photo</th><th>Date</th><th>Status</th><th>Response</th></tr>
-            </thead>
-            <tbody id="feedback-table-body"></tbody>
-          </table>
+        <h3 class="upload-title">Feedback &amp; Doubts — Chats</h3>
+        <input id="admin-chat-search" class="form-input" placeholder="🔍 Search all chats (name, email, or message)..." oninput="searchAdminChats(this.value)"/>
+        <div id="admin-chat-search-results" style="display:none;margin-top:0.6rem;margin-bottom:0.6rem;border:1px solid rgba(255,216,77,0.18);border-radius:6px;max-height:260px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap;">
+          <div id="admin-chat-list" style="width:280px;flex-shrink:0;border:1px solid rgba(255,216,77,0.12);border-radius:6px;overflow-y:auto;max-height:600px;"></div>
+          <div style="flex:1;min-width:280px;border:1px solid rgba(255,216,77,0.12);border-radius:6px;display:flex;flex-direction:column;">
+            <div id="admin-chat-header" style="padding:0.8rem 1rem;border-bottom:1px solid rgba(255,216,77,0.1);font-size:0.85rem;color:var(--muted);">Select a student on the left to view the conversation</div>
+            <div id="admin-chat-messages" style="flex:1;overflow-y:auto;padding:1rem;max-height:480px;"></div>
+            <div id="admin-chat-composer" style="display:none;padding:0.8rem;border-top:1px solid rgba(255,216,77,0.1);">
+              <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap;">
+                <textarea id="admin-reply-message" class="form-input" rows="2" style="flex:1;min-width:180px;resize:vertical;" placeholder="Type your reply..."></textarea>
+                <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('admin-reply-image').click()">📷</button>
+                <input id="admin-reply-image" type="file" accept="image/*" style="display:none;" onchange="handleAdminReplyImagePick(this)"/>
+                <button class="btn-primary" style="padding:0.6rem 1.3rem;" onclick="sendAdminChatMessage()">Send →</button>
+              </div>
+              <p id="admin-reply-image-name" style="font-size:0.65rem;color:var(--muted);margin-top:0.3rem;"></p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -929,27 +962,169 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   </div>
 </div>
 <script>
-  async function loadMyFeedback() {
-  const { data } = await sb.from('feedback').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-  document.getElementById('dash-feedback-list').innerHTML = (data || []).map(f => `
-    <div class="recent-item" style="flex-direction:column;align-items:flex-start;">
-      <p class="ri-chapter">${f.type === 'doubt' ? 'Doubt' : 'Feedback'} · ${new Date(f.created_at).toLocaleDateString()}</p>
-      <p style="margin-top:0.5rem;color:var(--white);font-size:0.88rem;">${f.message}</p>
-      ${f.admin_response
-        ? `<p style="margin-top:0.8rem;padding:0.8rem;background:rgba(100,220,120,0.06);border-left:3px solid #64dc78;border-radius:3px;font-size:0.85rem;">
-             <strong style="color:#64dc78;">Naveen Sir's reply:</strong><br>${f.admin_response}
-             ${f.reply_image_url ? `<br><img src="${f.reply_image_url}" alt="Reply attachment" style="max-width:100%;border-radius:3px;margin-top:0.6rem;"/>` : ''}
-           </p>`
-        : `<p style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted);">⏳ Awaiting response</p>`
+// ═══════════════════════════════════════════
+// UNIFIED WHATSAPP-STYLE CHAT (student side + admin side share these helpers)
+// ═══════════════════════════════════════════
+function chatDateLabel(d) {
+  const date = new Date(d);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yest = new Date(today); yest.setDate(today.getDate() - 1);
+  const dOnly = new Date(date); dOnly.setHours(0,0,0,0);
+  if (dOnly.getTime() === today.getTime()) return 'Today';
+  if (dOnly.getTime() === yest.getTime()) return 'Yesterday';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function chatTimeLabel(d) {
+  return new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+// Turns the raw feedback rows for one student into a flat, time-ordered list of
+// chat bubbles. Each row can produce up to two bubbles: the student's original
+// message, and (if answered) Naveen Sir's reply — plus any newer rows where an
+// admin has proactively started a message (sender === 'admin').
+function buildChatTimeline(rows) {
+  const msgs = [];
+  (rows || []).forEach(f => {
+    if (f.sender === 'admin') {
+      msgs.push({ id: f.id + '-a', from: 'admin', text: f.message, image: f.image_url, at: f.created_at });
+    } else {
+      msgs.push({
+        id: f.id + '-s', from: 'student', text: f.message, image: f.image_url, at: f.created_at,
+        tag: f.type, chapterInfo: f.chapter_name ? `Class ${f.class} · Ch ${f.chapter}: ${f.chapter_name}` : null
+      });
+      if (f.admin_response) {
+        msgs.push({ id: f.id + '-r', from: 'admin', text: f.admin_response, image: f.reply_image_url, at: f.responded_at || f.created_at });
       }
-    </div>
-  `).join('') || '<p style="color:var(--muted);">No submissions yet.</p>';
+    }
+  });
+  msgs.sort((a, b) => new Date(a.at) - new Date(b.at));
+  return msgs;
+}
+// viewerIsAdmin controls which side ("me") the bubble aligns to.
+function renderChatBubbles(msgs, viewerIsAdmin) {
+  if (!msgs.length) return '<p style="color:var(--muted);text-align:center;margin-top:2rem;">No messages yet.</p>';
+  let html = '', lastDate = null;
+  msgs.forEach(m => {
+    const dateLabel = chatDateLabel(m.at);
+    if (dateLabel !== lastDate) {
+      html += `<div style="text-align:center;margin:1rem 0 0.6rem;"><span style="background:rgba(255,216,77,0.08);color:var(--muted);font-size:0.62rem;padding:0.25rem 0.9rem;border-radius:99px;letter-spacing:1px;text-transform:uppercase;">${dateLabel}</span></div>`;
+      lastDate = dateLabel;
+    }
+    const isMe = viewerIsAdmin ? m.from === 'admin' : m.from === 'student';
+    html += `
+      <div data-msg-id="${m.id}" style="display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};margin:0.25rem 0;transition:outline 0.2s;">
+        <div style="max-width:75%;padding:0.6rem 0.9rem;border-radius:10px;background:${isMe ? 'rgba(255,216,77,0.14)' : 'rgba(255,255,255,0.06)'};border:1px solid ${isMe ? 'rgba(255,216,77,0.25)' : 'rgba(255,255,255,0.08)'};">
+          ${!isMe && m.from === 'admin' ? `<p style="font-size:0.6rem;color:#64dc78;font-weight:600;margin-bottom:0.2rem;">Naveen Sir</p>` : ''}
+          ${m.tag ? `<p style="font-size:0.58rem;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.25rem;">${m.tag === 'doubt' ? '❓ Doubt' : '💬 Feedback'}${m.chapterInfo ? ' · ' + m.chapterInfo : ''}</p>` : ''}
+          <p style="font-size:0.85rem;color:var(--white);white-space:pre-wrap;">${escapeHtml(m.text || '')}</p>
+          ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;"/>` : ''}
+          <p style="font-size:0.58rem;color:var(--muted);text-align:right;margin-top:0.3rem;">${chatTimeLabel(m.at)}</p>
+        </div>
+      </div>`;
+  });
+  return html;
+}
+function scrollToChatMessage(id, containerSelector) {
+  setTimeout(() => {
+    const container = containerSelector ? document.querySelector(containerSelector) : document;
+    const el = container && container.querySelector(`[data-msg-id="${id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.outline = '2px solid var(--gold)';
+      setTimeout(() => { el.style.outline = 'none'; }, 2000);
+    }
+  }, 120);
+}
 
-  const unseenIds = (data || []).filter(f => f.admin_response && !f.seen_by_user).map(f => f.id);
+let myChatMsgsCache = [];
+async function loadMyChat() {
+  const { data } = await sb.from('feedback').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
+  myChatMsgsCache = buildChatTimeline(data || []);
+  document.getElementById('dash-feedback-list').innerHTML = renderChatBubbles(myChatMsgsCache, false);
+  document.getElementById('dash-feedback-list').scrollTop = 9999999;
+
+  const unseenIds = (data || []).filter(f => !f.seen_by_user && (f.admin_response || f.sender === 'admin')).map(f => f.id);
   if (unseenIds.length) {
     await sb.from('feedback').update({ seen_by_user: true }).in('id', unseenIds);
     updateNavBell();
   }
+}
+function searchMyChat(query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll('#dash-feedback-list [data-msg-id]').forEach(el => el.style.background = '');
+  if (!q) return;
+  const match = myChatMsgsCache.find(m => (m.text || '').toLowerCase().includes(q));
+  if (match) scrollToChatMessage(match.id, '#dash-feedback-list');
+}
+let chatComposeType = 'feedback';
+function setChatComposeType(type) {
+  chatComposeType = type;
+  document.getElementById('chat-type-feedback').classList.toggle('active', type === 'feedback');
+  document.getElementById('chat-type-doubt').classList.toggle('active', type === 'doubt');
+  document.getElementById('chat-doubt-meta').style.display = type === 'doubt' ? 'flex' : 'none';
+}
+function populateChatChapters() {
+  const cls = document.getElementById('chat-class').value;
+  const sel = document.getElementById('chat-chapter');
+  if (!cls) { sel.innerHTML = '<option value="">Select Chapter</option>'; return; }
+  const chapters = cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
+  sel.innerHTML = '<option value="">Select Chapter</option>' + chapters.map((n, i) => `<option value="${i+1}">Ch ${i+1}: ${n}</option>`).join('');
+}
+let chatImageFile = null;
+function handleChatImagePick(inputEl) {
+  chatImageFile = inputEl.files[0] || null;
+  document.getElementById('chat-image-name').textContent = chatImageFile ? `Selected: ${chatImageFile.name}` : '';
+}
+// Uploads a feedback/doubt/reply photo. Backed by the "upload-to-drive" Supabase
+// Edge Function, which saves the file into Naveen Sir's Google Drive folder and
+// returns a viewable link — see /docs/drive-whatsapp-setup.md for one-time setup.
+async function uploadChatImage(file) {
+  const dataUrl = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const base64 = dataUrl.split(',')[1];
+  const session = (await sb.auth.getSession()).data.session;
+  const resp = await fetch('https://cyynkucowogcetrsuvzb.supabase.co/functions/v1/upload-to-drive', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+    body: JSON.stringify({ fileName: `${Date.now()}_${file.name}`, mimeType: file.type, base64 })
+  });
+  const json = await resp.json();
+  if (!resp.ok) throw new Error(json.error || 'Image upload failed');
+  return json.url;
+}
+async function sendMyChatMessage() {
+  const message = document.getElementById('chat-message').value.trim();
+  const statusEl = document.getElementById('chat-send-status');
+  if (!message) { alert('Please type a message'); return; }
+  const isDoubt = chatComposeType === 'doubt';
+  let cls = null, chapter = null, chapterName = null;
+  if (isDoubt) {
+    cls = document.getElementById('chat-class').value;
+    chapter = document.getElementById('chat-chapter').value;
+    if (!cls || !chapter) { alert('Please select Class and Chapter for your doubt'); return; }
+    chapterName = (cls === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS)[parseInt(chapter) - 1];
+  }
+  statusEl.textContent = 'Sending...';
+  let imageUrl = null;
+  try {
+    if (chatImageFile) imageUrl = await uploadChatImage(chatImageFile);
+  } catch (e) { statusEl.textContent = 'Image upload failed: ' + e.message; return; }
+
+  const { error } = await sb.from('feedback').insert({
+    user_id: currentUser.id, name: currentProfile?.name || currentUser.user_metadata?.full_name,
+    email: currentUser.email, type: chatComposeType, sender: 'student',
+    message, image_url: imageUrl, class: cls, chapter: chapter ? parseInt(chapter) : null, chapter_name: chapterName
+  });
+  if (error) { statusEl.textContent = 'Error: ' + error.message; return; }
+  document.getElementById('chat-message').value = '';
+  document.getElementById('chat-image-input').value = '';
+  document.getElementById('chat-image-name').textContent = '';
+  chatImageFile = null;
+  statusEl.textContent = '';
+  loadMyChat();
 }
 // ═══════════════════════════════════════════
 // SUPABASE INIT
@@ -1032,11 +1207,14 @@ function fixOptionImages(text) {
       .or('seen_by_admin.is.null,seen_by_admin.eq.false');
     count = c || 0;
   } else {
-    const { count: c } = await sb.from('feedback').select('*', { count: 'exact', head: true })
+    const { count: c1 } = await sb.from('feedback').select('*', { count: 'exact', head: true })
       .eq('user_id', currentUser.id)
       .or('seen_by_user.is.null,seen_by_user.eq.false')
       .not('admin_response', 'is', null);
-    count = c || 0;
+    const { count: c2 } = await sb.from('feedback').select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id).eq('sender', 'admin')
+      .or('seen_by_user.is.null,seen_by_user.eq.false');
+    count = (c1 || 0) + (c2 || 0);
   }
 
   if (count > 0) {
@@ -1126,11 +1304,8 @@ async function submitFeedback() {
   if (isDoubt) {
     const file = document.getElementById('fb-image-camera').files[0] || document.getElementById('fb-image-gallery').files[0];
     if (file) {
-      const fileName = `${currentUser.id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
-      if (uploadError) { statusEl.textContent = 'Image upload failed: ' + uploadError.message; return; }
-      const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
-      imageUrl = urlData.publicUrl;
+      try { imageUrl = await uploadChatImage(file); }
+      catch (e) { statusEl.textContent = 'Image upload failed: ' + e.message; return; }
     }
   }
 
@@ -1138,7 +1313,7 @@ async function submitFeedback() {
     user_id: currentUser.id,
     name: currentProfile?.name || currentUser.user_metadata?.full_name,
     email: currentUser.email,
-    type: feedbackType,
+    type: feedbackType, sender: 'student',
     message, image_url: imageUrl,
     class: cls, chapter: chapter ? parseInt(chapter) : null, chapter_name: chapterName
   });
@@ -2140,7 +2315,7 @@ function switchDashTab(tab) {
   document.getElementById('dash-view-performance').style.display = tab === 'performance' ? 'block' : 'none';
   document.getElementById('dash-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
   document.getElementById('dash-view-bookmarks').style.display = tab === 'bookmarks' ? 'block' : 'none';
-  if (tab === 'feedback') loadMyFeedback();
+  if (tab === 'feedback') loadMyChat();
   if (tab === 'bookmarks') loadBookmarks();
 }
 
@@ -2697,125 +2872,240 @@ function switchMasterTab(tab) {
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
 // counts; clicking a day reveals the names/emails of that day's logged-in visitors.
+let insightsByDate = {};
+let insightsChart = null;
 async function loadInsights() {
   const container = document.getElementById('insights-list');
-  const { data, error } = await sb.from('visits').select('*').order('visit_date', { ascending: false });
+  const { data, error } = await sb.from('visits').select('*').neq('user_email', MASTER_EMAIL).order('visit_date', { ascending: false });
   if (error) { container.innerHTML = `<p style="color:var(--muted);">Couldn't load insights — has the "visits" table been created? (${error.message})</p>`; return; }
 
-  const byDate = {};
+  insightsByDate = {};
   (data || []).forEach(v => {
-    if (!byDate[v.visit_date]) byDate[v.visit_date] = { anon: 0, logged: [] };
-    if (v.is_logged_in) byDate[v.visit_date].logged.push({ name: v.user_name || v.user_email || 'Unnamed', email: v.user_email || '' });
-    else byDate[v.visit_date].anon++;
+    if (!insightsByDate[v.visit_date]) insightsByDate[v.visit_date] = { anon: 0, logged: [] };
+    if (v.is_logged_in) insightsByDate[v.visit_date].logged.push({ name: v.user_name || v.user_email || 'Unnamed', email: v.user_email || '' });
+    else insightsByDate[v.visit_date].anon++;
   });
 
-  const dates = Object.keys(byDate).sort().reverse();
-  container.innerHTML = dates.length ? dates.map(date => {
-    const d = byDate[date];
-    return `
-      <div class="insight-day" style="border:1px solid rgba(255,216,77,0.12);border-radius:4px;margin-bottom:0.8rem;overflow:hidden;">
-        <div onclick="toggleInsightDay('${date}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.9rem 1.2rem;cursor:pointer;background:rgba(255,216,77,0.03);">
-          <strong style="font-family:'Space Mono',monospace;font-size:0.8rem;">${date}</strong>
-          <span style="font-size:0.75rem;color:var(--muted);">👤 ${d.anon} anonymous &nbsp;·&nbsp; 🔑 ${d.logged.length} logged-in</span>
-        </div>
-        <div id="insight-users-${date}" style="display:none;padding:0.9rem 1.2rem;border-top:1px solid rgba(255,216,77,0.08);">
-          ${d.logged.length ? d.logged.map(u => `<p style="font-size:0.8rem;margin:0.3rem 0;">• ${u.name}${u.email ? ' <span style="color:var(--muted);">(' + u.email + ')</span>' : ''}</p>`).join('') : '<p style="color:var(--muted);font-size:0.8rem;">No logged-in visitors this day.</p>'}
-        </div>
-      </div>`;
-  }).join('') : '<p style="color:var(--muted);">No visit data yet.</p>';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const allDates = Object.keys(insightsByDate).sort();
+  const pastDates = allDates.filter(d => d !== todayStr);
+
+  container.innerHTML = `
+    <div id="insight-today"></div>
+    <h4 style="font-size:0.85rem;color:var(--muted);margin:1.4rem 0 0.6rem;">Previous Days</h4>
+    <canvas id="insights-chart" height="90"></canvas>
+    <div id="insight-day-detail" style="margin-top:1rem;"></div>
+  `;
+  renderInsightToday(todayStr);
+
+  if (!pastDates.length) {
+    document.getElementById('insights-chart').outerHTML = '<p style="color:var(--muted);">No previous visit data yet.</p>';
+    return;
+  }
+  const ctx = document.getElementById('insights-chart').getContext('2d');
+  const anonData = pastDates.map(d => insightsByDate[d].anon);
+  const loggedData = pastDates.map(d => insightsByDate[d].logged.length);
+  if (insightsChart) insightsChart.destroy();
+  insightsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: pastDates,
+      datasets: [
+        { label: 'Logged-in', data: loggedData, backgroundColor: 'rgba(255,216,77,0.8)' },
+        { label: 'Anonymous', data: anonData, backgroundColor: 'rgba(90,175,255,0.6)' }
+      ]
+    },
+    options: {
+      responsive: true,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const date = pastDates[els[0].index];
+        renderInsightDayDetail(date);
+      },
+      scales: { x: { stacked: true, ticks: { color: '#faf8f2' } }, y: { stacked: true, ticks: { color: '#faf8f2' } } },
+      plugins: { legend: { labels: { color: '#faf8f2' } } }
+    }
+  });
+}
+
+function renderInsightToday(todayStr) {
+  const d = insightsByDate[todayStr] || { anon: 0, logged: [] };
+  document.getElementById('insight-today').innerHTML = `
+    <div style="border:1px solid rgba(255,216,77,0.12);border-radius:4px;overflow:hidden;">
+      <div onclick="toggleInsightDay('${todayStr}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.9rem 1.2rem;cursor:pointer;background:rgba(255,216,77,0.05);">
+        <strong style="font-family:'Space Mono',monospace;font-size:0.8rem;">Today (${todayStr})</strong>
+        <span style="font-size:0.75rem;color:var(--muted);">👤 ${d.anon} anonymous &nbsp;·&nbsp; 🔑 ${d.logged.length} logged-in</span>
+      </div>
+      <div id="insight-users-${todayStr}" style="display:none;padding:0.9rem 1.2rem;border-top:1px solid rgba(255,216,77,0.08);">
+        ${d.logged.length ? d.logged.map(u => `<p style="font-size:0.8rem;margin:0.3rem 0;">• ${u.name}${u.email ? ' <span style="color:var(--muted);">(' + u.email + ')</span>' : ''}</p>`).join('') : '<p style="color:var(--muted);font-size:0.8rem;">No logged-in visitors today yet.</p>'}
+      </div>
+    </div>`;
 }
 
 function toggleInsightDay(date) {
   const el = document.getElementById('insight-users-' + date);
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-async function loadFeedbackList() {
-  const { data, error } = await sb.from('feedback').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  const tbody = document.getElementById('feedback-table-body');
-  tbody.innerHTML = (data || []).map(f => `
-    <tr>
-      <td><strong style="color:${f.type === 'doubt' ? 'var(--blue)' : 'var(--gold)'}">${f.type === 'doubt' ? 'Doubt' : 'Feedback'}</strong></td>
-      <td>${f.name || '-'}</td>
-      <td style="font-size:0.75rem;">${f.email || '-'}</td>
-      <td style="font-size:0.75rem;">${f.chapter_name ? `Class ${f.class} · Ch ${f.chapter}: ${f.chapter_name}` : '-'}</td>
-      <td style="max-width:220px;">${f.message}</td>
-      <td>${f.image_url ? `<a href="${f.image_url}" target="_blank" style="color:var(--gold);">View</a>` : '-'}</td>
-      <td style="font-size:0.7rem;color:var(--muted);">${new Date(f.created_at).toLocaleDateString()}</td>
-      <td>${f.admin_response
-        ? `<span style="color:#64dc78;font-size:0.7rem;font-weight:600;">✓ Replied</span>`
-        : `<span style="color:#ff9d5a;font-size:0.7rem;font-weight:600;">⏳ Pending</span>`
-      }</td>
-      <td style="min-width:220px;">
-        ${f.admin_response
-          ? `<p style="font-size:0.75rem;color:#64dc78;margin-bottom:0.4rem;">✓ ${f.admin_response}</p>
-             ${f.reply_image_url ? `<a href="${f.reply_image_url}" target="_blank" style="font-size:0.7rem;color:var(--gold);display:block;margin-bottom:0.3rem;">📎 View attached image</a>` : ''}
-             <button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Edit Reply</button>`
-          : `<button class="btn-upload" style="padding:0.25rem 0.6rem;font-size:0.5rem;" onclick="toggleReplyBox('${f.id}')">Reply</button>`
-        }
-        <div id="reply-box-${f.id}" style="display:none;margin-top:0.5rem;">
-          <textarea id="reply-text-${f.id}" class="form-input" rows="2" style="font-size:0.78rem;" placeholder="Type your response...">${f.admin_response || ''}</textarea>
-          ${f.type === 'doubt' ? `
-          <label class="form-label" style="margin-top:0.5rem;">Attach an image (optional)</label>
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.3rem;">
-            <button type="button" class="btn-upload" style="padding:0.3rem 0.7rem;font-size:0.55rem;" onclick="document.getElementById('reply-image-camera-${f.id}').click()">📷 Take Photo</button>
-            <button type="button" class="btn-upload" style="padding:0.3rem 0.7rem;font-size:0.55rem;" onclick="document.getElementById('reply-image-gallery-${f.id}').click()">🖼️ Gallery</button>
-          </div>
-          <input id="reply-image-camera-${f.id}" type="file" accept="image/*" capture="environment" style="display:none;"/>
-          <input id="reply-image-gallery-${f.id}" type="file" accept="image/*" style="display:none;"/>
-          ${f.reply_image_url ? `<a href="${f.reply_image_url}" target="_blank" style="display:block;font-size:0.7rem;color:var(--gold);margin-top:0.3rem;">Current attached image →</a>` : ''}
-          ` : ''}
-          <button class="btn-upload" style="margin-top:0.4rem;padding:0.3rem 0.8rem;font-size:0.55rem;" onclick="sendReply('${f.id}','${f.type}')">Send</button>
-        </div>
-      </td>
-    </tr>`).join('');
+// Clicking a bar in the previous-days chart shows that day's visitor list below
+// the chart, the same way the "Today" row expands.
+function renderInsightDayDetail(date) {
+  const d = insightsByDate[date] || { anon: 0, logged: [] };
+  document.getElementById('insight-day-detail').innerHTML = `
+    <div style="border:1px solid rgba(255,216,77,0.12);border-radius:4px;overflow:hidden;">
+      <div style="padding:0.9rem 1.2rem;background:rgba(255,216,77,0.05);display:flex;justify-content:space-between;">
+        <strong style="font-family:'Space Mono',monospace;font-size:0.8rem;">${date}</strong>
+        <span style="font-size:0.75rem;color:var(--muted);">👤 ${d.anon} anonymous &nbsp;·&nbsp; 🔑 ${d.logged.length} logged-in</span>
+      </div>
+      <div style="padding:0.9rem 1.2rem;border-top:1px solid rgba(255,216,77,0.08);">
+        ${d.logged.length ? d.logged.map(u => `<p style="font-size:0.8rem;margin:0.3rem 0;">• ${u.name}${u.email ? ' <span style="color:var(--muted);">(' + u.email + ')</span>' : ''}</p>`).join('') : '<p style="color:var(--muted);font-size:0.8rem;">No logged-in visitors this day.</p>'}
+      </div>
+    </div>`;
+}
 
-  const unseenIds = (data || []).filter(f => !f.seen_by_admin).map(f => f.id);
+// ═══════════════════════════════════════════
+// ADMIN — WhatsApp-style chat list + thread + global search
+// ═══════════════════════════════════════════
+let adminFeedbackCache = [];
+let adminActiveStudentId = null;
+let adminActiveStudent = null;
+
+async function loadFeedbackList() {
+  const { data, error } = await sb.from('feedback').select('*').order('created_at', { ascending: true });
+  if (error) { console.error(error); return; }
+  adminFeedbackCache = data || [];
+  renderAdminChatList();
+  if (adminActiveStudentId) openAdminChat(adminActiveStudentId, adminActiveStudent?.name, adminActiveStudent?.email);
+}
+
+function renderAdminChatList() {
+  const byUser = {};
+  adminFeedbackCache.forEach(f => {
+    if (!byUser[f.user_id]) byUser[f.user_id] = { name: f.name, email: f.email, rows: [], lastAt: f.created_at, unread: 0 };
+    const u = byUser[f.user_id];
+    u.rows.push(f);
+    if (new Date(f.created_at) > new Date(u.lastAt)) u.lastAt = f.created_at;
+    if (f.responded_at && new Date(f.responded_at) > new Date(u.lastAt)) u.lastAt = f.responded_at;
+    if (!f.seen_by_admin && f.sender !== 'admin') u.unread++;
+  });
+  const list = Object.entries(byUser).sort((a, b) => new Date(b[1].lastAt) - new Date(a[1].lastAt));
+  const container = document.getElementById('admin-chat-list');
+  container.innerHTML = list.length ? list.map(([userId, u]) => {
+    const lastRow = u.rows[u.rows.length - 1];
+    const snippet = (lastRow.sender === 'admin' ? lastRow.message : (lastRow.admin_response || lastRow.message)) || '';
+    return `
+      <div onclick='openAdminChat("${userId}", ${JSON.stringify(u.name || "")}, ${JSON.stringify(u.email || "")})' style="padding:0.7rem 0.9rem;border-bottom:1px solid rgba(255,216,77,0.06);cursor:pointer;background:${userId === adminActiveStudentId ? 'rgba(255,216,77,0.08)' : 'transparent'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong style="font-size:0.8rem;">${u.name || u.email || 'Student'}</strong>
+          ${u.unread ? `<span style="background:#ff5a5a;color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 3px;">${u.unread}</span>` : ''}
+        </div>
+        <p style="font-size:0.7rem;color:var(--muted);margin-top:0.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(snippet)}</p>
+        <p style="font-size:0.6rem;color:var(--muted);margin-top:0.2rem;">${chatDateLabel(u.lastAt)} · ${chatTimeLabel(u.lastAt)}</p>
+      </div>`;
+  }).join('') : '<p style="padding:1rem;color:var(--muted);font-size:0.8rem;">No conversations yet.</p>';
+}
+
+async function openAdminChat(userId, name, email) {
+  adminActiveStudentId = userId;
+  adminActiveStudent = { name, email };
+  document.getElementById('admin-chat-header').innerHTML = `<strong>${name || email || 'Student'}</strong> <span style="color:var(--muted);font-size:0.75rem;">${email || ''}</span>`;
+  document.getElementById('admin-chat-composer').style.display = 'block';
+  const rows = adminFeedbackCache.filter(f => f.user_id === userId);
+  const timeline = buildChatTimeline(rows);
+  const box = document.getElementById('admin-chat-messages');
+  box.innerHTML = renderChatBubbles(timeline, true);
+  box.scrollTop = 9999999;
+  renderAdminChatList();
+
+  const unseenIds = rows.filter(f => !f.seen_by_admin && f.sender !== 'admin').map(f => f.id);
   if (unseenIds.length) {
     await sb.from('feedback').update({ seen_by_admin: true }).in('id', unseenIds);
+    unseenIds.forEach(id => { const r = adminFeedbackCache.find(x => x.id === id); if (r) r.seen_by_admin = true; });
+    renderAdminChatList();
     updateNavBell();
   }
 }
 
-function toggleReplyBox(id) {
-  const box = document.getElementById(`reply-box-${id}`);
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+let adminReplyImageFile = null;
+function handleAdminReplyImagePick(inputEl) {
+  adminReplyImageFile = inputEl.files[0] || null;
+  document.getElementById('admin-reply-image-name').textContent = adminReplyImageFile ? `Selected: ${adminReplyImageFile.name}` : '';
 }
 
-async function sendReply(id, type) {
-  const response = document.getElementById(`reply-text-${id}`).value.trim();
-  if (!response) { alert('Please type a response'); return; }
+// Sending a reply always inserts a fresh row tagged sender:'admin' — this keeps
+// the conversation a simple, ever-growing timeline (like a real chat) instead of
+// having to be tied back to one specific earlier doubt/feedback row.
+async function sendAdminChatMessage() {
+  const text = document.getElementById('admin-reply-message').value.trim();
+  if (!text || !adminActiveStudentId) { alert('Please type a message'); return; }
+  let imageUrl = null;
+  try {
+    if (adminReplyImageFile) imageUrl = await uploadChatImage(adminReplyImageFile);
+  } catch (e) { alert('Image upload failed: ' + e.message); return; }
 
-  let replyImageUrl = null;
-  if (type === 'doubt') {
-    const file = document.getElementById(`reply-image-camera-${id}`)?.files[0] || document.getElementById(`reply-image-gallery-${id}`)?.files[0];
-    if (file) {
-      const fileName = `reply_${id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await sb.storage.from('feedback-images').upload(fileName, file);
-      if (uploadError) { alert('Image upload failed: ' + uploadError.message); return; }
-      const { data: urlData } = sb.storage.from('feedback-images').getPublicUrl(fileName);
-      replyImageUrl = urlData.publicUrl;
-    }
-  }
-
-  const updatePayload = { admin_response: response, responded_at: new Date().toISOString(), seen_by_user: false };
-  if (replyImageUrl) updatePayload.reply_image_url = replyImageUrl;
-
-  const { data, error } = await sb.from('feedback').update(updatePayload).eq('id', id).select();
+  const { error } = await sb.from('feedback').insert({
+    user_id: adminActiveStudentId, name: adminActiveStudent?.name, email: adminActiveStudent?.email,
+    type: 'message', sender: 'admin', message: text, image_url: imageUrl,
+    seen_by_admin: true, seen_by_user: false
+  });
   if (error) { alert('Error: ' + error.message); return; }
-  if (!data || data.length === 0) {
-    alert('The reply did not save — this is a database permissions (RLS) issue, not a code issue. Run the admin_update_feedback policy SQL and try again.');
-    return;
-  }
+  document.getElementById('admin-reply-message').value = '';
+  document.getElementById('admin-reply-image').value = '';
+  document.getElementById('admin-reply-image-name').textContent = '';
+  adminReplyImageFile = null;
   loadFeedbackList();
-  updateNavBell();
+}
+
+// Searches every student's messages at once. Clicking a result jumps straight
+// into that student's chat and scrolls/highlights the exact matching message.
+function searchAdminChats(query) {
+  const q = query.trim().toLowerCase();
+  const resultsEl = document.getElementById('admin-chat-search-results');
+  if (!q) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  const matches = adminFeedbackCache.filter(f =>
+    (f.message || '').toLowerCase().includes(q) ||
+    (f.admin_response || '').toLowerCase().includes(q) ||
+    (f.name || '').toLowerCase().includes(q) ||
+    (f.email || '').toLowerCase().includes(q)
+  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 30);
+
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = matches.length ? matches.map(f => {
+    const isAdminMsg = f.sender === 'admin';
+    const matchedInReply = !isAdminMsg && (f.admin_response || '').toLowerCase().includes(q) && !(f.message || '').toLowerCase().includes(q);
+    const snippet = isAdminMsg ? f.message : (matchedInReply ? f.admin_response : f.message);
+    const msgId = isAdminMsg ? f.id + '-a' : (matchedInReply ? f.id + '-r' : f.id + '-s');
+    return `
+      <div onclick='jumpToAdminSearchResult("${f.user_id}", ${JSON.stringify(f.name || "")}, ${JSON.stringify(f.email || "")}, "${msgId}")' style="padding:0.6rem 0.9rem;border-bottom:1px solid rgba(255,216,77,0.06);cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;"><strong style="font-size:0.78rem;">${f.name || f.email || 'Student'}</strong><span style="font-size:0.62rem;color:var(--muted);">${chatDateLabel(f.created_at)}</span></div>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(snippet || '')}</p>
+      </div>`;
+  }).join('') : '<p style="padding:0.8rem;color:var(--muted);font-size:0.78rem;">No matches.</p>';
+}
+
+async function jumpToAdminSearchResult(userId, name, email, msgId) {
+  document.getElementById('admin-chat-search').value = '';
+  document.getElementById('admin-chat-search-results').style.display = 'none';
+  await openAdminChat(userId, name, email);
+  scrollToChatMessage(msgId, '#admin-chat-messages');
 }
 async function loadAdminDashboard() {
   const { data: profiles } = await sb.from('profiles').select('*').eq('is_master', false);
   const { data: allResults } = await sb.from('test_results').select('*');
+  const { data: visits } = await sb.from('visits').select('*').eq('is_logged_in', true).neq('user_email', MASTER_EMAIL);
 
-  const totalStudents = profiles ? profiles.length : 0;
+  // Merge: every profile (excluding master), plus anyone who has logged in at
+  // least once (per the "visits" log) but never finished their profile — so
+  // students show up even if they haven't attempted a single test.
+  const byId = {};
+  (profiles || []).forEach(p => { if (p.email !== MASTER_EMAIL) byId[p.id] = p; });
+  (visits || []).forEach(v => {
+    if (!v.user_id || byId[v.user_id]) return;
+    byId[v.user_id] = { id: v.user_id, name: v.user_name, email: v.user_email, class: null, group_name: null, college: null, phone: null };
+  });
+  const allStudents = Object.values(byId);
+
+  const totalStudents = allStudents.length;
   const totalTests = allResults ? allResults.length : 0;
   const avgScore = totalTests > 0 ? (allResults.reduce((s,r) => s + r.percentage, 0) / totalTests).toFixed(1) : 0;
   const activeStudents = new Set((allResults || []).map(r => r.user_id)).size;
@@ -2834,13 +3124,13 @@ async function loadAdminDashboard() {
   });
 
   const tbody = document.getElementById('students-table-body');
-  tbody.innerHTML = (profiles || []).map(p => {
+  tbody.innerHTML = allStudents.map(p => {
     const results = resultsByUser[p.id] || [];
     const avg = results.length > 0 ? (results.reduce((s,r) => s + r.percentage, 0) / results.length).toFixed(1) : '-';
     return `
       <tr>
         <td>${p.name || '-'}</td>
-        <td>Class ${p.class || '-'}</td>
+        <td>${p.class ? 'Class ' + p.class : '-'}</td>
         <td>${p.group_name || '-'}</td>
         <td>${p.college || '-'}</td>
         <td>${p.phone || '-'}</td>
@@ -2849,11 +3139,11 @@ async function loadAdminDashboard() {
         <td>${avg}${avg !== '-' ? '%' : ''}</td>
         <td><button class="btn-upload" style="padding:0.3rem 0.8rem;font-size:0.55rem;" onclick='viewStudentDashboard("${p.id}")'>View</button></td>
       </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:1rem;">No students have logged in yet.</td></tr>';
 }
 
 async function viewStudentDashboard(userId) {
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).single();
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
   const { data: results } = await sb.from('test_results').select('*').eq('user_id', userId).order('created_at', { ascending: false });
 
   const total = results ? results.length : 0;
