@@ -276,9 +276,29 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   .dash-name{font-size:2.1rem;}
   .type-tabs{flex-wrap:wrap;}
   .type-tab{padding:0.6rem 1rem;}
-  .history-popup,#student-modal{max-width:92vw;min-width:0;}
+  .history-popup,#student-modal{max-width:92vw;min-width:0;max-height:88vh;overflow-y:auto;}
   #edit-question-modal{width:96vw;max-width:96vw;max-height:94vh;}
   .nav-user-name{display:none;}
+
+  /* Admin feedback/doubt chat — stack list above thread instead of side-by-side */
+  #master-view-feedback #admin-chat-list{width:100% !important;flex-basis:100%;max-height:220px;}
+  #master-view-feedback > .upload-section > div[style*="display:flex"]{flex-direction:column;}
+
+  /* Student "My Chat" and admin reply composer — full-width inputs/buttons on small screens */
+  #chat-message,#admin-reply-message{min-width:0 !important;width:100%;}
+  #dash-view-feedback div[style*="display:flex;gap:0.6rem"],
+  #admin-chat-composer div[style*="display:flex;gap:0.5rem"]{flex-direction:column;align-items:stretch !important;}
+  #dash-view-feedback .btn-primary,#admin-chat-composer .btn-primary,
+  #dash-view-feedback .btn-upload,#admin-chat-composer .btn-upload{width:100%;}
+
+  /* Search bars */
+  #my-chat-search,#admin-chat-search{font-size:0.85rem;}
+
+  /* Insights chart — shrink height so bars don't get too cramped on narrow screens */
+  #insights-chart{height:70px !important;}
+
+  /* Registration form card — full width with breathing room */
+  .profile-card{width:92vw;padding:1.5rem 1.2rem;}
 }
 </style>
 </head>
@@ -303,16 +323,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
 <!-- HISTORY POPUP -->
 <div class="history-popup" id="history-popup">
-  <div class="history-popup" id="student-modal" style="max-width:600px;min-width:320px;">
-  <button class="history-close" onclick="closeStudentModal()">✕</button>
-  <p class="history-popup-title" id="student-modal-title"></p>
-  <div id="student-modal-content"></div>
-</div>
   <button class="history-close" onclick="closeHistory()">✕</button>
   <p class="history-popup-title" id="history-popup-title"></p>
   <div id="history-popup-content"></div>
 </div>
 
+<!-- STUDENT DASHBOARD MODAL (now a separate, top-level popup) -->
+<div class="history-popup" id="student-modal" style="max-width:600px;min-width:320px;">
+  <button class="history-close" onclick="closeStudentModal()">✕</button>
+  <p class="history-popup-title" id="student-modal-title"></p>
+  <div id="student-modal-content"></div>
+</div>
 <!-- EDIT QUESTION MODAL -->
 <div class="modal-overlay" id="edit-question-overlay" onclick="closeEditQuestion()"></div>
 <div class="history-popup" id="edit-question-modal">
@@ -470,12 +491,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <label class="form-label">Roll Number (Optional)</label>
         <input id="p-roll" class="form-input" type="text" placeholder="Enter roll number"/>
       </div>
-      <div class="form-group">
-        <label class="form-label">Phone Number</label>
+     <div class="form-group">
+        <label class="form-label">Phone Number *</label>
         <input id="p-phone" class="form-input" type="tel" placeholder="+91XXXXXXXXXX"/>
       </div>
       <div class="form-group">
-        <label class="form-label">College / School Name</label>
+        <label class="form-label">College / School Name *</label>
         <input id="p-college" class="form-input" type="text" placeholder="Enter your college/school name"/>
       </div>
       <button class="btn-primary" onclick="saveProfile()">Save &amp; Continue →</button>
@@ -1459,7 +1480,7 @@ async function saveProfile() {
   const roll = document.getElementById('p-roll').value.trim();
   const phone = document.getElementById('p-phone').value.trim();
   const college = document.getElementById('p-college').value.trim();
-  if (!name || !cls || !grp) { alert('Please fill Name, Class and Group!'); return; }
+ if (!name || !cls || !grp || !phone || !college) { alert('Please fill Name, Class, Group, Phone Number and College/School Name — these are required!'); return; }
 
   const { error } = await sb.from('profiles').upsert({
     id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll,
