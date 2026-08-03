@@ -2904,6 +2904,7 @@ function switchMasterTab(tab) {
 let insightsByDate = {};
 let insightsChart = null;
 async function loadInsights() {
+  const container = document.getElementById('insights-list');
   const { data, error } = await sb.from('visits').select('*').order('visit_date', { ascending: false });
   if (error) { container.innerHTML = `<p style="color:var(--muted);">Couldn't load insights — has the "visits" table been created? (${error.message})</p>`; return; }
 
@@ -2919,7 +2920,7 @@ async function loadInsights() {
   const allDates = Object.keys(insightsByDate).sort();
   const pastDates = allDates.filter(d => d !== todayStr);
 
-container.innerHTML = `
+  container.innerHTML = `
     <div id="insight-today"></div>
     <h4 style="font-size:0.85rem;color:var(--muted);margin:1.4rem 0 0.6rem;">Previous Days</h4>
     <div style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
@@ -2930,6 +2931,37 @@ container.innerHTML = `
     <div id="insight-day-detail" style="margin-top:1rem;"></div>
   `;
   renderInsightToday(todayStr);
+
+  if (!pastDates.length) {
+    document.getElementById('insights-chart').outerHTML = '<p style="color:var(--muted);">No previous visit data yet.</p>';
+    return;
+  }
+  const ctx = document.getElementById('insights-chart').getContext('2d');
+  const anonData = pastDates.map(d => insightsByDate[d].anon);
+  const loggedData = pastDates.map(d => insightsByDate[d].logged.length);
+  if (insightsChart) insightsChart.destroy();
+  insightsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: pastDates,
+      datasets: [
+        { label: 'Logged-in', data: loggedData, backgroundColor: 'rgba(255,216,77,0.8)' },
+        { label: 'Anonymous', data: anonData, backgroundColor: 'rgba(90,175,255,0.6)' }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const date = pastDates[els[0].index];
+        renderInsightDayDetail(date);
+      },
+      scales: { x: { stacked: true, ticks: { color: '#faf8f2' } }, y: { stacked: true, ticks: { color: '#faf8f2' } } },
+      plugins: { legend: { labels: { color: '#faf8f2' } } }
+    }
+  });
+}  renderInsightToday(todayStr);
 
   if (!pastDates.length) {
     document.getElementById('insights-chart').outerHTML = '<p style="color:var(--muted);">No previous visit data yet.</p>';
