@@ -327,7 +327,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <p class="history-popup-title" id="history-popup-title"></p>
   <div id="history-popup-content"></div>
 </div>
-
+<!-- IMAGE LIGHTBOX (full-screen viewer for chat photos) -->
+<div id="image-lightbox" onclick="closeImageLightbox()" style="display:none;position:fixed;inset:0;background:rgba(5,9,24,0.95);z-index:2000;align-items:center;justify-content:center;cursor:zoom-out;">
+  <button onclick="closeImageLightbox()" style="position:absolute;top:1.2rem;right:1.5rem;background:none;border:none;color:#faf8f2;font-size:2rem;cursor:pointer;line-height:1;">✕</button>
+  <img id="image-lightbox-img" src="" style="max-width:92vw;max-height:92vh;border-radius:4px;" onclick="event.stopPropagation()"/>
+</div>
 <!-- STUDENT DASHBOARD MODAL (now a separate, top-level popup) -->
 <div class="history-popup" id="student-modal" style="max-width:600px;min-width:320px;">
   <button class="history-close" onclick="closeStudentModal()">✕</button>
@@ -1044,14 +1048,22 @@ function renderChatBubbles(msgs, viewerIsAdmin) {
           ${!isMe && m.from === 'admin' ? `<p style="font-size:0.6rem;color:#64dc78;font-weight:600;margin-bottom:0.2rem;">Naveen Sir</p>` : ''}
           ${m.tag ? `<p style="font-size:0.58rem;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.25rem;">${m.tag === 'doubt' ? '❓ Doubt' : '💬 Feedback'}${m.chapterInfo ? ' · ' + m.chapterInfo : ''}</p>` : ''}
           <p style="font-size:0.85rem;color:var(--white);white-space:pre-wrap;">${escapeHtml(m.text || '')}</p>
-          ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;"/>` : ''}
+          ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;cursor:pointer;" onclick="openImageLightbox('${m.image}')"/>` : ''}
           <p style="font-size:0.58rem;color:var(--muted);text-align:right;margin-top:0.3rem;">${chatTimeLabel(m.at)}</p>
         </div>
       </div>`;
   });
   return html;
 }
-function scrollToChatMessage(id, containerSelector) {
+function openImageLightbox(url) {
+  document.getElementById('image-lightbox-img').src = url;
+  document.getElementById('image-lightbox').style.display = 'flex';
+}
+function closeImageLightbox() {
+  document.getElementById('image-lightbox').style.display = 'none';
+  document.getElementById('image-lightbox-img').src = '';
+}
+  function scrollToChatMessage(id, containerSelector) {
   setTimeout(() => {
     const container = containerSelector ? document.querySelector(containerSelector) : document;
     const el = container && container.querySelector(`[data-msg-id="${id}"]`);
@@ -2957,10 +2969,11 @@ async function loadInsights() {
         const date = pastDates[els[0].index];
         renderInsightDayDetail(date);
       },
-      scales: { x: { stacked: true, ticks: { color: '#faf8f2' } }, y: { stacked: true, ticks: { color: '#faf8f2' } } },
+     scales: { x: { stacked: true, ticks: { color: '#faf8f2' } }, y: { stacked: true, ticks: { color: '#faf8f2' } } },
       plugins: { legend: { labels: { color: '#faf8f2' } } }
     }
   });
+}
 
 function renderInsightToday(todayStr) {
   const d = insightsByDate[todayStr] || { anon: 0, logged: [] };
