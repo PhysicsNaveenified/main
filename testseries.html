@@ -27,7 +27,7 @@ window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-body{background:var(--navy);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;min-height:100vh;}
+body{background:var(--navy);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;min-height:100vh;padding-bottom:56px;}
 
 /* NAV */
 nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:1.2rem 3.5rem;background:rgba(11,19,48,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,216,77,0.1);}
@@ -293,11 +293,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
   /* Search bars */
   #my-chat-search,#admin-chat-search{font-size:0.85rem;}
-#insights-chart{height:520px !important;}
 
   /* Registration form card — full width with breathing room */
   .profile-card{width:92vw;padding:1.5rem 1.2rem;}
 }
+/* Applied on all screen sizes (not just mobile) so the Insights chart looks and
+   scrolls the same way on PC as it does on mobile. */
+#insights-chart{height:520px !important;}
   @media(min-width:769px){
   #dash-feedback-list p[style*="white-space:pre-wrap"],
   #admin-chat-messages p[style*="white-space:pre-wrap"]{font-size:1.05rem !important;}
@@ -313,6 +315,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div style="display:flex;align-items:center;gap:1.5rem;">
     <a href="https://physicsnaveenified.github.io/main/" class="back-home">← Main Site</a>
     <div class="nav-user" id="nav-user" style="display:none;">
+      <button class="btn-logout" onclick="goToDashboard()" style="margin-right:0.3rem;">My Dashboard</button>
       <button class="nav-bell" id="nav-bell" onclick="handleBellClick()" style="display:none;" title="Notifications">
         🔔<span class="bell-badge" id="bell-badge" style="display:none;">0</span>
       </button>
@@ -322,6 +325,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     </div>
   </div>
 </nav>
+<!-- Persistent bottom bar: gives every subpage (home, chapters, test, result,
+     dashboard, master) a "My Dashboard" shortcut at the bottom too, not just top. -->
+<div id="bottom-dash-bar" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:500;background:rgba(5,9,24,0.95);border-top:1px solid rgba(255,216,77,0.15);padding:0.6rem 1rem;text-align:center;backdrop-filter:blur(6px);">
+  <button class="btn-logout" onclick="goToDashboard()">📊 My Dashboard</button>
+</div>
 
 
 <!-- HISTORY POPUP -->
@@ -504,7 +512,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       </div>
      <div class="form-group">
         <label class="form-label">Phone Number *</label>
-        <input id="p-phone" class="form-input" type="tel" placeholder="+91XXXXXXXXXX"/>
+        <input id="p-phone" class="form-input" type="tel" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
       <div class="form-group">
         <label class="form-label">College / School Name *</label>
@@ -769,13 +777,28 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap;">
           <div id="admin-chat-list" style="width:280px;flex-shrink:0;border:1px solid rgba(255,216,77,0.12);border-radius:6px;overflow-y:auto;max-height:600px;"></div>
           <div style="flex:1;min-width:280px;border:1px solid rgba(255,216,77,0.12);border-radius:6px;display:flex;flex-direction:column;">
-            <div id="admin-chat-header" style="padding:0.8rem 1rem;border-bottom:1px solid rgba(255,216,77,0.1);font-size:0.85rem;color:var(--muted);">Select a student on the left to view the conversation</div>
+            <div id="admin-chat-header" style="padding:0.8rem 1rem;border-bottom:1px solid rgba(255,216,77,0.1);font-size:0.85rem;color:var(--muted);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+              <span id="admin-chat-header-title">Select a student on the left to view the conversation</span>
+              <span id="admin-chat-header-actions" style="display:none;gap:0.5rem;">
+                <button class="btn-delete" style="font-size:0.62rem;" onclick="toggleAdminMsgSelectMode()" id="admin-msg-select-toggle">Select Messages</button>
+                <button class="btn-delete" style="font-size:0.62rem;" onclick="deleteAdminConversation()">🗑 Delete Conversation</button>
+              </span>
+            </div>
+            <div id="admin-chat-bulkbar" style="display:none;padding:0.5rem 1rem;background:rgba(255,107,107,0.08);border-bottom:1px solid rgba(255,107,107,0.2);font-size:0.72rem;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+              <span id="admin-msg-selected-count">0 selected</span>
+              <span style="display:flex;gap:0.5rem;">
+                <button class="btn-delete" onclick="deleteAdminSelectedMessages(false)">Delete for me</button>
+                <button class="btn-delete" onclick="deleteAdminSelectedMessages(true)">Delete for everyone</button>
+              </span>
+            </div>
             <div id="admin-chat-messages" style="flex:1;overflow-y:auto;padding:1rem;max-height:480px;"></div>
             <div id="admin-chat-composer" style="display:none;padding:0.8rem;border-top:1px solid rgba(255,216,77,0.1);">
               <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap;">
                 <textarea id="admin-reply-message" class="form-input" rows="2" style="flex:1;min-width:180px;resize:vertical;" placeholder="Type your reply..."></textarea>
-                <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('admin-reply-image').click()">📷</button>
+                <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('admin-reply-image').click()" title="Choose from gallery">📷</button>
                 <input id="admin-reply-image" type="file" accept="image/*" style="display:none;" onchange="handleAdminReplyImagePick(this)"/>
+                <button type="button" class="btn-upload" style="padding:0.6rem 0.8rem;" onclick="document.getElementById('admin-reply-camera').click()" title="Take photo with camera">📸</button>
+                <input id="admin-reply-camera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAdminReplyImagePick(this)"/>
                 <button class="btn-primary" style="padding:0.6rem 1.3rem;" onclick="sendAdminChatMessage()">Send →</button>
               </div>
               <p id="admin-reply-image-name" style="font-size:0.65rem;color:var(--muted);margin-top:0.3rem;"></p>
@@ -793,10 +816,32 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       </div>
       <div class="upload-section">
         <h3 class="upload-title">All Students</h3>
+        <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+          <input id="student-filter-search" class="form-input" style="max-width:220px;" placeholder="Search name / email / college" oninput="renderStudentsTable()"/>
+          <select id="student-filter-class" class="form-input" style="max-width:140px;" onchange="renderStudentsTable()">
+            <option value="">All Classes</option><option value="11">Class 11</option><option value="12">Class 12</option>
+          </select>
+          <select id="student-filter-group" class="form-input" style="max-width:160px;" onchange="renderStudentsTable()">
+            <option value="">All Groups</option>
+          </select>
+          <button class="btn-delete" onclick="deleteSelectedStudents()">🗑 Delete Selected</button>
+          <span id="student-selected-count" style="font-size:0.75rem;color:var(--muted);"></span>
+        </div>
         <div style="overflow-x:auto;">
           <table class="question-table">
             <thead>
-              <tr><th>Name</th><th>Class</th><th>Group</th><th>College</th><th>Phone</th><th>Email</th><th>Tests</th><th>Avg %</th><th>Action</th></tr>
+              <tr>
+                <th><input type="checkbox" id="student-select-all" onchange="toggleSelectAllStudents(this.checked)"/></th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('name')">Name ⇅</th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('class')">Class ⇅</th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('group_name')">Group ⇅</th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('college')">College ⇅</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('tests')">Tests ⇅</th>
+                <th style="cursor:pointer;" onclick="sortStudentsTable('avg')">Avg % ⇅</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody id="students-table-body"></tbody>
           </table>
@@ -1065,7 +1110,7 @@ function buildChatTimeline(rows) {
   return msgs;
 }
 // viewerIsAdmin controls which side ("me") the bubble aligns to.
-function renderChatBubbles(msgs, viewerIsAdmin) {
+function renderChatBubbles(msgs, viewerIsAdmin, selectMode) {
   if (!msgs.length) return '<p style="color:var(--muted);text-align:center;margin-top:2rem;">No messages yet.</p>';
   let html = '', lastDate = null;
   msgs.forEach(m => {
@@ -1075,8 +1120,10 @@ function renderChatBubbles(msgs, viewerIsAdmin) {
       lastDate = dateLabel;
     }
     const isMe = viewerIsAdmin ? m.from === 'admin' : m.from === 'student';
+    const checkbox = (viewerIsAdmin && selectMode) ? `<input type="checkbox" class="admin-msg-checkbox" data-id="${m.id}" onchange="updateAdminMsgSelection()" style="align-self:center;margin:${isMe ? '0 0.5rem 0 0' : '0 0 0 0.5rem'};width:16px;height:16px;flex-shrink:0;"/>` : '';
     html += `
-      <div data-msg-id="${m.id}" style="display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};margin:0.25rem 0;transition:outline 0.2s;">
+      <div data-msg-id="${m.id}" style="display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};align-items:center;margin:0.25rem 0;transition:outline 0.2s;">
+        ${isMe ? checkbox : ''}
         <div style="max-width:75%;padding:0.6rem 0.9rem;border-radius:10px;background:${isMe ? 'rgba(255,216,77,0.14)' : 'rgba(255,255,255,0.06)'};border:1px solid ${isMe ? 'rgba(255,216,77,0.25)' : 'rgba(255,255,255,0.08)'};">
           ${!isMe && m.from === 'admin' ? `<p style="font-size:0.6rem;color:#64dc78;font-weight:600;margin-bottom:0.2rem;">Naveen Sir</p>` : ''}
           ${m.tag ? `<p style="font-size:0.58rem;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.25rem;">${m.tag === 'doubt' ? '❓ Doubt' : '💬 Feedback'}${m.chapterInfo ? ' · ' + m.chapterInfo : ''}</p>` : ''}
@@ -1084,6 +1131,7 @@ function renderChatBubbles(msgs, viewerIsAdmin) {
           ${m.image ? `<img class="chat-bubble-img" src="${m.image}" style="max-width:100%;border-radius:6px;margin-top:0.4rem;cursor:pointer;" onclick="openImageLightbox('${m.image}')"/>` : ''}
           <p style="font-size:0.58rem;color:var(--muted);text-align:right;margin-top:0.3rem;">${chatTimeLabel(m.at)}</p>
         </div>
+        ${!isMe ? checkbox : ''}
       </div>`;
   });
   return html;
@@ -1410,9 +1458,14 @@ function showPage(name) {
 // AUTH
 // ═══════════════════════════════════════════
 async function loginWithGoogle() {
+  // Use a clean base URL (no leftover ?code=/?state=/?action=/?goto= params) as the
+  // redirect target. On mobile browsers a stale query string left over from the
+  // previous OAuth round-trip can get reused here and break the callback, which is
+  // what was forcing a second manual login after logout.
+  const cleanRedirect = window.location.origin + window.location.pathname;
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: cleanRedirect }
   });
   if (error) alert('Login failed: ' + error.message);
 }
@@ -1422,6 +1475,10 @@ async function logout() {
   currentUser = null;
   currentProfile = null;
   document.getElementById('nav-user').style.display = 'none';
+  document.getElementById('bottom-dash-bar').style.display = 'none';
+  // Clear out any leftover OAuth query/hash params so a subsequent login attempt
+  // starts from a clean URL instead of replaying stale ones (mobile-only bug).
+  history.replaceState(null, '', window.location.origin + window.location.pathname);
   showPage('login');
 }
 
@@ -1431,6 +1488,11 @@ async function initAuth() {
     await onLogin(session.user);
   } else {
     showPage('login');
+  }
+  // Strip any OAuth code/state (or hash tokens) left in the address bar once
+  // Supabase has parsed them, so they can never be replayed into a later login.
+  if (window.location.search || window.location.hash) {
+    history.replaceState(null, '', window.location.origin + window.location.pathname);
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
@@ -1453,6 +1515,7 @@ async function initAuth() {
 async function onLogin(user) {
   currentUser = user;
   document.getElementById('nav-user').style.display = 'flex';
+  document.getElementById('bottom-dash-bar').style.display = 'block';
   document.getElementById('nav-avatar').src = user.user_metadata?.avatar_url || '';
   document.getElementById('nav-username').textContent = user.user_metadata?.full_name || user.email;
 
@@ -1565,6 +1628,7 @@ async function saveProfile() {
   const phone = document.getElementById('p-phone').value.trim();
   const college = document.getElementById('p-college').value.trim();
  if (!name || !cls || !grp || !registerNo || !phone || !college) { alert('Please fill Name, Class, Group, Register Number, Phone Number and College/School Name — these are required!'); return; }
+  if (!/^\d{10}$/.test(phone)) { alert('Phone number must be exactly 10 digits (do not include +91).'); return; }
 
   const { error } = await sb.from('profiles').upsert({
     id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll,
@@ -3111,13 +3175,13 @@ async function loadInsights() {
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const allDates = Object.keys(insightsByDate).sort();
-  const pastDates = allDates.filter(d => d !== todayStr);
+  const pastDates = allDates.filter(d => d !== todayStr).reverse(); // latest day first
 
   container.innerHTML = `
     <div id="insight-today"></div>
-    <h4 style="font-size:0.85rem;color:var(--muted);margin:1.4rem 0 0.6rem;">Previous Days</h4>
-    <div style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
-      <div style="min-width:${Math.max(pastDates.length * 60, 320)}px;">
+    <h4 style="font-size:0.85rem;color:var(--muted);margin:1.4rem 0 0.6rem;">Previous Days (latest first — scroll ⟵ for older)</h4>
+    <div id="insights-scroll" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+      <div style="min-width:${Math.max(pastDates.length * 90, 900)}px;">
         <canvas id="insights-chart" height="90"></canvas>
       </div>
     </div>
@@ -3201,7 +3265,7 @@ let adminActiveStudent = null;
 async function loadFeedbackList() {
   const { data, error } = await sb.from('feedback').select('*').order('created_at', { ascending: true });
   if (error) { console.error(error); return; }
-  adminFeedbackCache = data || [];
+  adminFeedbackCache = (data || []).filter(f => !f.hidden_from_admin);
   renderAdminChatList();
   if (adminActiveStudentId) openAdminChat(adminActiveStudentId, adminActiveStudent?.name, adminActiveStudent?.email);
 }
@@ -3236,12 +3300,15 @@ function renderAdminChatList() {
 async function openAdminChat(userId, name, email) {
   adminActiveStudentId = userId;
   adminActiveStudent = { name, email };
-  document.getElementById('admin-chat-header').innerHTML = `<strong>${name || email || 'Student'}</strong> <span style="color:var(--muted);font-size:0.75rem;">${email || ''}</span>`;
+  document.getElementById('admin-chat-header-title').innerHTML = `<strong>${name || email || 'Student'}</strong> <span style="color:var(--muted);font-size:0.75rem;">${email || ''}</span>`;
+  document.getElementById('admin-chat-header-actions').style.display = 'flex';
   document.getElementById('admin-chat-composer').style.display = 'block';
+  document.getElementById('admin-chat-bulkbar').style.display = adminMsgSelectMode ? 'flex' : 'none';
+  document.getElementById('admin-msg-selected-count').textContent = '0 selected';
   const rows = adminFeedbackCache.filter(f => f.user_id === userId);
   const timeline = buildChatTimeline(rows);
   const box = document.getElementById('admin-chat-messages');
-  box.innerHTML = renderChatBubbles(timeline, true);
+  box.innerHTML = renderChatBubbles(timeline, true, adminMsgSelectMode);
   box.scrollTop = 9999999;
   renderAdminChatList();
 
@@ -3258,6 +3325,47 @@ let adminReplyImageFile = null;
 function handleAdminReplyImagePick(inputEl) {
   adminReplyImageFile = inputEl.files[0] || null;
   document.getElementById('admin-reply-image-name').textContent = adminReplyImageFile ? `Selected: ${adminReplyImageFile.name}` : '';
+}
+
+// ---- Admin: select / delete messages & conversations -------------------
+// NOTE: requires two new boolean columns on the "feedback" table:
+//   hidden_from_admin (default false), hidden_from_user (default false)
+let adminMsgSelectMode = false;
+function toggleAdminMsgSelectMode() {
+  adminMsgSelectMode = !adminMsgSelectMode;
+  document.getElementById('admin-msg-select-toggle').textContent = adminMsgSelectMode ? 'Cancel Select' : 'Select Messages';
+  if (adminActiveStudentId) openAdminChat(adminActiveStudentId, adminActiveStudent?.name, adminActiveStudent?.email);
+}
+function updateAdminMsgSelection() {
+  const n = document.querySelectorAll('.admin-msg-checkbox:checked').length;
+  document.getElementById('admin-msg-selected-count').textContent = n + ' selected';
+}
+async function deleteAdminSelectedMessages(forEveryone) {
+  const ids = Array.from(document.querySelectorAll('.admin-msg-checkbox:checked')).map(el => el.dataset.id);
+  if (!ids.length) { alert('No messages selected.'); return; }
+  const rowIds = [...new Set(ids.map(id => id.split('-')[0]))];
+  if (!confirm(`Delete ${ids.length} message(s) ${forEveryone ? 'for everyone' : 'for you only'}? This cannot be undone.`)) return;
+  const { error } = forEveryone
+    ? await sb.from('feedback').delete().in('id', rowIds)
+    : await sb.from('feedback').update({ hidden_from_admin: true }).in('id', rowIds);
+  if (error) { alert('Delete failed: ' + error.message); return; }
+  loadFeedbackList();
+}
+async function deleteAdminConversation() {
+  if (!adminActiveStudentId) return;
+  const choice = (prompt('Type ME to delete this conversation only from your admin view, or ALL to delete it for both you and the student. Cancel to abort.') || '').trim().toLowerCase();
+  if (choice !== 'me' && choice !== 'all') { if (choice) alert('Please type ME or ALL.'); return; }
+  if (!confirm(`This will permanently delete the entire conversation ${choice === 'all' ? 'for both you and the student' : 'from your admin view only'}. Continue?`)) return;
+  const { error } = choice === 'all'
+    ? await sb.from('feedback').delete().eq('user_id', adminActiveStudentId)
+    : await sb.from('feedback').update({ hidden_from_admin: true }).eq('user_id', adminActiveStudentId);
+  if (error) { alert('Delete failed: ' + error.message); return; }
+  adminActiveStudentId = null; adminActiveStudent = null;
+  document.getElementById('admin-chat-composer').style.display = 'none';
+  document.getElementById('admin-chat-header-actions').style.display = 'none';
+  document.getElementById('admin-chat-header-title').textContent = 'Select a student on the left to view the conversation';
+  document.getElementById('admin-chat-messages').innerHTML = '';
+  loadFeedbackList();
 }
 
 // Sending a reply always inserts a fresh row tagged sender:'admin' — this keeps
@@ -3279,6 +3387,7 @@ async function sendAdminChatMessage() {
   if (error) { alert('Error: ' + error.message); return; }
   document.getElementById('admin-reply-message').value = '';
   document.getElementById('admin-reply-image').value = '';
+  document.getElementById('admin-reply-camera').value = '';
   document.getElementById('admin-reply-image-name').textContent = '';
   adminReplyImageFile = null;
   loadFeedbackList();
@@ -3351,23 +3460,98 @@ async function loadAdminDashboard() {
     resultsByUser[r.user_id].push(r);
   });
 
-  const tbody = document.getElementById('students-table-body');
-  tbody.innerHTML = allStudents.map(p => {
+  // Cache the merged rows (with computed tests/avg) so filtering/sorting/deleting
+  // can all re-render from memory instead of re-querying Supabase each time.
+  studentsTableCache = allStudents.map(p => {
     const results = resultsByUser[p.id] || [];
-    const avg = results.length > 0 ? (results.reduce((s,r) => s + r.percentage, 0) / results.length).toFixed(1) : '-';
-    return `
+    const avg = results.length > 0 ? (results.reduce((s,r) => s + r.percentage, 0) / results.length).toFixed(1) : null;
+    return { ...p, tests: results.length, avg };
+  });
+
+  const groupSelect = document.getElementById('student-filter-group');
+  const groups = [...new Set(studentsTableCache.map(p => p.group_name).filter(Boolean))].sort();
+  groupSelect.innerHTML = '<option value="">All Groups</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+
+  selectedStudentIds.clear();
+  renderStudentsTable();
+}
+
+let studentsTableCache = [];
+let studentsSortKey = null, studentsSortDir = 1;
+let selectedStudentIds = new Set();
+
+// Applies the search box + Class/Group dropdowns, then the active column sort,
+// then redraws the table body. Called after every filter/sort/select-all change.
+function renderStudentsTable() {
+  const q = (document.getElementById('student-filter-search').value || '').trim().toLowerCase();
+  const clsF = document.getElementById('student-filter-class').value;
+  const grpF = document.getElementById('student-filter-group').value;
+
+  let rows = studentsTableCache.filter(p => {
+    if (clsF && p.class !== clsF) return false;
+    if (grpF && p.group_name !== grpF) return false;
+    if (q && !`${p.name||''} ${p.email||''} ${p.college||''}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (studentsSortKey) {
+    rows = [...rows].sort((a, b) => {
+      let av = a[studentsSortKey], bv = b[studentsSortKey];
+      if (studentsSortKey === 'avg' || studentsSortKey === 'tests') { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+      else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+      return av < bv ? -1 * studentsSortDir : av > bv ? 1 * studentsSortDir : 0;
+    });
+  }
+
+  const tbody = document.getElementById('students-table-body');
+  tbody.innerHTML = rows.map(p => `
       <tr>
+        <td><input type="checkbox" class="student-select-checkbox" data-id="${p.id}" ${selectedStudentIds.has(p.id) ? 'checked' : ''} onchange="toggleStudentSelect('${p.id}', this.checked)"/></td>
         <td>${p.name || '-'}</td>
         <td>${p.class ? 'Class ' + p.class : '-'}</td>
         <td>${p.group_name || '-'}</td>
         <td>${p.college || '-'}</td>
         <td>${p.phone || '-'}</td>
         <td>${p.email || '-'}</td>
-        <td>${results.length}</td>
-        <td>${avg}${avg !== '-' ? '%' : ''}</td>
+        <td>${p.tests}</td>
+        <td>${p.avg !== null ? p.avg + '%' : '-'}</td>
         <td><button class="btn-upload" style="padding:0.3rem 0.8rem;font-size:0.55rem;" onclick='viewStudentDashboard("${p.id}")'>View</button></td>
-      </tr>`;
-  }).join('') || '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:1rem;">No students have logged in yet.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:1rem;">No students match.</td></tr>';
+
+  document.getElementById('student-selected-count').textContent = selectedStudentIds.size ? `${selectedStudentIds.size} selected` : '';
+}
+
+function sortStudentsTable(key) {
+  studentsSortDir = (studentsSortKey === key) ? -studentsSortDir : 1;
+  studentsSortKey = key;
+  renderStudentsTable();
+}
+
+function toggleStudentSelect(id, checked) {
+  if (checked) selectedStudentIds.add(id); else selectedStudentIds.delete(id);
+  document.getElementById('student-selected-count').textContent = selectedStudentIds.size ? `${selectedStudentIds.size} selected` : '';
+}
+
+function toggleSelectAllStudents(checked) {
+  document.querySelectorAll('.student-select-checkbox').forEach(b => {
+    b.checked = checked;
+    if (checked) selectedStudentIds.add(b.dataset.id); else selectedStudentIds.delete(b.dataset.id);
+  });
+  document.getElementById('student-selected-count').textContent = selectedStudentIds.size ? `${selectedStudentIds.size} selected` : '';
+}
+
+// Deletes the selected students' profile rows (and their test results / chat
+// history) from the database entirely — this is a permanent removal, not a hide.
+async function deleteSelectedStudents() {
+  const ids = Array.from(selectedStudentIds);
+  if (!ids.length) { alert('No students selected.'); return; }
+  if (!confirm(`Permanently delete ${ids.length} student(s) and all their test results / chat history? This cannot be undone.`)) return;
+  const { error: e1 } = await sb.from('test_results').delete().in('user_id', ids);
+  const { error: e2 } = await sb.from('feedback').delete().in('user_id', ids);
+  const { error: e3 } = await sb.from('profiles').delete().in('id', ids);
+  if (e1 || e2 || e3) { alert('Delete failed: ' + (e1 || e2 || e3).message); return; }
+  selectedStudentIds.clear();
+  loadAdminDashboard();
 }
 
 async function viewStudentDashboard(userId) {
