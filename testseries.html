@@ -498,6 +498,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <label class="form-label">Roll Number (Optional)</label>
         <input id="p-roll" class="form-input" type="text" placeholder="Enter roll number"/>
       </div>
+      <div class="form-group">
+        <label class="form-label">Register Number *</label>
+        <input id="p-register" class="form-input" type="text" placeholder="Enter your board register number"/>
+      </div>
      <div class="form-group">
         <label class="form-label">Phone Number *</label>
         <input id="p-phone" class="form-input" type="tel" placeholder="+91XXXXXXXXXX"/>
@@ -507,6 +511,25 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <input id="p-college" class="form-input" type="text" placeholder="Enter your college/school name"/>
       </div>
       <button class="btn-primary" onclick="saveProfile()">Save &amp; Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ONE-TIME REGISTER NUMBER PROMPT (for students who registered before this feature) ═══ -->
+<div id="page-register-required" class="page">
+  <div class="profile-wrap">
+    <div class="profile-card">
+      <p class="form-eyebrow">One-Time Update</p>
+      <h2 class="form-title">Enter Your Register Number</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.5;">
+        We now need your board register number to show you your personal exam remarks. Please enter it once — you won't be asked again.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Register Number *</label>
+        <input id="rn-register" class="form-input" type="text" placeholder="e.g. 26AN1012SB2001"/>
+      </div>
+      <button class="btn-primary" onclick="saveRegisterNumberOnly()">Save &amp; Continue →</button>
+      <p id="rn-status" style="font-size:0.75rem;color:var(--muted);margin-top:0.8rem;"></p>
     </div>
   </div>
 </div>
@@ -560,7 +583,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
     <h1 class="section-title" id="chapters-title"></h1>
     <p class="section-sub" id="chapters-sub"></p>
     <div class="chapter-grid" id="board-feature-tiles" style="display:none;margin-bottom:2.5rem;">
-      <div class="chapter-tile feature-tile" onclick="openQAList('theory')">
+      <div class="chapter-tile feature-tile" onclick="openTheoryQuestions()">
         <p class="tile-num">Board Exams</p>
         <p class="tile-name">📝 Theory Questions</p>
         <p class="tile-count">Marks-wise · Chapter-wise</p>
@@ -652,6 +675,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <button class="type-tab active" id="dash-tab-performance" onclick="switchDashTab('performance')">Performance</button>
       <button class="type-tab" id="dash-tab-feedback" onclick="switchDashTab('feedback')">Feedback &amp; Doubts</button>
       <button class="type-tab" id="dash-tab-bookmarks" onclick="switchDashTab('bookmarks')">Bookmarked Questions</button>
+      <button class="type-tab" id="dash-tab-examremarks" onclick="switchDashTab('examremarks')">Exam Remarks</button>
     </div>
 
     <div id="dash-view-performance">
@@ -708,6 +732,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
 
     <div id="dash-view-bookmarks" style="display:none;">
       <div id="dash-bookmarks-list" style="margin-top:1rem;"></div>
+    </div>
+
+    <div id="dash-view-examremarks" style="display:none;">
+      <p style="font-size:0.8rem;color:var(--muted);margin:1rem 0 0.5rem;">Select an exam to view your remarks.</p>
+      <div id="exam-remarks-buttons" style="display:flex;gap:0.7rem;flex-wrap:wrap;"></div>
+      <div id="exam-remarks-text" style="margin-top:1.2rem;padding:1rem;border:1px solid rgba(255,216,77,0.15);border-radius:6px;background:rgba(255,255,255,0.02);display:none;"></div>
     </div>
   </div>
 </div>
@@ -1447,30 +1477,60 @@ async function onLogin(user) {
   const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
   if (profile) {
     currentProfile = profile;
-    updateNavBell();
-    if (currentUser.email === DUAL_CLASS_EMAIL) {
-      document.getElementById('dual-class-toggle').style.display = 'block';
-      setActiveClass(sessionStorage.getItem('activeClassOverride') || currentProfile.class);
+    // One-time gate: students who registered before the Register Number
+    // field existed are asked for it once, then never again.
+    if (!profile.register_number || !profile.register_number.trim()) {
+      document.getElementById('rn-status').textContent = '';
+      document.getElementById('rn-register').value = '';
+      showPage('register-required');
+      return;
     }
-    const pendingAction = sessionStorage.getItem('pendingAction');
-    const pendingGoto = sessionStorage.getItem('pendingGoto');
-    if (pendingAction === 'feedback' || pendingAction === 'doubt') {
-      sessionStorage.removeItem('pendingAction');
-      openFeedbackForm(pendingAction);
-    } else if (pendingGoto === 'my-feedback') {
-      sessionStorage.removeItem('pendingGoto');
-      await goToDashboard();
-      switchDashTab('feedback');
-    } else if (pendingGoto === 'dashboard') {
-      sessionStorage.removeItem('pendingGoto');
-      await goToDashboard();
-    } else {
-      await restoreLastSession();
-    }
+    await afterProfileReady();
   } else {
     document.getElementById('p-name').value = user.user_metadata?.full_name || '';
     showPage('profile');
   }
+}
+
+// Runs whatever the student was trying to do once we know their profile
+// (including register number) is complete. Shared by returning users,
+// brand-new signups, and users who just filled the one-time register-number
+// prompt.
+async function afterProfileReady() {
+  updateNavBell();
+  if (currentUser.email === DUAL_CLASS_EMAIL) {
+    document.getElementById('dual-class-toggle').style.display = 'block';
+    setActiveClass(sessionStorage.getItem('activeClassOverride') || currentProfile.class);
+  }
+  const pendingAction = sessionStorage.getItem('pendingAction');
+  const pendingGoto = sessionStorage.getItem('pendingGoto');
+  if (pendingAction === 'feedback' || pendingAction === 'doubt') {
+    sessionStorage.removeItem('pendingAction');
+    openFeedbackForm(pendingAction);
+  } else if (pendingGoto === 'my-feedback') {
+    sessionStorage.removeItem('pendingGoto');
+    await goToDashboard();
+    switchDashTab('feedback');
+  } else if (pendingGoto === 'dashboard') {
+    sessionStorage.removeItem('pendingGoto');
+    await goToDashboard();
+  } else {
+    await restoreLastSession();
+  }
+}
+
+// Saves the register number for students who already had a profile before
+// this field existed. One-time prompt — after this they go straight through.
+async function saveRegisterNumberOnly() {
+  const status = document.getElementById('rn-status');
+  const val = document.getElementById('rn-register').value.trim();
+  if (!val) { status.textContent = 'Please enter your register number.'; return; }
+  status.textContent = 'Saving...';
+  const { error } = await sb.from('profiles').update({ register_number: val }).eq('id', currentUser.id);
+  if (error) { status.textContent = 'Error: ' + error.message; return; }
+  currentProfile.register_number = val;
+  status.textContent = '';
+  await afterProfileReady();
 }
 
 // Restores whatever the student was doing before a page refresh: an in-progress
@@ -1501,17 +1561,18 @@ async function saveProfile() {
   const cls = document.getElementById('p-class').value;
   const grp = document.getElementById('p-group').value;
   const roll = document.getElementById('p-roll').value.trim();
+  const registerNo = document.getElementById('p-register').value.trim();
   const phone = document.getElementById('p-phone').value.trim();
   const college = document.getElementById('p-college').value.trim();
- if (!name || !cls || !grp || !phone || !college) { alert('Please fill Name, Class, Group, Phone Number and College/School Name — these are required!'); return; }
+ if (!name || !cls || !grp || !registerNo || !phone || !college) { alert('Please fill Name, Class, Group, Register Number, Phone Number and College/School Name — these are required!'); return; }
 
   const { error } = await sb.from('profiles').upsert({
     id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll,
-    phone, college, email: currentUser.email
+    register_number: registerNo, phone, college, email: currentUser.email
   });
   if (error) { alert('Error saving profile: ' + error.message); return; }
-  currentProfile = { name, class: cls, group_name: grp, roll_no: roll, phone, college, email: currentUser.email };
-  showPage('home');
+  currentProfile = { name, class: cls, group_name: grp, roll_no: roll, register_number: registerNo, phone, college, email: currentUser.email };
+  await afterProfileReady();
 }
 // ═══════════════════════════════════════════
 // CHAPTERS
@@ -1590,6 +1651,21 @@ function openNumericals() {
     window.open(url, '_blank');
   } else {
     alert('Class 11 Numericals link coming soon!');
+  }
+}
+
+// Theory Questions now open straight from Google Drive (First PU / Second PU
+// docs) instead of being loaded question-by-question from Supabase.
+function openTheoryQuestions() {
+  const urls = {
+    '11': 'https://docs.google.com/document/d/1tDfhrYtiq9bP7e6D3x-2QF1UtRppAlGx/edit?usp=drive_link&ouid=115809138595971473648&rtpof=true&sd=true',
+    '12': 'https://docs.google.com/document/d/15IQTBO1O1BfptDwJcuw77hkiqtiiEQW6/edit?usp=drive_link&ouid=115809138595971473648&rtpof=true&sd=true'
+  };
+  const url = urls[getActiveClass()];
+  if (url) {
+    window.open(url, '_blank');
+  } else {
+    alert('Theory Questions link coming soon!');
   }
 }
 
@@ -2323,7 +2399,7 @@ function retakeTest() { startTest(currentChapter, currentChapterName); }
 async function goToDashboard() {
   document.getElementById('dash-name-text').textContent = currentProfile?.name || '';
   document.getElementById('dash-meta').textContent =
-    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll: ${currentProfile?.roll_no || 'N/A'}`;
+    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll: ${currentProfile?.roll_no || 'N/A'} · Reg No: ${currentProfile?.register_number || 'N/A'}`;
 
   const { data: results } = await sb.from('test_results')
     .select('*')
@@ -2356,11 +2432,113 @@ function switchDashTab(tab) {
   document.getElementById('dash-tab-performance').classList.toggle('active', tab === 'performance');
   document.getElementById('dash-tab-feedback').classList.toggle('active', tab === 'feedback');
   document.getElementById('dash-tab-bookmarks').classList.toggle('active', tab === 'bookmarks');
+  document.getElementById('dash-tab-examremarks').classList.toggle('active', tab === 'examremarks');
   document.getElementById('dash-view-performance').style.display = tab === 'performance' ? 'block' : 'none';
   document.getElementById('dash-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
   document.getElementById('dash-view-bookmarks').style.display = tab === 'bookmarks' ? 'block' : 'none';
+  document.getElementById('dash-view-examremarks').style.display = tab === 'examremarks' ? 'block' : 'none';
   if (tab === 'feedback') loadMyChat();
   if (tab === 'bookmarks') loadBookmarks();
+  if (tab === 'examremarks') loadExamRemarks();
+}
+
+// ═══════════════════════════════════════════
+// EXAM REMARKS (read live from the shared Google Sheet)
+// Sheet columns: A=SL.NO B=Class C=REGISTER NO D=STUDENTS NAME E=FA1 ... H=(next exam)
+// Row 1 holds the exam name in each exam column (E1, H1, ...). A button is
+// shown for every such column that has a name filled in, so adding a new
+// exam later (e.g. filling H1) automatically adds a new button — no code
+// changes needed.
+// ═══════════════════════════════════════════
+const EXAM_REMARKS_SHEET_ID = '1VkgtEUdHxPQYidHfHdPpCIPD9qqtuB2VeP8_2NAJm4w';
+const EXAM_REMARKS_REGNO_COL = 2;      // column C (0-indexed)
+const EXAM_REMARKS_EXAM_COLS = [4, 7]; // columns E and H (0-indexed)
+let examRemarksRows = null;
+
+// Minimal CSV parser that handles quoted fields containing commas/newlines
+// (Google's exported CSV quotes any remark text that itself contains a comma).
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n') {
+      row.push(field); rows.push(row); row = []; field = '';
+    } else if (c === '\r') {
+      // skip
+    } else {
+      field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+async function loadExamRemarks(forceRefresh) {
+  const btnBox = document.getElementById('exam-remarks-buttons');
+  const textBox = document.getElementById('exam-remarks-text');
+  textBox.style.display = 'none';
+  textBox.innerHTML = '';
+  btnBox.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;">Loading...</p>';
+
+  if (!examRemarksRows || forceRefresh) {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${EXAM_REMARKS_SHEET_ID}/export?format=csv&gid=0&cachebust=${Date.now()}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('Sheet not reachable');
+      const text = await resp.text();
+      examRemarksRows = parseCSV(text);
+    } catch (e) {
+      btnBox.innerHTML = '<p style="color:var(--muted);">Could not load exam remarks right now. Please try again later.</p>';
+      return;
+    }
+  }
+
+  const headerRow = examRemarksRows[0] || [];
+  const exams = EXAM_REMARKS_EXAM_COLS
+    .map(idx => ({ idx, name: (headerRow[idx] || '').trim() }))
+    .filter(e => e.name);
+
+  if (exams.length === 0) {
+    btnBox.innerHTML = '<p style="color:var(--muted);">No exam remarks have been published yet.</p>';
+    return;
+  }
+
+  btnBox.innerHTML = exams.map(e =>
+    `<button class="type-tab" onclick="showExamRemark(${e.idx}, '${e.name.replace(/'/g, "\\'")}')">${e.name}</button>`
+  ).join('');
+}
+
+function showExamRemark(colIdx, examName) {
+  const textBox = document.getElementById('exam-remarks-text');
+  const regNo = (currentProfile?.register_number || '').trim().toUpperCase();
+  textBox.style.display = 'block';
+
+  if (!regNo) {
+    textBox.innerHTML = '<p style="color:var(--muted);">Your register number is not on file. Please contact your teacher.</p>';
+    return;
+  }
+  if (!examRemarksRows) {
+    textBox.innerHTML = '<p style="color:var(--muted);">Data not loaded yet — please try again.</p>';
+    return;
+  }
+
+  const match = examRemarksRows.slice(1).find(r => (r[EXAM_REMARKS_REGNO_COL] || '').trim().toUpperCase() === regNo);
+  const remark = match ? (match[colIdx] || '').trim() : '';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  textBox.innerHTML =
+    `<p style="color:var(--gold);font-family:'Space Mono',monospace;font-size:0.68rem;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.7rem;">${esc(examName)} — Your Remarks</p>` +
+    `<p style="line-height:1.7;">${remark ? esc(remark) : (match ? 'No remarks entered for you yet for this exam.' : 'We could not find your register number in the sheet. Please contact your teacher if this seems wrong.')}</p>`;
 }
 
 async function loadBookmarks() {
