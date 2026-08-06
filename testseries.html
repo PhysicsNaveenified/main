@@ -3549,8 +3549,11 @@ async function deleteSelectedStudents() {
   const { error: e1 } = await sb.from('test_results').delete().in('user_id', ids);
   const { error: e2 } = await sb.from('feedback').delete().in('user_id', ids);
   const { error: e2b } = await sb.from('test_progress').delete().in('user_id', ids);
-  const { error: e3 } = await sb.from('profiles').delete().in('id', ids);
-  if (e1 || e2 || e2b || e3) { alert('Delete failed: ' + (e1 || e2 || e2b || e3).message); return; }
+  const { error: e2c, data: d2c } = await sb.from('visits').delete().in('user_id', ids).select();
+  const { error: e3, data: d3 } = await sb.from('profiles').delete().in('id', ids).select();
+  if (e1 || e2 || e2b || e2c || e3) { alert('Delete failed: ' + (e1 || e2 || e2b || e2c || e3).message); return; }
+  if (!d3 || d3.length === 0) { alert('Nothing was deleted — Supabase Row Level Security is silently blocking this. See the DELETE policy note below the code.'); return; }
+  if (d2c === null || (d2c && d2c.length === 0)) { alert('Profile deleted, but their old visit logs could not be removed (RLS is still blocking DELETE on the "visits" table) — that\'s why a blank row keeps reappearing. Run the visits DELETE policy in Supabase, then try again.'); }
   selectedStudentIds.clear();
   loadAdminDashboard();
 }
