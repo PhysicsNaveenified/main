@@ -3343,7 +3343,7 @@ function updateAdminMsgSelection() {
 async function deleteAdminSelectedMessages(forEveryone) {
   const ids = Array.from(document.querySelectorAll('.admin-msg-checkbox:checked')).map(el => el.dataset.id);
   if (!ids.length) { alert('No messages selected.'); return; }
-  const rowIds = [...new Set(ids.map(id => id.split('-')[0]))];
+  const rowIds = [...new Set(ids.map(id => id.slice(0, -2)))];
   if (!confirm(`Delete ${ids.length} message(s) ${forEveryone ? 'for everyone' : 'for you only'}? This cannot be undone.`)) return;
   const { error } = forEveryone
     ? await sb.from('feedback').delete().in('id', rowIds)
