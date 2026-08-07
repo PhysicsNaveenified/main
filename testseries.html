@@ -2516,7 +2516,7 @@ function switchDashTab(tab) {
 // ═══════════════════════════════════════════
 const EXAM_REMARKS_SHEET_ID = '1VkgtEUdHxPQYidHfHdPpCIPD9qqtuB2VeP8_2NAJm4w';
 const EXAM_REMARKS_REGNO_COL = 2;      // column C (0-indexed)
-const EXAM_REMARKS_EXAM_COLS = [4, 7]; // columns E and H (0-indexed)
+const EXAM_REMARKS_FIRST_EXAM_COL = 4; // column E (0-indexed) — every column from here rightward is scanned
 let examRemarksRows = null;
 
 // Minimal CSV parser that handles quoted fields containing commas/newlines
@@ -2568,9 +2568,11 @@ async function loadExamRemarks(forceRefresh) {
   }
 
   const headerRow = examRemarksRows[0] || [];
-  const exams = EXAM_REMARKS_EXAM_COLS
-    .map(idx => ({ idx, name: (headerRow[idx] || '').trim() }))
-    .filter(e => e.name);
+const exams = [];
+for (let idx = EXAM_REMARKS_FIRST_EXAM_COL; idx < headerRow.length; idx++) {
+  const name = (headerRow[idx] || '').trim();
+  if (name) exams.push({ idx, name });
+}
 
   if (exams.length === 0) {
     btnBox.innerHTML = '<p style="color:var(--muted);">No exam remarks have been published yet.</p>';
