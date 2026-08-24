@@ -3381,9 +3381,16 @@ async function sendAdminChatMessage() {
     if (adminReplyImageFile) imageUrl = await uploadChatImage(adminReplyImageFile);
   } catch (e) { alert('Image upload failed: ' + e.message); return; }
 
+  // The "feedback" table's type check constraint only allows 'feedback' / 'doubt'
+  // (there's no 'message' type). Admin replies aren't a new feedback/doubt on their
+  // own, so we tag them with whatever type the conversation thread already has.
+  const threadRows = adminFeedbackCache.filter(f => f.user_id === adminActiveStudentId);
+  const lastTypedRow = [...threadRows].reverse().find(f => f.type === 'feedback' || f.type === 'doubt');
+  const replyType = lastTypedRow ? lastTypedRow.type : 'feedback';
+
   const { error } = await sb.from('feedback').insert({
     user_id: adminActiveStudentId, name: adminActiveStudent?.name, email: adminActiveStudent?.email,
-    type: 'message', sender: 'admin', message: text, image_url: imageUrl,
+    type: replyType, sender: 'admin', message: text, image_url: imageUrl,
     seen_by_admin: true, seen_by_user: false
   });
   if (error) { alert('Error: ' + error.message); return; }
