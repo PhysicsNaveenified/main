@@ -503,12 +503,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Roll Number (Optional)</label>
-        <input id="p-roll" class="form-input" type="text" placeholder="Enter roll number"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Register Number *</label>
-        <input id="p-register" class="form-input" type="text" placeholder="Enter your board register number"/>
+        <label class="form-label">Roll Number / Register Number *</label>
+        <input id="p-register" class="form-input" type="text" placeholder="Enter your roll number / board register number"/>
       </div>
      <div class="form-group">
         <label class="form-label">Phone Number *</label>
@@ -528,12 +524,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   <div class="profile-wrap">
     <div class="profile-card">
       <p class="form-eyebrow">One-Time Update</p>
-      <h2 class="form-title">Enter Your Register Number</h2>
+      <h2 class="form-title">Enter Your Roll Number / Register Number</h2>
       <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.5;">
-        We now need your board register number to show you your personal exam remarks. Please enter it once — you won't be asked again.
+        We now need your roll number / board register number to show you your personal exam remarks. Please enter it once — you won't be asked again.
       </p>
       <div class="form-group">
-        <label class="form-label">Register Number *</label>
+        <label class="form-label">Roll Number / Register Number *</label>
         <input id="rn-register" class="form-input" type="text" placeholder="e.g. 26AN1012SB2001"/>
       </div>
       <button class="btn-primary" onclick="saveRegisterNumberOnly()">Save &amp; Continue →</button>
@@ -674,7 +670,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
       <div>
         <p class="section-eyebrow">My Performance</p>
         <h2 class="dash-name">Welcome, <em id="dash-name-text"></em></h2>
-        <p class="dash-meta" id="dash-meta"></p>
+        <p class="dash-meta">
+          <span id="dash-meta"></span>
+          <a href="#" onclick="openEditRegisterNumber();return false;" style="color:var(--gold);font-size:0.75rem;margin-left:0.6rem;text-decoration:underline;cursor:pointer;">✎ Edit Roll/Register No.</a>
+        </p>
+        <div id="dash-regno-edit" style="display:none;margin-top:0.6rem;gap:0.5rem;align-items:center;">
+          <input id="dash-regno-input" class="form-input" type="text" style="max-width:220px;display:inline-block;" placeholder="Roll Number / Register Number"/>
+          <button class="btn-primary" style="padding:0.5rem 1rem;display:inline-block;width:auto;" onclick="saveEditedRegisterNumber()">Save</button>
+          <button onclick="closeEditRegisterNumber()" style="padding:0.5rem 1rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;">Cancel</button>
+          <span id="dash-regno-status" style="font-size:0.72rem;color:var(--muted);display:block;margin-top:0.4rem;"></span>
+        </div>
       </div>
       <button onclick="showPage('home')" style="padding:0.5rem 1.2rem;background:transparent;border:1px solid rgba(255,216,77,0.25);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">← Back to Tests</button>
     </div>
@@ -1586,8 +1591,9 @@ async function afterProfileReady() {
 // this field existed. One-time prompt — after this they go straight through.
 async function saveRegisterNumberOnly() {
   const status = document.getElementById('rn-status');
-  const val = document.getElementById('rn-register').value.trim();
-  if (!val) { status.textContent = 'Please enter your register number.'; return; }
+  const val = document.getElementById('rn-register').value.trim().toUpperCase();
+  if (!val) { status.textContent = 'Please enter your roll number / register number.'; return; }
+  if (!/^[A-Z0-9]{4,20}$/.test(val)) { status.textContent = 'Should be 4–20 characters, letters and numbers only (no spaces or symbols). Please check and re-enter.'; return; }
   status.textContent = 'Saving...';
   const { error } = await sb.from('profiles').update({ register_number: val }).eq('id', currentUser.id);
   if (error) { status.textContent = 'Error: ' + error.message; return; }
@@ -1623,19 +1629,19 @@ async function saveProfile() {
   const name = document.getElementById('p-name').value.trim();
   const cls = document.getElementById('p-class').value;
   const grp = document.getElementById('p-group').value;
-  const roll = document.getElementById('p-roll').value.trim();
-  const registerNo = document.getElementById('p-register').value.trim();
+  const registerNo = document.getElementById('p-register').value.trim().toUpperCase();
   const phone = document.getElementById('p-phone').value.trim();
   const college = document.getElementById('p-college').value.trim();
- if (!name || !cls || !grp || !registerNo || !phone || !college) { alert('Please fill Name, Class, Group, Register Number, Phone Number and College/School Name — these are required!'); return; }
+ if (!name || !cls || !grp || !registerNo || !phone || !college) { alert('Please fill Name, Class, Group, Roll Number / Register Number, Phone Number and College/School Name — these are required!'); return; }
+  if (!/^[A-Z0-9]{4,20}$/.test(registerNo)) { alert('Roll Number / Register Number should be 4–20 characters, letters and numbers only (no spaces or symbols). Please check and re-enter it.'); return; }
   if (!/^\d{10}$/.test(phone)) { alert('Phone number must be exactly 10 digits (do not include +91).'); return; }
 
   const { error } = await sb.from('profiles').upsert({
-    id: currentUser.id, name, class: cls, group_name: grp, roll_no: roll,
+    id: currentUser.id, name, class: cls, group_name: grp, roll_no: registerNo,
     register_number: registerNo, phone, college, email: currentUser.email
   });
   if (error) { alert('Error saving profile: ' + error.message); return; }
-  currentProfile = { name, class: cls, group_name: grp, roll_no: roll, register_number: registerNo, phone, college, email: currentUser.email };
+  currentProfile = { name, class: cls, group_name: grp, roll_no: registerNo, register_number: registerNo, phone, college, email: currentUser.email };
   await afterProfileReady();
 }
 // ═══════════════════════════════════════════
@@ -2463,7 +2469,8 @@ function retakeTest() { startTest(currentChapter, currentChapterName); }
 async function goToDashboard() {
   document.getElementById('dash-name-text').textContent = currentProfile?.name || '';
   document.getElementById('dash-meta').textContent =
-    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll: ${currentProfile?.roll_no || 'N/A'} · Reg No: ${currentProfile?.register_number || 'N/A'}`;
+    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll/Reg No: ${currentProfile?.register_number || currentProfile?.roll_no || 'N/A'}`;
+  document.getElementById('dash-regno-edit').style.display = 'none';
 
   const { data: results } = await sb.from('test_results')
     .select('*')
@@ -2491,6 +2498,33 @@ async function goToDashboard() {
   renderRecentTests();
   switchDashTab('performance');
   showPage('dashboard');
+}
+
+// Lets ANY student (new or old) freely open this at any time from their
+// dashboard and correct/update their Roll Number / Register Number, in case
+// they mistyped it or it changed. Separate from the automatic one-time
+// gate shown to old students who never had this field saved at all.
+function openEditRegisterNumber() {
+  document.getElementById('dash-regno-input').value = currentProfile?.register_number || currentProfile?.roll_no || '';
+  document.getElementById('dash-regno-status').textContent = '';
+  document.getElementById('dash-regno-edit').style.display = 'flex';
+}
+function closeEditRegisterNumber() {
+  document.getElementById('dash-regno-edit').style.display = 'none';
+}
+async function saveEditedRegisterNumber() {
+  const status = document.getElementById('dash-regno-status');
+  const val = document.getElementById('dash-regno-input').value.trim().toUpperCase();
+  if (!val) { status.textContent = 'Please enter your roll number / register number.'; return; }
+  if (!/^[A-Z0-9]{4,20}$/.test(val)) { status.textContent = 'Should be 4–20 characters, letters and numbers only (no spaces or symbols).'; return; }
+  status.textContent = 'Saving...';
+  const { error } = await sb.from('profiles').update({ register_number: val, roll_no: val }).eq('id', currentUser.id);
+  if (error) { status.textContent = 'Error: ' + error.message; return; }
+  currentProfile.register_number = val;
+  currentProfile.roll_no = val;
+  document.getElementById('dash-meta').textContent =
+    `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll/Reg No: ${val}`;
+  document.getElementById('dash-regno-edit').style.display = 'none';
 }
 function switchDashTab(tab) {
   document.getElementById('dash-tab-performance').classList.toggle('active', tab === 'performance');
