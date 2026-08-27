@@ -672,7 +672,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
         <h2 class="dash-name">Welcome, <em id="dash-name-text"></em></h2>
         <p class="dash-meta">
           <span id="dash-meta"></span>
-          <a href="#" onclick="openEditRegisterNumber();return false;" style="color:var(--gold);font-size:0.75rem;margin-left:0.6rem;text-decoration:underline;cursor:pointer;">✎ Edit Roll/Register No.</a>
+          <a href="#" id="dash-regno-edit-link" style="color:var(--gold);font-size:0.75rem;margin-left:0.6rem;text-decoration:underline;cursor:pointer;">✎ Edit Roll/Register No. (one-time)</a>
         </p>
         <div id="dash-regno-edit" style="display:none;margin-top:0.6rem;gap:0.5rem;align-items:center;">
           <input id="dash-regno-input" class="form-input" type="text" style="max-width:220px;display:inline-block;" placeholder="Roll Number / Register Number"/>
@@ -2471,6 +2471,7 @@ async function goToDashboard() {
   document.getElementById('dash-meta').textContent =
     `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll/Reg No: ${currentProfile?.register_number || currentProfile?.roll_no || 'N/A'}`;
   document.getElementById('dash-regno-edit').style.display = 'none';
+  updateEditRegNoLinkVisibility();
 
   const { data: results } = await sb.from('test_results')
     .select('*')
@@ -2500,11 +2501,15 @@ async function goToDashboard() {
   showPage('dashboard');
 }
 
-// Lets ANY student (new or old) freely open this at any time from their
-// dashboard and correct/update their Roll Number / Register Number, in case
-// they mistyped it or it changed. Separate from the automatic one-time
-// gate shown to old students who never had this field saved at all.
+// Lets a student self-correct their Roll Number / Register Number, but ONLY
+// ONCE — after that the link is locked to prevent students from repeatedly
+// changing it (e.g. to someone else's number). Tracked via the
+// `register_edited` flag on their profile row.
 function openEditRegisterNumber() {
+  if (currentProfile?.register_edited) {
+    alert('You have already used your one-time edit for Roll Number / Register Number. If this is incorrect, please contact your teacher/admin.');
+    return;
+  }
   document.getElementById('dash-regno-input').value = currentProfile?.register_number || currentProfile?.roll_no || '';
   document.getElementById('dash-regno-status').textContent = '';
   document.getElementById('dash-regno-edit').style.display = 'flex';
@@ -2517,15 +2522,36 @@ async function saveEditedRegisterNumber() {
   const val = document.getElementById('dash-regno-input').value.trim().toUpperCase();
   if (!val) { status.textContent = 'Please enter your roll number / register number.'; return; }
   if (!/^[A-Z0-9]{4,20}$/.test(val)) { status.textContent = 'Should be 4–20 characters, letters and numbers only (no spaces or symbols).'; return; }
+  if (!confirm(`Set Roll Number / Register Number to "${val}"? You can only do this once, so please double-check it's correct before confirming.`)) { return; }
   status.textContent = 'Saving...';
-  const { error } = await sb.from('profiles').update({ register_number: val, roll_no: val }).eq('id', currentUser.id);
+  const { error } = await sb.from('profiles').update({ register_number: val, roll_no: val, register_edited: true }).eq('id', currentUser.id);
   if (error) { status.textContent = 'Error: ' + error.message; return; }
   currentProfile.register_number = val;
   currentProfile.roll_no = val;
+  currentProfile.register_edited = true;
   document.getElementById('dash-meta').textContent =
     `Class ${currentProfile?.class} · ${currentProfile?.group_name} · Roll/Reg No: ${val}`;
   document.getElementById('dash-regno-edit').style.display = 'none';
+  updateEditRegNoLinkVisibility();
 }
+function updateEditRegNoLinkVisibility() {
+  const link = document.getElementById('dash-regno-edit-link');
+  if (!link) return;
+  if (currentProfile?.register_edited) {
+    link.textContent = '🔒 Roll/Register No. locked';
+    link.style.cursor = 'default';
+    link.style.textDecoration = 'none';
+    link.style.color = 'var(--muted)';
+    link.onclick = function(e){ e.preventDefault(); alert('You have already used your one-time edit for Roll Number / Register Number. If this is incorrect, please contact your teacher/admin.'); };
+  } else {
+    link.textContent = '✎ Edit Roll/Register No. (one-time)';
+    link.style.cursor = 'pointer';
+    link.style.textDecoration = 'underline';
+    link.style.color = 'var(--gold)';
+    link.onclick = function(e){ e.preventDefault(); openEditRegisterNumber(); };
+  }
+}
+
 function switchDashTab(tab) {
   document.getElementById('dash-tab-performance').classList.toggle('active', tab === 'performance');
   document.getElementById('dash-tab-feedback').classList.toggle('active', tab === 'feedback');
