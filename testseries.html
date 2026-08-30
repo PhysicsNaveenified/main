@@ -305,13 +305,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:cen
   #admin-chat-messages p[style*="white-space:pre-wrap"]{font-size:1.05rem !important;}
   .chat-bubble-img{max-width:260px !important;}
 }
-  .announce-ticker{position:fixed;top:64px;left:0;right:0;z-index:400;overflow:hidden;background:linear-gradient(90deg,rgba(255,216,77,0.14),rgba(90,175,255,0.14));border-bottom:1px solid rgba(255,216,77,0.35);padding:0.5rem 0;white-space:nowrap;animation:tickerGlow 1.4s ease-in-out infinite;}
+ .announce-ticker{position:fixed;top:var(--nav-h,64px);left:0;right:0;z-index:400;overflow:hidden;background:linear-gradient(90deg,rgba(255,216,77,0.14),rgba(90,175,255,0.14));border-bottom:1px solid rgba(255,216,77,0.35);padding:0.5rem 0;white-space:nowrap;animation:tickerGlow 1.4s ease-in-out infinite;}
 @keyframes tickerGlow{0%,100%{box-shadow:0 0 6px rgba(255,216,77,0.15) inset;}50%{box-shadow:0 0 16px rgba(255,216,77,0.45) inset;}}
 .announce-ticker-track{display:inline-block;padding-left:100%;font-family:'Space Mono',monospace;font-size:0.72rem;letter-spacing:1px;color:var(--gold);font-weight:700;text-transform:uppercase;animation:tickerScrollX 16s linear infinite;}
 @keyframes tickerScrollX{from{transform:translateX(0);}to{transform:translateX(-100%);}}
-body{padding-top:36px;}
+body{padding-top:calc(var(--nav-h,64px) + 36px);}
 @media(max-width:768px){
-  .announce-ticker{top:auto;}
   .announce-ticker-track{font-size:0.62rem;animation-duration:13s;}
 }
 </style>
@@ -1089,6 +1088,16 @@ body{padding-top:36px;}
   </div>
 </div>
 <script>
+  // Keeps the announcement ticker glued to the bottom of the (possibly
+// wrapping, mobile) nav bar by measuring its real rendered height instead
+// of guessing a fixed pixel value.
+function syncNavHeight() {
+  const nav = document.querySelector('nav');
+  if (nav) document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+}
+window.addEventListener('load', syncNavHeight);
+window.addEventListener('resize', syncNavHeight);
+syncNavHeight();
 // ═══════════════════════════════════════════
 // UNIFIED WHATSAPP-STYLE CHAT (student side + admin side share these helpers)
 // ═══════════════════════════════════════════
