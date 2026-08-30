@@ -836,6 +836,14 @@ footer {
   .tab-btn { padding: 1rem 1.2rem; }
   .tab-panel { padding: 2.5rem 5vw; }
 }
+  .announce-ticker{position:fixed;top:70px;left:0;right:0;z-index:400;overflow:hidden;background:linear-gradient(90deg,rgba(245,192,48,0.16),rgba(58,143,255,0.16));border-bottom:1px solid rgba(245,192,48,0.35);padding:0.55rem 0;white-space:nowrap;animation:tickerGlow 1.4s ease-in-out infinite;cursor:auto !important;}
+@keyframes tickerGlow{0%,100%{box-shadow:0 0 6px rgba(245,192,48,0.15) inset;}50%{box-shadow:0 0 18px rgba(245,192,48,0.5) inset;}}
+.announce-ticker-track{display:inline-block;padding-left:100%;font-family:'Space Mono',monospace;font-size:0.74rem;letter-spacing:1px;color:var(--gold);font-weight:700;text-transform:uppercase;animation:tickerScrollX 16s linear infinite;}
+@keyframes tickerScrollX{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+@media(max-width:900px){
+  .announce-ticker{top:64px;}
+  .announce-ticker-track{font-size:0.6rem;animation-duration:13s;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -880,7 +888,9 @@ footer {
   </div>
   <button class="nav-burger" id="nav-burger" onclick="toggleMobileNav()">☰</button>
 </nav>
-
+<div class="announce-ticker">
+  <span class="announce-ticker-track">📢 Prepare from question bank pdf under Class XI/XII for the monthly test &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 📢 Prepare from question bank pdf under Class XI/XII for the monthly test</span>
+</div>
 <!-- ══════════════════════════════════════
      HOME PAGE
 ══════════════════════════════════════ -->
