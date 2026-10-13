@@ -8,13 +8,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  --gold: #ffd84d;          /* keep */
-  --blue: #5aafff;          /* keep */
-  --navy: #0b1330;          /* was #070e28 — slightly lighter base */
-  --navy2: #0f1a3d;         /* was #0a1535 */
-  --white: #faf8f2;         /* was #f8f6f0 — brighter */
-  --muted: rgba(250,248,242,0.72);   /* was 0.65 */
-  --muted2: rgba(250,248,242,0.92);  /* was 0.88 */
+  --gold: #ffd84d;
+  --blue: #5aafff;
+  --navy: #0b1330;
+  --navy2: #0f1a3d;
+  --white: #faf8f2;
+  --muted: rgba(250,248,242,0.72);
+  --muted2: rgba(250,248,242,0.92);
 }
 .orb-photo-wrap {
   width: 100%; height: 100%;
@@ -1193,7 +1193,7 @@ body{padding-top:calc(var(--nav-h,70px) + 40px);}
           </div>
           <div class="sim-item" onclick="openYT('https://physicsnaveenified.github.io/main/ball_throw_simulator.html')">
             <p class="sim-title">Ball thrown up vertically</p>
-            <p class="sim-desc">Have a look at the velocity and acceleration of the ball thrown up vertically/p>
+            <p class="sim-desc">Have a look at the velocity and acceleration of the ball thrown up vertically.</p>
           </div>
           <div class="sim-item" onclick="openYT('https://phet.colorado.edu/en/simulations/gravity-and-orbits')">
             <p class="sim-title">Gravity and Orbits</p>
@@ -1697,7 +1697,7 @@ function goAbout() {
 
 /* ═══════════════════════════════════════════════
    THREE.JS — MAIN WORLD CANVAS
-   Surreal 3D dreamscape: mountains, particles, rings
+   Surreal 3D dreamscape — now driven by phone gyroscope
 ═══════════════════════════════════════════════ */
 (function() {
   const canvas = document.getElementById('world-canvas');
@@ -1707,7 +1707,7 @@ function goAbout() {
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0b1330, 0.009);  // was 0.012 — less fog = brighter depth
+  scene.fog = new THREE.FogExp2(0x0b1330, 0.009);
 
   const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
   camera.position.set(0, 3, 14);
@@ -1727,6 +1727,33 @@ function goAbout() {
   for (let i = 0; i < 800 * 3; i++) dustPos[i] = (Math.random() - 0.5) * 80;
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
   scene.add(new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xf5c030, size: 0.12, transparent: true, opacity: 0.35 })));
+
+  /* ── Near-field particles (shift strongly when you tilt = real depth) ── */
+  const nearCount = 250;
+  const nearGeo = new THREE.BufferGeometry();
+  const nearPos = new Float32Array(nearCount * 3);
+  for (let i = 0; i < nearCount; i++) {
+    nearPos[i*3]   = (Math.random() - 0.5) * 40;
+    nearPos[i*3+1] = (Math.random() - 0.5) * 20;
+    nearPos[i*3+2] = Math.random() * 14 - 2;
+  }
+  nearGeo.setAttribute('position', new THREE.BufferAttribute(nearPos, 3));
+  scene.add(new THREE.Points(nearGeo, new THREE.PointsMaterial({
+    color: 0x5aafff, size: 0.18, transparent: true, opacity: 0.6
+  })));
+
+  /* ── Depth tunnel of rings ── */
+  for (let i = 0; i < 14; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(9, 0.02, 8, 80),
+      new THREE.MeshBasicMaterial({
+        color: i % 2 ? 0xffd84d : 0x5aafff,
+        transparent: true, opacity: 0.18
+      })
+    );
+    ring.position.set(0, 2, -i * 4 - 4);
+    scene.add(ring);
+  }
 
   /* ── Stylised mountain terrain ── */
   function buildMountain(offsetX, offsetZ, scale, colorHex, wireframe) {
@@ -1822,7 +1849,7 @@ function goAbout() {
   scene.add(plane);
 
   /* ── Lighting ── */
-  scene.add(new THREE.AmbientLight(0xf0eee8, 0.7));  // was 0.4
+  scene.add(new THREE.AmbientLight(0xf0eee8, 0.7));
   const pLight = new THREE.PointLight(0xf5c030, 2.0, 50);
   pLight.position.set(5, 8, 5);
   scene.add(pLight);
@@ -1830,13 +1857,55 @@ function goAbout() {
   pLight2.position.set(-8, 4, -4);
   scene.add(pLight2);
 
-  /* ── Animate ── */
+  /* ── Input: gyroscope (phone) + mouse (desktop) ── */
   let t = 0;
-  let camMX = 0, camMY = 0;
+  let camMX = 0, camMY = 0;        // target values, -1 to +1
+  let tiltActive = false;
+  let lookX = 0, lookY = 1;        // smoothed look-direction driven by gyroscope
+
+  // Desktop: mouse (ignored once the gyroscope is active)
   document.addEventListener('mousemove', e => {
-    camMX = (e.clientX / window.innerWidth - 0.5) * 0.8;
-    camMY = (e.clientY / window.innerHeight - 0.5) * 0.4;
+    if (tiltActive) return;
+    camMX = (e.clientX / window.innerWidth - 0.5) * 2;
+    camMY = (e.clientY / window.innerHeight - 0.5) * 2;
   });
+
+  // Phone: gyroscope
+  function onTilt(e) {
+    if (e.gamma == null) return;
+    tiltActive = true;
+    const g = Math.max(-30, Math.min(30, e.gamma));              // left-right tilt
+    const b = Math.max(-30, Math.min(30, (e.beta || 0) - 45));   // forward-back (45° = natural holding angle)
+    camMX = g / 30;
+    camMY = b / 30;
+  }
+  window.enableTilt = function () {
+    const btn = document.getElementById('tilt-btn');
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iPhone / iPad: needs a tap + permission
+      DeviceOrientationEvent.requestPermission().then(state => {
+        if (state === 'granted') {
+          window.addEventListener('deviceorientation', onTilt);
+          if (btn) btn.style.display = 'none';
+        }
+      }).catch(console.error);
+    } else {
+      // Android: no permission needed
+      window.addEventListener('deviceorientation', onTilt);
+      if (btn) btn.style.display = 'none';
+    }
+  };
+  // Show the button only on touch devices; Android starts automatically
+  if ('ontouchstart' in window) {
+    const btn = document.getElementById('tilt-btn');
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      window.enableTilt();
+    } else if (btn) {
+      btn.style.display = 'block';
+    }
+  }
 
   // Animate plane vertices for rolling hills effect
   const posAttr = planeGeo.attributes.position;
@@ -1853,10 +1922,16 @@ function goAbout() {
     }
     posAttr.needsUpdate = true;
 
-    // Camera parallax
-    camera.position.x += (camMX - camera.position.x) * 0.03;
-    camera.position.y += (-camMY + 3 - camera.position.y) * 0.03;
-    camera.lookAt(0, 1, 0);
+    // Gyroscope rotates the view direction (smoothed)
+    // If it moves the wrong way, flip the sign of the 12 and the 8
+    lookX += (camMX * 12 - lookX) * 0.08;
+    lookY += (1 - camMY * 8 - lookY) * 0.08;
+
+    // Small position shift keeps near/far depth parallax
+    camera.position.x += (camMX * 1.5 - camera.position.x) * 0.05;
+    camera.position.y += (3 - camera.position.y) * 0.05;
+
+    camera.lookAt(lookX, lookY, 0);
 
     // Floating creatures
     creatures.forEach(c => {
@@ -2084,5 +2159,11 @@ document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
   <a href="testseries.html?action=feedback" style="padding:0.7rem 1.2rem;background:rgba(255,216,77,0.1);border:1px solid rgba(255,216,77,0.3);border-radius:3px;color:var(--gold);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">💬 Feedback</a>
   <a href="testseries.html?action=doubt" style="padding:0.7rem 1.2rem;background:rgba(90,175,255,0.1);border:1px solid rgba(90,175,255,0.3);border-radius:3px;color:var(--blue);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">❓ Ask a Doubt</a>
 </div>
+
+<!-- Enable gyroscope (needed on iPhone; hidden on Android and desktop) -->
+<button id="tilt-btn" onclick="enableTilt()"
+  style="display:none;position:fixed;bottom:2rem;right:1.2rem;z-index:900;padding:0.7rem 1.1rem;background:rgba(90,175,255,0.12);border:1px solid rgba(90,175,255,0.4);border-radius:3px;color:#5aafff;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;">
+  🌀 Enable 3D tilt
+</button>
 </body>
 </html>
