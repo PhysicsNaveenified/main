@@ -1863,47 +1863,66 @@ function goAbout() {
   let tiltActive = false;
   let lookX = 0, lookY = 1;        // smoothed look-direction driven by gyroscope
 
-  // Desktop: mouse (ignored once the gyroscope is active)
-  document.addEventListener('mousemove', e => {
-    if (tiltActive) return;
-    camMX = (e.clientX / window.innerWidth - 0.5) * 2;
-    camMY = (e.clientY / window.innerHeight - 0.5) * 2;
-  });
+  // Touch device? Then NEVER use mouse/tap events (phones fake them on tap)
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+  // Desktop only: real mouse
+  if (!isTouch) {
+    document.addEventListener('mousemove', e => {
+      camMX = (e.clientX / window.innerWidth - 0.5) * 2;
+      camMY = (e.clientY / window.innerHeight - 0.5) * 2;
+    });
+  }
 
   // Phone: gyroscope
+  let gyroListening = false;
   function onTilt(e) {
-    if (e.gamma == null) return;
+    if (e.gamma == null || e.beta == null) return;
     tiltActive = true;
+    const btn = document.getElementById('tilt-btn');
+    if (btn) btn.style.display = 'none';
     const g = Math.max(-30, Math.min(30, e.gamma));              // left-right tilt
-    const b = Math.max(-30, Math.min(30, (e.beta || 0) - 45));   // forward-back (45° = natural holding angle)
+    const b = Math.max(-30, Math.min(30, e.beta - 45));          // forward-back (45° = natural holding angle)
     camMX = g / 30;
     camMY = b / 30;
   }
+  function startGyro() {
+    if (gyroListening) return;
+    gyroListening = true;
+    window.addEventListener('deviceorientation', onTilt, true);
+    // If no gyroscope data arrives, tell the user why
+    setTimeout(() => {
+      if (!tiltActive) {
+        const btn = document.getElementById('tilt-btn');
+        if (btn) {
+          btn.style.display = 'block';
+          btn.textContent = '⚠ Gyroscope blocked – check browser Motion settings';
+        }
+      }
+    }, 2000);
+  }
   window.enableTilt = function () {
-    const btn = document.getElementById('tilt-btn');
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iPhone / iPad: needs a tap + permission
-      DeviceOrientationEvent.requestPermission().then(state => {
-        if (state === 'granted') {
-          window.addEventListener('deviceorientation', onTilt);
-          if (btn) btn.style.display = 'none';
-        }
-      }).catch(console.error);
+      // iPhone / iPad: must be triggered by a tap
+      DeviceOrientationEvent.requestPermission()
+        .then(state => { if (state === 'granted') startGyro(); })
+        .catch(console.error);
     } else {
-      // Android: no permission needed
-      window.addEventListener('deviceorientation', onTilt);
-      if (btn) btn.style.display = 'none';
+      startGyro();   // Android
     }
   };
-  // Show the button only on touch devices; Android starts automatically
-  if ('ontouchstart' in window) {
-    const btn = document.getElementById('tilt-btn');
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission !== 'function') {
-      window.enableTilt();
-    } else if (btn) {
-      btn.style.display = 'block';
+
+  if (isTouch) {
+    const needsPermission = typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function';
+    if (needsPermission) {
+      // iPhone: show button, and also try on the very first tap anywhere
+      const btn = document.getElementById('tilt-btn');
+      if (btn) btn.style.display = 'block';
+      document.addEventListener('click', () => window.enableTilt(), { once: true });
+    } else {
+      startGyro();   // Android starts automatically
     }
   }
 
