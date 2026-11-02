@@ -700,6 +700,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <button class="type-tab" id="dash-tab-feedback" onclick="switchDashTab('feedback')">Feedback &amp; Doubts</button>
       <button class="type-tab" id="dash-tab-bookmarks" onclick="switchDashTab('bookmarks')">Bookmarked Questions</button>
       <button class="type-tab" id="dash-tab-examremarks" onclick="switchDashTab('examremarks')">Exam Remarks</button>
+      <button class="type-tab" id="dash-tab-live" onclick="switchDashTab('live')">Live Exams</button>
     </div>
 
     <div id="dash-view-performance">
@@ -758,6 +759,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <div id="dash-bookmarks-list" style="margin-top:1rem;"></div>
     </div>
 
+    <div id="dash-view-live" style="display:none;"><div id="dash-live-list"></div></div>
     <div id="dash-view-examremarks" style="display:none;">
       <p style="font-size:0.8rem;color:var(--muted);margin:1rem 0 0.5rem;">Select an exam to view your remarks.</p>
       <div id="exam-remarks-buttons" style="display:flex;gap:0.7rem;flex-wrap:wrap;"></div>
@@ -777,7 +779,41 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <button class="type-tab" id="master-tab-feedback" onclick="switchMasterTab('feedback')">Feedback &amp; Doubts</button>
       <button class="type-tab" id="master-tab-insights" onclick="switchMasterTab('insights')">Insights</button>
       <button class="type-tab" id="master-tab-boardqa" onclick="switchMasterTab('boardqa')">Board Q&amp;A Upload</button>
+      <button class="type-tab" id="master-tab-live" onclick="switchMasterTab('live')">Live Exams</button>
     </div>
+<div id="master-view-live" style="display:none;">
+  <div class="upload-section">
+    <h3 class="upload-title">Create Live Exam</h3>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Same Word question + answer-key format as Bulk Upload. Text and equations only (no embedded images). Answers stay on the server and are never sent to student PCs.</p>
+    <input id="lv-title" class="form-input" placeholder="Exam title (e.g. Unit Test 1 — Thermodynamics)"/>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem;">
+      <select id="lv-class" class="form-input" style="flex:1;min-width:120px;"><option>11</option><option>12</option></select>
+      <input id="lv-start" type="datetime-local" class="form-input" style="flex:2;min-width:200px;"/>
+      <input id="lv-dur" type="number" class="form-input" style="flex:1;min-width:110px;" placeholder="Minutes" value="40"/>
+      <input id="lv-marks" type="number" step="0.5" class="form-input" style="flex:1;min-width:110px;" placeholder="Marks/Q" value="1"/>
+      <input id="lv-neg" type="number" step="0.25" class="form-input" style="flex:1;min-width:110px;" placeholder="Negative/wrong" value="0"/>
+    </div>
+    <textarea id="lv-ins" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Instructions shown to students before the exam starts"></textarea>
+    <textarea id="lv-roster" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Students — one per line:  register number, name&#10;e.g.  21001, Anita Rao"></textarea>
+    <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">Questions file (.docx)</p><input type="file" id="lv-qf" accept=".docx,.txt"/>
+    <p style="font-size:.7rem;color:var(--muted);margin-top:.6rem;">Answer key file (.docx)</p><input type="file" id="lv-kf" accept=".docx,.txt"/>
+    <button class="btn-primary" style="margin-top:1rem;" onclick="liveCreateExam()">Create exam &amp; generate PINs</button>
+    <p id="lv-status" style="font-size:.8rem;color:var(--muted);margin-top:.6rem;"></p>
+  </div>
+  <div class="upload-section" style="margin-top:1.5rem;">
+    <h3 class="upload-title">Live Exams</h3>
+    <div id="lv-list"><p style="color:var(--muted);">Loading...</p></div>
+  </div>
+  <div class="upload-section" id="lv-res-wrap" style="margin-top:1.5rem;display:none;">
+    <h3 class="upload-title" id="lv-res-title">Results</h3>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <button class="btn-delete" onclick="livePrintSlips()">🖨 Print PIN slips</button>
+      <button class="btn-delete" onclick="liveCopyCSV()">Copy CSV</button>
+      <button class="btn-delete" onclick="liveFinalize()">✔ Finalize (grade unsubmitted)</button>
+    </div>
+    <div id="lv-res" style="overflow-x:auto;"></div>
+  </div>
+</div>
 <div id="master-view-insights" style="display:none;">
       <div class="upload-section">
         <h3 class="upload-title">Visitor Insights</h3>
@@ -2578,6 +2614,8 @@ function switchDashTab(tab) {
   document.getElementById('dash-tab-feedback').classList.toggle('active', tab === 'feedback');
   document.getElementById('dash-tab-bookmarks').classList.toggle('active', tab === 'bookmarks');
   document.getElementById('dash-tab-examremarks').classList.toggle('active', tab === 'examremarks');
+  document.getElementById('dash-tab-live').classList.toggle('active', tab === 'live');
+  document.getElementById('dash-view-live').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('dash-view-performance').style.display = tab === 'performance' ? 'block' : 'none';
   document.getElementById('dash-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
   document.getElementById('dash-view-bookmarks').style.display = tab === 'bookmarks' ? 'block' : 'none';
@@ -2585,6 +2623,7 @@ function switchDashTab(tab) {
   if (tab === 'feedback') loadMyChat();
   if (tab === 'bookmarks') loadBookmarks();
   if (tab === 'examremarks') loadExamRemarks();
+  if (tab === 'live') loadMyLiveResults();
 }
 
 // ═══════════════════════════════════════════
@@ -3222,12 +3261,90 @@ async function uploadQuestion() {
   document.getElementById('uq-image-name').textContent = '';
   loadMasterQuestions();
 }
+// ═══ LIVE EXAMS (master) ═══
+let liveRows=[],liveExamId=null,liveExamTitle='';
+const liveEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function liveCreateExam(){
+  const st=document.getElementById('lv-status'),qf=document.getElementById('lv-qf').files[0],kf=document.getElementById('lv-kf').files[0];
+  const title=document.getElementById('lv-title').value.trim(),start=document.getElementById('lv-start').value;
+  if(!title||!start||!qf||!kf){alert('Title, start time, questions file and answer key are required');return}
+  try{
+    st.textContent='Reading files...';
+    const qs=parseQuestions(await extractTextFromFile(qf)),ks=parseAnswerKey(await extractTextFromFile(kf));
+    const marks=parseFloat(document.getElementById('lv-marks').value)||1,bad=[];
+    const questions=Object.keys(qs).map(Number).sort((a,b)=>a-b).map(n=>{
+      const q=qs[n],k=ks[n],ans=k?'ABCD'.indexOf(k.answer):-1;
+      if(ans<0||!q.option_a||!q.option_b||!q.option_c||!q.option_d)bad.push(n);
+      return {q:q.question,opts:[q.option_a,q.option_b,q.option_c,q.option_d],ans,marks};
+    });
+    if(bad.length){st.textContent='⚠ Fix question(s) #'+bad.join(', ')+' (missing answer or blank option).';return}
+    const roster=document.getElementById('lv-roster').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf(',');return i<0?{reg:l,name:''}:{reg:l.slice(0,i).trim(),name:l.slice(i+1).trim()}});
+    if(!roster.length){st.textContent='Add at least one student to the roster.';return}
+    st.textContent=`Creating exam with ${questions.length} questions and ${roster.length} PINs...`;
+    const {data,error}=await sb.rpc('live_create_exam',{p_title:title,p_class:document.getElementById('lv-class').value,
+      p_start:new Date(start).toISOString(),p_dur:parseInt(document.getElementById('lv-dur').value)||40,
+      p_instr:document.getElementById('lv-ins').value,p_neg:parseFloat(document.getElementById('lv-neg').value)||0,
+      p_questions:questions,p_roster:roster});
+    if(error){st.textContent='Error: '+error.message;return}
+    st.textContent=`✓ Created with ${data.questions} questions. Student link: live.html`;
+    await loadLiveExams(); liveOpenResults(data.exam_id,title);
+  }catch(e){st.textContent='Error: '+e.message}
+}
+async function loadLiveExams(){
+  const {data,error}=await sb.rpc('live_admin_exams'),el=document.getElementById('lv-list');
+  if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
+  el.innerHTML=(data&&data.length)?data.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.7rem 0;border-bottom:1px solid rgba(255,216,77,.1);">
+    <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}</div></div>
+    <div style="display:flex;gap:.4rem;"><button class="btn-delete" onclick="liveOpenResults('${e.id}','${liveEsc(e.title).replace(/'/g,'')}')">Open</button>
+    <button class="btn-delete" onclick="liveDelete('${e.id}')">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
+}
+async function liveOpenResults(id,title){
+  liveExamId=id;liveExamTitle=title;document.getElementById('lv-res-wrap').style.display='block';
+  document.getElementById('lv-res-title').textContent='Results — '+title;await liveRefresh();
+}
+async function liveRefresh(){
+  if(!liveExamId)return;
+  const {data}=await sb.rpc('live_admin_results',{p_exam:liveExamId});liveRows=data||[];
+  document.getElementById('lv-res').innerHTML='<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th>Reg</th><th>Name</th><th>PIN</th><th>Status</th><th>Marks</th><th>%</th><th>Page exits</th></tr>'+
+   liveRows.map(r=>`<tr style="border-top:1px solid rgba(255,216,77,.1);"><td>${liveEsc(r.reg)}</td><td>${liveEsc(r.name)}</td><td style="font-family:'Space Mono',monospace;">${r.pin}</td><td>${r.submitted?'✅ Submitted':r.joined?'⏳ In progress':'— Not joined'}</td><td>${r.submitted?r.score+'/'+r.total:''}</td><td>${r.submitted?r.percentage:''}</td><td style="color:${r.switches>2?'#ff6b6b':'inherit'}">${r.switches??''}</td></tr>`).join('')+'</table>';
+}
+setInterval(()=>{const v=document.getElementById('master-view-live');if(v&&v.style.display!=='none'&&liveExamId)liveRefresh()},6000);
+async function liveFinalize(){
+  if(!confirm('Grade everyone who has not pressed Submit and close this exam?'))return;
+  const {data,error}=await sb.rpc('live_finalize',{p_exam:liveExamId});
+  if(error){alert(error.message);return}alert('Graded '+data.graded+' unsubmitted attempt(s).');liveRefresh();loadLiveExams();
+}
+async function liveDelete(id){if(!confirm('Delete this exam, its PINs and all results?'))return;await sb.rpc('live_delete_exam',{p_exam:id});if(liveExamId===id){liveExamId=null;document.getElementById('lv-res-wrap').style.display='none'}loadLiveExams()}
+function liveCopyCSV(){
+  const csv='Reg,Name,Status,Marks,Total,Percentage,PageExits\n'+liveRows.map(r=>[r.reg,'"'+(r.name||'')+'"',r.submitted?'Submitted':r.joined?'In progress':'Absent',r.score??'',r.total??'',r.percentage??'',r.switches??''].join(',')).join('\n');
+  navigator.clipboard.writeText(csv).then(()=>alert('CSV copied'));
+}
+function livePrintSlips(){
+  const w=window.open('','_blank');
+  w.document.write('<html><body style="font-family:sans-serif"><style>.s{display:inline-block;width:45%;border:1px dashed #000;padding:12px;margin:6px;font-size:14px}.p{font:700 28px monospace;letter-spacing:4px}</style>'+
+   liveRows.map(r=>`<div class="s"><b>${liveEsc(liveExamTitle)}</b><br>Reg: ${liveEsc(r.reg)}<br>${liveEsc(r.name)}<br>PIN: <span class="p">${r.pin}</span></div>`).join('')+'</body></html>');
+  w.document.close();w.print();
+}
+// ═══ STUDENT: my live results ═══
+async function loadMyLiveResults(){
+  const el=document.getElementById('dash-live-list');el.innerHTML='<p style="color:var(--muted);">Loading...</p>';
+  const {data,error}=await sb.rpc('live_my_results');
+  if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
+  el.innerHTML=(data&&data.length)?data.map(r=>`<div class="upload-section" style="margin-bottom:1rem;"><p style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--gold);">${liveEsc(r.title)}</p>
+   <p style="font-size:.75rem;color:var(--muted);">${new Date(r.start_at).toLocaleDateString()}</p>
+   <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:.8rem;"><div><b style="font-size:1.6rem;">${r.score}/${r.total}</b><br><small>Marks</small></div><div><b style="font-size:1.6rem;color:var(--gold);">${r.percentage}%</b><br><small>Percentage</small></div>
+   <div><b style="font-size:1.6rem;">${r.correct}</b><br><small>Correct</small></div><div><b style="font-size:1.6rem;">${r.wrong}</b><br><small>Wrong</small></div></div></div>`).join(''):
+   '<p style="color:var(--muted);">No live exam results yet. Results appear here once your register number in your profile matches the one you used in the exam.</p>';
+}
+
 function switchMasterTab(tab) {
   document.getElementById('master-tab-questions').classList.toggle('active', tab === 'questions');
   document.getElementById('master-tab-students').classList.toggle('active', tab === 'students');
   document.getElementById('master-tab-feedback').classList.toggle('active', tab === 'feedback');
   document.getElementById('master-tab-insights').classList.toggle('active', tab === 'insights');
   document.getElementById('master-tab-boardqa').classList.toggle('active', tab === 'boardqa');
+  document.getElementById('master-tab-live').classList.toggle('active', tab === 'live');
+  document.getElementById('master-view-live').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
   document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
   document.getElementById('master-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
@@ -3237,6 +3354,7 @@ function switchMasterTab(tab) {
   if (tab === 'feedback') loadFeedbackList();
   if (tab === 'insights') loadInsights();
   if (tab === 'boardqa') loadQAManageList();
+  if (tab === 'live') loadLiveExams();
 }
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
