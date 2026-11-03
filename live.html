@@ -24,12 +24,12 @@ select option{background:var(--navy)}
 .bar{position:sticky;top:0;z-index:5;background:rgba(11,19,48,.96);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;padding:.8rem 0;gap:1rem;flex-wrap:wrap}
 .timer{font-family:'Space Mono',monospace;font-size:1.3rem;color:var(--gold)}.timer.low{color:var(--red)}
 .exam{user-select:none;-webkit-user-select:none}
-.qtext{font-size:1.15rem;line-height:1.7;white-space:pre-wrap;margin:1rem 0 1.4rem}
+.qtext{font-size:1.15rem;line-height:1.7;margin:1rem 0 1.4rem}.qtext img,.opt img{max-width:100%;max-height:340px;background:#fff;border-radius:3px;vertical-align:middle}math{font-size:1.1em}.opt span{flex:1}
 .opt{display:flex;gap:.8rem;width:100%;text-align:left;padding:.9rem 1rem;margin-bottom:.7rem;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:4px;color:var(--white);font:inherit;cursor:pointer}
 .opt b{color:var(--gold);font-family:'Space Mono',monospace}.opt.sel{background:rgba(90,175,255,.18);border-color:var(--blue)}
 .pal{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:1.4rem}
 .pal button{width:38px;height:38px;border-radius:3px;border:1px solid var(--line);background:transparent;color:var(--white);cursor:pointer;font-family:'Space Mono',monospace;font-size:.75rem}
-.pal .done{background:rgba(95,211,141,.25);border-color:var(--green)}.pal .cur{outline:2px solid var(--gold)}
+.pal .done{background:rgba(95,211,141,.25);border-color:var(--green)}.pal .rev{background:rgba(255,216,77,.35);border-color:var(--gold)}.pal .cur{outline:2px solid var(--gold)}
 .ring{width:170px;height:170px;border-radius:50%;margin:1rem auto;display:grid;place-items:center}
 .ring div{width:132px;height:132px;border-radius:50%;background:var(--navy);display:grid;place-items:center;font:700 2rem 'Space Mono',monospace;color:var(--gold)}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.8rem;margin-top:1rem}
@@ -67,7 +67,7 @@ select option{background:var(--navy)}
   <p class="eyebrow" style="margin-top:1.4rem" id="e-num"></p>
   <div class="qtext" id="e-q"></div><div id="e-opts"></div>
   <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
-    <button class="btn ghost" onclick="mv(-1)">← Prev</button><button class="btn ghost" onclick="clr()">Clear</button><button class="btn" onclick="mv(1)">Next →</button></div>
+    <button class="btn ghost" onclick="mv(-1)">← Prev</button><button class="btn ghost" onclick="clr()">Clear</button><button class="btn ghost" id="revbtn" onclick="togRev()">⚑ Mark for review</button><button class="btn" onclick="mv(1)">Next →</button></div>
   <div class="pal" id="e-pal"></div>
 </div>
 
@@ -75,8 +75,8 @@ select option{background:var(--navy)}
   <p class="eyebrow">Report card</p><h1 id="r-name"></h1><p style="color:var(--muted)" id="r-sub"></p>
   <div class="ring" id="r-ring"><div id="r-pct"></div></div>
   <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--gold)" id="r-grade"></div>
-  <div class="stats" id="r-stats"></div>
-  <p style="color:var(--muted);font-size:.85rem;margin-top:1.4rem">This result will also appear in your Test Series dashboard → Live Exams (log in with Google using the same register number).</p>
+  <div class="stats" id="r-stats"></div><div id="r-topics" style="margin-top:1.2rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center"></div>
+  <p style="color:var(--muted);font-size:.85rem;margin-top:1.4rem">This result will also appear in your Test Series dashboard → Live Exams (log in with Google using the same register number). Your teacher will release the answer sheet there; wrongly answered questions then go to “Revise Wrong Questions”.</p>
   <button class="btn ghost" style="margin-top:1rem" onclick="window.print()">Print</button>
 </div>
 
@@ -84,6 +84,7 @@ select option{background:var(--navy)}
 
 <script>
 const sb=supabase.createClient('https://cyynkucowogcetrsuvzb.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5eW5rdWNvd29nY2V0cnN1dnpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjQyMjEsImV4cCI6MjA5ODkwMDIyMX0.nF6UKi9icYOBYkgrCdnqQvmDB1b3978NSE5VHBbUHVA');
+const MAXEXIT=5;          // auto-submit after this many page exits
 const REQUIRE_SEB=false;   // set true once Safe Exam Browser is installed on every lab PC
 const isSEB=/SEB/i.test(navigator.userAgent);
 const $=id=>document.getElementById(id);
@@ -111,7 +112,7 @@ async function login(){
   if(error||!data||!data.ok){$('lmsg').textContent=(data&&data.msg)||'Could not sign in. Check your connection.';return}
   S={examId:ex,reg:reg.toUpperCase(),token:data.token,name:data.name,exam:data.exam,offset:Date.parse(data.now)-Date.now(),
      answers:data.answers||{},switches:data.switches||0,start:Date.parse(data.exam.start_at)};
-  S.end=S.start+data.exam.duration_min*60000;
+  S.end=S.start+(data.exam.duration_min+(data.extra_min||0))*60000;
   $('w-eyebrow').textContent=S.name+' · '+S.reg;$('w-title').textContent=S.exam.title;$('w-ins').textContent=S.exam.instructions||'No special instructions.';
   show('s-wait'); waitLoop();
 }
@@ -139,37 +140,41 @@ function tick(){
   if(left<=0){submit(true);return}setTimeout(tick,250);
 }
 function paint(){
-  const q=Q[cur];$('e-num').textContent=`Question ${cur+1} of ${Q.length}`;$('e-q').textContent=q.q;
-  $('e-opts').innerHTML=q.opts.map((o,i)=>`<button class="opt ${S.answers[q.id]===o.o?'sel':''}" onclick="pick(${o.o})"><b>${'ABCD'[i]}</b><span>${esc(o.t)}</span></button>`).join('');
-  $('e-pal').innerHTML=Q.map((x,i)=>`<button class="${S.answers[x.id]!=null?'done':''} ${i===cur?'cur':''}" onclick="cur=${i};paint()">${i+1}</button>`).join('');
+  const q=Q[cur];$('e-num').textContent=`Question ${cur+1} of ${Q.length}`;$('e-q').innerHTML=q.q;$('revbtn').textContent=S.answers['r'+q.id]?'⚑ Marked (click to unmark)':'⚑ Mark for review';
+  $('e-opts').innerHTML=q.opts.map((o,i)=>`<button class="opt ${S.answers[q.id]===o.o?'sel':''}" onclick="pick(${o.o})"><b>${'ABCD'[i]}</b><span>${o.t}</span></button>`).join('');
+  $('e-pal').innerHTML=Q.map((x,i)=>`<button class="${S.answers[x.id]!=null?'done':''} ${S.answers['r'+x.id]?'rev':''} ${i===cur?'cur':''}" onclick="cur=${i};paint()">${i+1}</button>`).join('');
   if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([$('e-q'),$('e-opts')]).catch(()=>{});
 }
 function pick(o){S.answers[Q[cur].id]=o;paint();clearTimeout(saveT);saveT=setTimeout(save,1500)}
 function clr(){delete S.answers[Q[cur].id];paint();clearTimeout(saveT);saveT=setTimeout(save,1500)}
+function togRev(){const k='r'+Q[cur].id;if(S.answers[k])delete S.answers[k];else S.answers[k]=1;paint();clearTimeout(saveT);saveT=setTimeout(save,1500)}
 function mv(d){cur=Math.min(Q.length-1,Math.max(0,cur+d));paint()}
 async function save(){
   if(!running)return;
   const {data}=await sb.rpc('live_save',{p_exam:S.examId,p_reg:S.reg,p_token:S.token,p_answers:S.answers,p_switches:S.switches});
   if(data&&data.msg==='session')sessionLost();
+  if(data&&data.end)S.end=Date.parse(data.end);
 }
 function sessionLost(){running=false;document.body.innerHTML='<div style="padding:3rem;text-align:center"><h1>Session ended</h1><p style="margin-top:1rem">This PIN was used to log in on another computer. Call your teacher.</p></div>'}
-function confirmSubmit(){const n=Q.filter(q=>S.answers[q.id]==null).length;if(confirm(n?`${n} question(s) unanswered. Submit anyway?`:'Submit your exam now?'))submit(false)}
-async function submit(auto){
+function confirmSubmit(){const n=Q.filter(q=>S.answers[q.id]==null).length,rv=Q.filter(q=>S.answers['r'+q.id]).length;if(confirm((n?`${n} question(s) unanswered. `:'')+(rv?`${rv} marked for review. `:'')+'Submit your exam now?'))submit(false)}
+async function submit(auto,why){
   if(!running)return;running=false;
   let d;for(let i=0;i<5&&!(d&&d.ok);i++){const r=await sb.rpc('live_submit',{p_exam:S.examId,p_reg:S.reg,p_token:S.token,p_answers:S.answers,p_switches:S.switches});d=r.data;if(!(d&&d.ok))await new Promise(x=>setTimeout(x,1200))}
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});$('ov').style.display='none';
   if(!d||!d.ok){document.body.innerHTML='<div style="padding:3rem;text-align:center"><h1>Could not submit</h1><p style="margin-top:1rem">Do not close this page. Call your teacher.</p></div>';return}
   const p=d.percentage,g=p>=90?'Outstanding':p>=75?'Excellent':p>=60?'Good':p>=40?'Needs practice':'Needs improvement';
-  $('r-name').textContent=S.name;$('r-sub').textContent=`${S.reg} · ${S.exam.title}`+(auto?' · auto-submitted at time-up':'');
+  $('r-name').textContent=S.name;$('r-sub').textContent=`${S.reg} · ${S.exam.title}`+(auto?' · '+(why||'auto-submitted at time-up'):'');
   $('r-ring').style.background=`conic-gradient(var(--gold) ${p*3.6}deg,rgba(255,255,255,.1) 0)`;$('r-pct').textContent=p+'%';$('r-grade').textContent=g;
   const un=d.count-d.correct-d.wrong;
   $('r-stats').innerHTML=[['Marks',`${d.score} / ${d.total}`],['Correct',d.correct],['Wrong',d.wrong],['Unattempted',un],['Page exits',d.switches]].map(x=>`<div class="stat"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('');
+  $('r-topics').innerHTML=Object.entries(d.topics||{}).map(([k,v])=>`<span style="border:1px solid var(--line);border-radius:20px;padding:.25rem .8rem;font-size:.75rem">${esc(k)} ${v[0]}/${v[1]}</span>`).join('');
   show('s-res');
 }
 /* light anti-cheat: logging + full-screen + no copy (real lock = Safe Exam Browser) */
 function flag(){
   if(!running||Date.now()-lastSw<1500)return;lastSw=Date.now();S.switches++;
-  const w=$('warn');w.style.display='block';w.textContent=`⚠ You left the exam page ${S.switches} time(s). This is recorded for your teacher.`;save();
+  const w=$('warn');w.style.display='block';w.textContent=`⚠ You left the exam page ${S.switches} of ${MAXEXIT} allowed times. At ${MAXEXIT} your exam is submitted automatically.`;
+  if(S.switches>=MAXEXIT){submit(true,`auto-submitted after ${MAXEXIT} page exits`);return}save();
 }
 document.addEventListener('visibilitychange',()=>{if(document.hidden)flag()});window.addEventListener('blur',flag);
 function checkFS(){$('ov').style.display=(running&&!isSEB&&!document.fullscreenElement)?'grid':'none'}
