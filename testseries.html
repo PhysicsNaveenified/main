@@ -701,6 +701,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <button class="type-tab" id="dash-tab-bookmarks" onclick="switchDashTab('bookmarks')">Bookmarked Questions</button>
       <button class="type-tab" id="dash-tab-examremarks" onclick="switchDashTab('examremarks')">Exam Remarks</button>
       <button class="type-tab" id="dash-tab-live" onclick="switchDashTab('live')">Live Exams</button>
+      <button class="type-tab" id="dash-tab-revise" onclick="switchDashTab('revise')">Revise Wrong Questions</button>
     </div>
 
     <div id="dash-view-performance">
@@ -760,6 +761,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     </div>
 
     <div id="dash-view-live" style="display:none;"><div id="dash-live-list"></div></div>
+    <div id="dash-view-revise" style="display:none;"><h3 class="upload-title">Revise the wrongly answered questions</h3><div id="dash-revise-list"></div></div>
     <div id="dash-view-examremarks" style="display:none;">
       <p style="font-size:0.8rem;color:var(--muted);margin:1rem 0 0.5rem;">Select an exam to view your remarks.</p>
       <div id="exam-remarks-buttons" style="display:flex;gap:0.7rem;flex-wrap:wrap;"></div>
@@ -784,7 +786,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
 <div id="master-view-live" style="display:none;">
   <div class="upload-section">
     <h3 class="upload-title">Create Live Exam</h3>
-    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Same Word question + answer-key format as Bulk Upload. Text and equations only (no embedded images). Answers stay on the server and are never sent to student PCs.</p>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Questions .docx may contain pictures, diagrams, Word equations (Insert → Equation), Greek letters, symbols, subscripts and superscripts. Answer key format: <code>1. B - Topic name</code> (the topic after “-” powers the topic-wise report card).</p>
     <input id="lv-title" class="form-input" placeholder="Exam title (e.g. Unit Test 1 — Thermodynamics)"/>
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem;">
       <select id="lv-class" class="form-input" style="flex:1;min-width:120px;"><option>11</option><option>12</option></select>
@@ -795,23 +797,30 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     </div>
     <textarea id="lv-ins" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Instructions shown to students before the exam starts"></textarea>
     <textarea id="lv-roster" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Students — one per line:  register number, name&#10;e.g.  21001, Anita Rao"></textarea>
-    <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">Questions file (.docx)</p><input type="file" id="lv-qf" accept=".docx,.txt"/>
-    <p style="font-size:.7rem;color:var(--muted);margin-top:.6rem;">Answer key file (.docx)</p><input type="file" id="lv-kf" accept=".docx,.txt"/>
-    <button class="btn-primary" style="margin-top:1rem;" onclick="liveCreateExam()">Create exam &amp; generate PINs</button>
+    <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">Questions file (.docx)</p><input type="file" id="lv-qf" accept=".docx"/>
+    <p style="font-size:.7rem;color:var(--muted);margin-top:.6rem;">Answer key file (.docx / .txt)</p><input type="file" id="lv-kf" accept=".docx,.txt"/>
+    <button class="btn-primary" style="margin-top:1rem;" onclick="liveParse()">1. Read files &amp; preview</button>
     <p id="lv-status" style="font-size:.8rem;color:var(--muted);margin-top:.6rem;"></p>
+    <div id="lv-preview" style="display:none;margin-top:1rem;">
+      <div id="lv-prev-body" style="max-height:420px;overflow:auto;border:1px solid rgba(255,216,77,.2);border-radius:4px;padding:1rem;"></div>
+      <button class="btn-primary" style="margin-top:1rem;" onclick="liveCreateExam()">2. Looks good — create exam &amp; generate PINs</button>
+    </div>
   </div>
-  <div class="upload-section" style="margin-top:1.5rem;">
-    <h3 class="upload-title">Live Exams</h3>
-    <div id="lv-list"><p style="color:var(--muted);">Loading...</p></div>
-  </div>
+  <div class="upload-section" style="margin-top:1.5rem;"><h3 class="upload-title">Live Exams</h3><div id="lv-list"><p style="color:var(--muted);">Loading...</p></div></div>
   <div class="upload-section" id="lv-res-wrap" style="margin-top:1.5rem;display:none;">
     <h3 class="upload-title" id="lv-res-title">Results</h3>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-      <button class="btn-delete" onclick="livePrintSlips()">🖨 Print PIN slips</button>
-      <button class="btn-delete" onclick="liveCopyCSV()">Copy CSV</button>
-      <button class="btn-delete" onclick="liveFinalize()">✔ Finalize (grade unsubmitted)</button>
+      <button class="btn-delete" onclick="livePrintSlips()">🖨 PIN slips</button>
+      <button class="btn-delete" onclick="liveCSV()">⬇ Marks CSV</button>
+      <button class="btn-delete" onclick="liveResponsesCSV()">⬇ Response sheet CSV</button>
+      <button class="btn-delete" onclick="liveFinalize()">✔ Finalize</button>
+      <button class="btn-delete" onclick="liveRelease(true)">👁 Release answers</button>
+      <button class="btn-delete" onclick="liveRelease(false)">🙈 Hide answers</button>
+      <button class="btn-delete" onclick="liveRetest()">🔁 Re-test</button>
     </div>
     <div id="lv-res" style="overflow-x:auto;"></div>
+    <h3 class="upload-title" style="margin-top:1.5rem;">Class analytics <button class="btn-delete" onclick="liveAnalytics()">Refresh</button></h3>
+    <div id="lv-an" style="font-size:.8rem;"></div>
   </div>
 </div>
 <div id="master-view-insights" style="display:none;">
@@ -2436,6 +2445,7 @@ async function submitTest() {
     attempt_number: attemptNum,
     answer_pattern: answerPattern
   });
+  saveWrongToRevise();
 
   showResult(correct, wrong, skipped, total, pct, answerPattern, attemptNum);
   await sb.from('test_progress').delete()
@@ -2615,6 +2625,8 @@ function switchDashTab(tab) {
   document.getElementById('dash-tab-bookmarks').classList.toggle('active', tab === 'bookmarks');
   document.getElementById('dash-tab-examremarks').classList.toggle('active', tab === 'examremarks');
   document.getElementById('dash-tab-live').classList.toggle('active', tab === 'live');
+  document.getElementById('dash-tab-revise').classList.toggle('active', tab === 'revise');
+  document.getElementById('dash-view-revise').style.display = tab === 'revise' ? 'block' : 'none';
   document.getElementById('dash-view-live').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('dash-view-performance').style.display = tab === 'performance' ? 'block' : 'none';
   document.getElementById('dash-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
@@ -2624,6 +2636,7 @@ function switchDashTab(tab) {
   if (tab === 'bookmarks') loadBookmarks();
   if (tab === 'examremarks') loadExamRemarks();
   if (tab === 'live') loadMyLiveResults();
+  if (tab === 'revise') loadRevise();
 }
 
 // ═══════════════════════════════════════════
@@ -3262,79 +3275,212 @@ async function uploadQuestion() {
   loadMasterQuestions();
 }
 // ═══ LIVE EXAMS (master) ═══
-let liveRows=[],liveExamId=null,liveExamTitle='';
+let liveRows=[],liveExamId=null,liveExamTitle='',livePending=null;
 const liveEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function liveCreateExam(){
+const LSYM={a:'α',b:'β',c:'χ',d:'δ',e:'ε',f:'φ',g:'γ',h:'η',i:'ι',j:'ϕ',k:'κ',l:'λ',m:'μ',n:'ν',o:'ο',p:'π',q:'θ',r:'ρ',s:'σ',t:'τ',u:'υ',v:'ϖ',w:'ω',x:'ξ',y:'ψ',z:'ζ',
+ A:'Α',B:'Β',C:'Χ',D:'Δ',E:'Ε',F:'Φ',G:'Γ',H:'Η',I:'Ι',J:'ϑ',K:'Κ',L:'Λ',M:'Μ',N:'Ν',O:'Ο',P:'Π',Q:'Θ',R:'Ρ',S:'Σ',T:'Τ',U:'Υ',V:'ς',W:'Ω',X:'Ξ',Y:'Ψ',Z:'Ζ',
+ '-':'−','\xB1':'±','\xB4':'×','\xB8':'÷','\xB0':'°','\xA3':'≤','\xB3':'≥','\xB9':'≠','\xBB':'≈','\xB5':'∝','\xA5':'∞','\xD6':'√','\xB7':'•','\xAE':'→','\xAC':'←','\xAD':'↑','\xAF':'↓','\xDE':'⇒','\xDB':'⇔','\xD1':'∇','\xB6':'∂','\xF2':'∫','\xA2':'′','\xB2':'″','\xD7':'⋅','\xBA':'≡','\xC5':'⊕','\xC4':'⊗','\xCE':'∈'};
+function liveShrink(url,jpeg){return new Promise(res=>{const im=new Image();im.onload=()=>{const k=Math.min(1,900/im.width),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));
+  const x=c.getContext('2d');if(jpeg){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(im,0,0,c.width,c.height);res(c.toDataURL(jpeg?'image/jpeg':'image/png',0.82))};im.onerror=()=>res(url);im.src=url})}
+// Word (.docx) → one HTML string per paragraph: text, symbols, sub/sup, equations (MathML), images
+async function liveDocxParas(file,warn){
+  const zip=await JSZip.loadAsync(await file.arrayBuffer()),P=s=>new DOMParser().parseFromString(s,'application/xml');
+  const xml=P(await zip.file('word/document.xml').async('text')),rels={};
+  const rf=zip.file('word/_rels/document.xml.rels');
+  if(rf)[...P(await rf.async('text')).getElementsByTagName('Relationship')].forEach(r=>rels[r.getAttribute('Id')]=r.getAttribute('Target'));
+  [...xml.getElementsByTagName('*')].filter(e=>e.localName==='Fallback').forEach(e=>e.remove());   // avoid duplicate pictures
+  const cache={};
+  async function img(rid){
+    if(!rid||!rels[rid])return '';
+    if(cache[rid]!==undefined)return cache[rid];
+    const path='word/'+rels[rid].replace(/^\/?word\//,'').replace(/^\.\//,''),f=zip.file(path);
+    const ext=path.split('.').pop().toLowerCase();let out='';
+    if(!f)out='';
+    else if(['emf','wmf','tif','tiff'].includes(ext)){warn.add('A picture in .'+ext+' format (usually an old MathType equation or a pasted drawing) cannot be shown by browsers. Re-insert it as PNG/JPG, or retype equations with Insert → Equation.');out='[picture not supported]'}
+    else if(ext==='svg')out='<img src="data:image/svg+xml;base64,'+await f.async('base64')+'"/>';
+    else{const jpg=ext==='jpg'||ext==='jpeg';out='<img src="'+await liveShrink('data:image/'+(jpg?'jpeg':ext==='gif'?'gif':'png')+';base64,'+await f.async('base64'),jpg)+'"/>'}
+    return cache[rid]=out;
+  }
+  const attr=(n,a)=>n.getAttribute('w:'+a)||n.getAttributeNS(W_NS,a)||'';
+  async function run(r){
+    let out='';const rPr=[...r.children].find(c=>c.localName==='rPr');
+    const va=rPr&&[...rPr.children].find(c=>c.localName==='vertAlign'),v=va?attr(va,'val'):'';
+    const rf=rPr&&[...rPr.children].find(c=>c.localName==='rFonts'),symFont=rf&&/symbol/i.test(attr(rf,'ascii')+attr(rf,'hAnsi'));
+    const wrap=t=>v==='subscript'?'<sub>'+t+'</sub>':v==='superscript'?'<sup>'+t+'</sup>':t;
+    for(const c of r.children){
+      const n=c.localName;
+      if(n==='t'){let s=c.textContent;if(symFont)s=[...s].map(ch=>LSYM[ch]||ch).join('');out+=wrap(escapeHtml(s))}
+      else if(n==='sym'){const code=parseInt(attr(c,'char'),16)||0,ch=String.fromCharCode(code&0xFF);
+        out+=wrap(/symbol/i.test(attr(c,'font'))?(LSYM[ch]||''):(code<0xF000?String.fromCharCode(code):''))}
+      else if(n==='br'||n==='cr')out+='\n';
+      else if(n==='tab')out+=' ';
+      else if(n==='drawing'||n==='pict'||n==='object'){
+        const all=[...c.getElementsByTagName('*')],b=all.find(e=>e.localName==='blip'),im=all.find(e=>e.localName==='imagedata');
+        out+=await img(b?b.getAttributeNS(R_NS,'embed'):im?im.getAttributeNS(R_NS,'id'):'');
+      }
+    }
+    return out;
+  }
+  async function inl(node){
+    let out='';
+    for(const c of node.children){
+      const n=c.localName;
+      if(n==='r')out+=await run(c);
+      else if(n==='oMath'||n==='oMathPara')out+=new XMLSerializer().serializeToString(omathToMathML(c,xml));
+      else if(['hyperlink','ins','smartTag','fldSimple','sdt','sdtContent'].includes(n))out+=await inl(c);
+    }
+    return out;
+  }
+  const paras=[];
+  (function collect(n){for(const c of n.children){if(c.localName==='p')paras.push(c);else if(c.localName==='tbl')paras.push(...c.getElementsByTagNameNS(W_NS,'p'));else if(c.localName!=='sectPr')collect(c)}})(xml.getElementsByTagNameNS(W_NS,'body')[0]);
+  const out=[];
+  for(const p of paras){const h=(await inl(p)).trim();if(/<img|<math/.test(h)||h.replace(/<[^>]+>/g,'').trim())out.push(h)}
+  return out;
+}
+async function liveParse(){
   const st=document.getElementById('lv-status'),qf=document.getElementById('lv-qf').files[0],kf=document.getElementById('lv-kf').files[0];
-  const title=document.getElementById('lv-title').value.trim(),start=document.getElementById('lv-start').value;
-  if(!title||!start||!qf||!kf){alert('Title, start time, questions file and answer key are required');return}
+  if(!document.getElementById('lv-title').value.trim()||!document.getElementById('lv-start').value||!qf||!kf){alert('Title, start time, questions file and answer key are required');return}
   try{
-    st.textContent='Reading files...';
-    const qs=parseQuestions(await extractTextFromFile(qf)),ks=parseAnswerKey(await extractTextFromFile(kf));
+    st.textContent='Reading Word file (pictures and equations)...';
+    const warn=new Set(),paras=await liveDocxParas(qf,warn);
+    const qs=parseQuestions(groupParagraphsIntoQuestionBlocks(paras).join('\n@@QBLOCK@@\n')),ks=parseAnswerKey(await extractTextFromFile(kf));
     const marks=parseFloat(document.getElementById('lv-marks').value)||1,bad=[];
     const questions=Object.keys(qs).map(Number).sort((a,b)=>a-b).map(n=>{
-      const q=qs[n],k=ks[n],ans=k?'ABCD'.indexOf(k.answer):-1;
+      const q=qs[n],k=ks[n],ans=k?'ABCD'.indexOf(k.answer):-1,h=t=>String(t||'').replace(/\n/g,'<br/>');
       if(ans<0||!q.option_a||!q.option_b||!q.option_c||!q.option_d)bad.push(n);
-      return {q:q.question,opts:[q.option_a,q.option_b,q.option_c,q.option_d],ans,marks};
+      return {q:h(q.question),opts:[q.option_a,q.option_b,q.option_c,q.option_d].map(h),ans,marks,topic:(k&&k.concept)||''};
     });
-    if(bad.length){st.textContent='⚠ Fix question(s) #'+bad.join(', ')+' (missing answer or blank option).';return}
-    const roster=document.getElementById('lv-roster').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf(',');return i<0?{reg:l,name:''}:{reg:l.slice(0,i).trim(),name:l.slice(i+1).trim()}});
-    if(!roster.length){st.textContent='Add at least one student to the roster.';return}
-    st.textContent=`Creating exam with ${questions.length} questions and ${roster.length} PINs...`;
-    const {data,error}=await sb.rpc('live_create_exam',{p_title:title,p_class:document.getElementById('lv-class').value,
-      p_start:new Date(start).toISOString(),p_dur:parseInt(document.getElementById('lv-dur').value)||40,
-      p_instr:document.getElementById('lv-ins').value,p_neg:parseFloat(document.getElementById('lv-neg').value)||0,
-      p_questions:questions,p_roster:roster});
-    if(error){st.textContent='Error: '+error.message;return}
-    st.textContent=`✓ Created with ${data.questions} questions. Student link: live.html`;
-    await loadLiveExams(); liveOpenResults(data.exam_id,title);
+    if(!questions.length){st.textContent='No questions found — check the file format.';return}
+    if(bad.length){st.textContent='⚠ Fix question(s) #'+bad.join(', ')+' (answer missing in key, or an option is blank).';return}
+    if(Object.keys(ks).length!==questions.length)warn.add(`Answer key has ${Object.keys(ks).length} answers but the paper has ${questions.length} questions.`);
+    livePending=questions;
+    st.innerHTML=`✓ ${questions.length} questions read.`+[...warn].map(w=>'<br><span style="color:#ffb347;">⚠ '+liveEsc(w)+'</span>').join('');
+    document.getElementById('lv-prev-body').innerHTML=questions.map((q,i)=>`<div style="margin-bottom:1.2rem;"><b>Q${i+1}.</b> ${q.q}${q.opts.map((o,j)=>`<div style="margin:.25rem 0 0 1rem;${j===q.ans?'color:#5fd38d;font-weight:600;':''}">${'ABCD'[j]}) ${o}</div>`).join('')}<div style="font-size:.7rem;color:var(--muted);margin-top:.3rem;">Topic: ${liveEsc(q.topic||'—')}</div></div>`).join('');
+    document.getElementById('lv-preview').style.display='block';
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([document.getElementById('lv-prev-body')]).catch(()=>{});
   }catch(e){st.textContent='Error: '+e.message}
+}
+async function liveCreateExam(){
+  const st=document.getElementById('lv-status');
+  const roster=document.getElementById('lv-roster').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf(',');return i<0?{reg:l,name:''}:{reg:l.slice(0,i).trim(),name:l.slice(i+1).trim()}});
+  if(!livePending||!roster.length){st.textContent='Read the files first and add at least one student to the roster.';return}
+  st.textContent=`Creating exam (${livePending.length} questions, ${roster.length} PINs)...`;
+  const title=document.getElementById('lv-title').value.trim();
+  const {data,error}=await sb.rpc('live_create_exam',{p_title:title,p_class:document.getElementById('lv-class').value,
+    p_start:new Date(document.getElementById('lv-start').value).toISOString(),p_dur:parseInt(document.getElementById('lv-dur').value)||40,
+    p_instr:document.getElementById('lv-ins').value,p_neg:parseFloat(document.getElementById('lv-neg').value)||0,p_questions:livePending,p_roster:roster});
+  if(error){st.textContent='Error: '+error.message+' (if the paper has many large pictures, split it into two exams)';return}
+  st.textContent=`✓ Exam created with ${data.questions} questions. Students open live.html.`;livePending=null;
+  document.getElementById('lv-preview').style.display='none';await loadLiveExams();liveOpenResults(data.exam_id,title);
 }
 async function loadLiveExams(){
   const {data,error}=await sb.rpc('live_admin_exams'),el=document.getElementById('lv-list');
   if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
   el.innerHTML=(data&&data.length)?data.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.7rem 0;border-bottom:1px solid rgba(255,216,77,.1);">
-    <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}</div></div>
-    <div style="display:flex;gap:.4rem;"><button class="btn-delete" onclick="liveOpenResults('${e.id}','${liveEsc(e.title).replace(/'/g,'')}')">Open</button>
-    <button class="btn-delete" onclick="liveDelete('${e.id}')">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
+    <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}${e.released?' · answers released':''}</div></div>
+    <div style="display:flex;gap:.4rem;"><button class="btn-delete" onclick="liveOpenResults('${e.id}','${liveEsc(e.title).replace(/'/g,'')}')">Open</button><button class="btn-delete" onclick="liveDelete('${e.id}')">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
 }
 async function liveOpenResults(id,title){
   liveExamId=id;liveExamTitle=title;document.getElementById('lv-res-wrap').style.display='block';
-  document.getElementById('lv-res-title').textContent='Results — '+title;await liveRefresh();
+  document.getElementById('lv-res-title').textContent='Results — '+title;await liveRefresh();liveAnalytics();
 }
 async function liveRefresh(){
   if(!liveExamId)return;
   const {data}=await sb.rpc('live_admin_results',{p_exam:liveExamId});liveRows=data||[];
-  document.getElementById('lv-res').innerHTML='<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th>Reg</th><th>Name</th><th>PIN</th><th>Status</th><th>Marks</th><th>%</th><th>Page exits</th></tr>'+
-   liveRows.map(r=>`<tr style="border-top:1px solid rgba(255,216,77,.1);"><td>${liveEsc(r.reg)}</td><td>${liveEsc(r.name)}</td><td style="font-family:'Space Mono',monospace;">${r.pin}</td><td>${r.submitted?'✅ Submitted':r.joined?'⏳ In progress':'— Not joined'}</td><td>${r.submitted?r.score+'/'+r.total:''}</td><td>${r.submitted?r.percentage:''}</td><td style="color:${r.switches>2?'#ff6b6b':'inherit'}">${r.switches??''}</td></tr>`).join('')+'</table>';
+  const sc=liveRows.filter(r=>r.submitted).map(r=>r.score);
+  document.getElementById('lv-res').innerHTML='<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th>Rank</th><th>Reg</th><th>Name</th><th>PIN</th><th>Status</th><th>Marks</th><th>%</th><th>Exits</th><th>Time</th></tr>'+
+   liveRows.map(r=>`<tr style="border-top:1px solid rgba(255,216,77,.1);"><td>${r.submitted?1+sc.filter(s=>s>r.score).length:''}</td><td>${liveEsc(r.reg)}</td><td>${liveEsc(r.name)}</td><td style="font-family:'Space Mono',monospace;">${r.pin}</td><td>${r.submitted?'✅ Submitted':r.joined?'⏳ In progress':'— Not joined'}</td><td>${r.submitted?r.score+'/'+r.total:''}</td><td>${r.submitted?r.percentage:''}</td><td style="color:${r.switches>2?'#ff6b6b':'inherit'}">${r.switches??''}</td><td>${r.submitted?'':`<button class="btn-delete" onclick="liveAddTime('${liveEsc(r.reg)}')">+min</button>`}${r.extra?' +'+r.extra:''}</td></tr>`).join('')+'</table>';
 }
 setInterval(()=>{const v=document.getElementById('master-view-live');if(v&&v.style.display!=='none'&&liveExamId)liveRefresh()},6000);
+async function liveAddTime(reg){const m=parseInt(prompt('Extra minutes for '+reg+' (also lets a late student join):','5'));if(!m)return;await sb.rpc('live_add_time',{p_exam:liveExamId,p_reg:reg,p_min:m});liveRefresh()}
+async function liveAnalytics(){
+  const el=document.getElementById('lv-an'),{data}=await sb.rpc('live_admin_analytics',{p_exam:liveExamId});
+  if(!data||!data.n){el.innerHTML='<p style="color:var(--muted);">No submissions yet.</p>';return}
+  const mx=Math.max(...data.buckets,1),top=[...liveRows].filter(r=>r.submitted).sort((a,b)=>b.score-a.score).slice(0,5);
+  el.innerHTML=`<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1rem;">${[['Submitted',data.n],['Average',data.avg+'%'],['Highest',data.high+'%'],['Lowest',data.low+'%']].map(x=>`<div><b style="font-size:1.4rem;color:var(--gold);">${x[1]}</b><br>${x[0]}</div>`).join('')}</div>
+   <p style="color:var(--muted);">Score distribution (0–100%)</p><div style="display:flex;align-items:flex-end;gap:4px;height:90px;margin-bottom:1rem;">${data.buckets.map((b,i)=>`<div title="${i*10}–${i*10+10}%: ${b} students" style="flex:1;background:var(--gold);height:${b/mx*100}%;min-height:3px;"></div>`).join('')}</div>
+   <p style="color:var(--muted);">🏆 Toppers</p><p style="margin-bottom:1rem;">${top.map((t,i)=>`${i+1}. ${liveEsc(t.name||t.reg)} — ${t.score}/${t.total}`).join('<br>')}</p>
+   <p style="color:var(--muted);">Per-question accuracy (weakest first)</p><table style="width:100%;border-collapse:collapse;">${[...data.questions].sort((a,b)=>a.right/a.n-b.right/b.n).map(q=>{const p=Math.round(q.right/q.n*100);return `<tr style="border-top:1px solid rgba(255,216,77,.1);"><td style="padding:.3rem;white-space:nowrap;">Q${q.idx}</td><td>${liveEsc(q.text)}</td><td>${liveEsc(q.topic||'')}</td><td style="width:140px;"><div style="background:rgba(255,255,255,.1);"><div style="width:${p}%;background:${p<40?'#ff6b6b':p<70?'#ffd84d':'#5fd38d'};color:#000;font-size:.65rem;padding:0 4px;">${p}%</div></div></td></tr>`}).join('')}</table>`;
+}
 async function liveFinalize(){
   if(!confirm('Grade everyone who has not pressed Submit and close this exam?'))return;
-  const {data,error}=await sb.rpc('live_finalize',{p_exam:liveExamId});
-  if(error){alert(error.message);return}alert('Graded '+data.graded+' unsubmitted attempt(s).');liveRefresh();loadLiveExams();
+  const {data,error}=await sb.rpc('live_finalize',{p_exam:liveExamId});if(error){alert(error.message);return}
+  alert('Graded '+data.graded+' unsubmitted attempt(s).');liveRefresh();loadLiveExams();liveAnalytics();
+}
+async function liveRelease(on){
+  let rank=false;
+  if(on){if(!confirm('Release answers to students now? They will see their full response sheet in their dashboard.'))return;rank=confirm('Also show each student their rank?\nOK = show ranks · Cancel = hide ranks')}
+  const {error}=await sb.rpc('live_set_release',{p_exam:liveExamId,p_rel:on,p_rank:rank});
+  alert(error?error.message:on?'Released.':'Answers hidden again.');loadLiveExams();
+}
+async function liveRetest(){
+  const s=prompt('Re-test start (YYYY-MM-DD HH:MM, 24h):');if(!s)return;const d=new Date(s.replace(' ','T'));if(isNaN(d)){alert('Invalid date');return}
+  const m=parseInt(prompt('Duration in minutes:','40'))||40,abs=confirm('OK = only students who did NOT submit\nCancel = all students');
+  const {data,error}=await sb.rpc('live_clone_exam',{p_exam:liveExamId,p_start:d.toISOString(),p_dur:m,p_absent:abs});
+  if(error){alert(error.message);return}await loadLiveExams();liveOpenResults(data.exam_id,liveExamTitle+' (Re-test)');
 }
 async function liveDelete(id){if(!confirm('Delete this exam, its PINs and all results?'))return;await sb.rpc('live_delete_exam',{p_exam:id});if(liveExamId===id){liveExamId=null;document.getElementById('lv-res-wrap').style.display='none'}loadLiveExams()}
-function liveCopyCSV(){
-  const csv='Reg,Name,Status,Marks,Total,Percentage,PageExits\n'+liveRows.map(r=>[r.reg,'"'+(r.name||'')+'"',r.submitted?'Submitted':r.joined?'In progress':'Absent',r.score??'',r.total??'',r.percentage??'',r.switches??''].join(',')).join('\n');
-  navigator.clipboard.writeText(csv).then(()=>alert('CSV copied'));
+function liveDownload(name,csv){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download=name;a.click()}
+const liveQ=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+function liveCSV(){liveDownload(liveExamTitle+' - marks.csv','Rank,Reg,Name,Status,Marks,Total,Percentage,PageExits\n'+liveRows.map(r=>{const s=liveRows.filter(x=>x.submitted&&x.score>r.score).length+1;return [r.submitted?s:'',r.reg,liveQ(r.name),r.submitted?'Submitted':r.joined?'In progress':'Absent',r.score??'',r.total??'',r.percentage??'',r.switches??''].join(',')}).join('\n'))}
+async function liveResponsesCSV(){
+  const {data}=await sb.rpc('live_admin_responses',{p_exam:liveExamId});if(!data||!data.keys)return;
+  const L=i=>i==null||i===''?'':'ABCD'[i],head=['Reg','Name','Marks','Total','%','PageExits',...data.keys.map(k=>'Q'+k.idx)].join(',');
+  const key=['','ANSWER KEY','','','','',...data.keys.map(k=>L(k.answer))].join(',');
+  liveDownload(liveExamTitle+' - responses.csv',[head,key,...data.rows.map(r=>[r.reg,liveQ(r.name),r.score,r.total,r.pct,r.switches,...data.keys.map(k=>L(r.answers[k.idx]))].join(','))].join('\n'));
 }
 function livePrintSlips(){
   const w=window.open('','_blank');
   w.document.write('<html><body style="font-family:sans-serif"><style>.s{display:inline-block;width:45%;border:1px dashed #000;padding:12px;margin:6px;font-size:14px}.p{font:700 28px monospace;letter-spacing:4px}</style>'+
-   liveRows.map(r=>`<div class="s"><b>${liveEsc(liveExamTitle)}</b><br>Reg: ${liveEsc(r.reg)}<br>${liveEsc(r.name)}<br>PIN: <span class="p">${r.pin}</span></div>`).join('')+'</body></html>');
-  w.document.close();w.print();
+   liveRows.map(r=>`<div class="s"><b>${liveEsc(liveExamTitle)}</b><br>Reg: ${liveEsc(r.reg)}<br>${liveEsc(r.name)}<br>PIN: <span class="p">${r.pin}</span></div>`).join('')+'</body></html>');w.document.close();w.print();
 }
-// ═══ STUDENT: my live results ═══
+// ═══ STUDENT: live results, response sheet, revise list ═══
+const liveRich=(d,t)=>d&&d.format==='html'?t:liveEsc(t);
+function liveTypeset(el){if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([el]).catch(()=>{})}
 async function loadMyLiveResults(){
   const el=document.getElementById('dash-live-list');el.innerHTML='<p style="color:var(--muted);">Loading...</p>';
   const {data,error}=await sb.rpc('live_my_results');
   if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
   el.innerHTML=(data&&data.length)?data.map(r=>`<div class="upload-section" style="margin-bottom:1rem;"><p style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--gold);">${liveEsc(r.title)}</p>
-   <p style="font-size:.75rem;color:var(--muted);">${new Date(r.start_at).toLocaleDateString()}</p>
-   <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:.8rem;"><div><b style="font-size:1.6rem;">${r.score}/${r.total}</b><br><small>Marks</small></div><div><b style="font-size:1.6rem;color:var(--gold);">${r.percentage}%</b><br><small>Percentage</small></div>
-   <div><b style="font-size:1.6rem;">${r.correct}</b><br><small>Correct</small></div><div><b style="font-size:1.6rem;">${r.wrong}</b><br><small>Wrong</small></div></div></div>`).join(''):
-   '<p style="color:var(--muted);">No live exam results yet. Results appear here once your register number in your profile matches the one you used in the exam.</p>';
+   <p style="font-size:.75rem;color:var(--muted);">${new Date(r.start_at).toLocaleDateString()}${r.rank?` · Rank ${r.rank} of ${r.of_n}`:''}</p>
+   <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:.8rem;">${[[r.score+'/'+r.total,'Marks'],[r.percentage+'%','Percentage'],[r.correct,'Correct'],[r.wrong,'Wrong']].map(x=>`<div><b style="font-size:1.6rem;${x[1]==='Percentage'?'color:var(--gold);':''}">${x[0]}</b><br><small>${x[1]}</small></div>`).join('')}</div>
+   ${r.topics?`<div style="margin-top:.8rem;display:flex;gap:.4rem;flex-wrap:wrap;">${Object.entries(r.topics).map(([k,v])=>`<span style="border:1px solid rgba(255,216,77,.3);border-radius:20px;padding:.2rem .7rem;font-size:.72rem;">${liveEsc(k)} ${v[0]}/${v[1]}</span>`).join('')}</div>`:''}
+   <div style="margin-top:1rem;">${r.released?`<button class="btn-primary" onclick="liveShowReview('${r.exam_id}',this)">View response sheet</button>`:'<small style="color:var(--muted);">Response sheet will appear here once your teacher releases the answers.</small>'}</div><div class="lv-rev"></div></div>`).join(''):
+   '<p style="color:var(--muted);">No live exam results yet. They appear here when the register number in your profile matches the one used in the exam.</p>';
+}
+async function liveShowReview(id,btn){
+  const box=btn.closest('.upload-section').querySelector('.lv-rev');if(box.innerHTML){box.innerHTML='';return}
+  const {data}=await sb.rpc('live_my_review',{p_exam:id});
+  box.innerHTML=(data||[]).map(q=>{const ok=q.given===q.correct,sk=q.given==null;return `<div style="margin-top:1rem;padding:1rem;border:1px solid ${sk?'rgba(255,255,255,.2)':ok?'#5fd38d':'#ff6b6b'};border-radius:4px;"><b>Q${q.n}.</b> ${q.q}
+   ${q.opts.map((o,i)=>`<div style="margin:.3rem 0;padding:.3rem .6rem;border-radius:3px;${i===q.correct?'background:rgba(95,211,141,.2);':i===q.given?'background:rgba(255,107,107,.2);':''}">${'ABCD'[i]}) ${o}${i===q.correct?' ✓':''}${i===q.given&&!ok?' ✗ (your answer)':''}</div>`).join('')}
+   <small style="color:var(--muted);">${sk?'Not attempted':ok?'Correct (+'+q.marks+')':'Wrong'}${q.topic?' · '+liveEsc(q.topic):''}</small></div>`}).join('')||'<p>Not available.</p>';
+  liveTypeset(box);
+}
+async function loadRevise(){
+  const el=document.getElementById('dash-revise-list');el.innerHTML='<p style="color:var(--muted);">Loading...</p>';
+  await sb.rpc('live_sync_revise');
+  const {data,error}=await sb.from('revise_items').select('*').eq('user_id',currentUser.id).eq('done',false);
+  if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
+  const items=(data||[]).sort((a,b)=>(a.qdata.topic||'').localeCompare(b.qdata.topic||'')||a.created_at.localeCompare(b.created_at));
+  if(!items.length){el.innerHTML='<p style="color:var(--muted);">🎉 Nothing to revise. Questions you answer wrongly in practice tests and live exams are collected here. Answer one correctly later, or tap “Revised”, and it leaves the list.</p>';return}
+  let last=null;
+  el.innerHTML=`<p style="color:var(--muted);margin-bottom:1rem;">${items.length} question(s) to revise</p>`+items.map(it=>{const d=it.qdata,h=last!==d.topic?`<h4 style="color:var(--gold);margin:1.4rem 0 .5rem;">${liveEsc(d.topic||'General')}</h4>`:'';last=d.topic;
+   return h+`<div id="rv-${it.id}" class="upload-section" style="margin-bottom:.8rem;"><small style="color:var(--muted);">${it.source==='live'?'Live exam':'Practice test'} · ${liveEsc(d.exam||'')}</small><div style="margin:.4rem 0;">${liveRich(d,d.question)}</div>
+   ${(d.options||[]).map((o,i)=>`<div style="margin:.25rem 0;padding:.3rem .6rem;border-radius:3px;${i===d.correct?'background:rgba(95,211,141,.2);':i===d.given?'background:rgba(255,107,107,.2);':''}">${'ABCD'[i]}) ${liveRich(d,o)}${i===d.correct?' ✓ correct':''}${i===d.given?' ✗ your answer':''}</div>`).join('')}
+   <button class="btn-delete" style="margin-top:.5rem;" onclick="markRevised('${it.id}')">✓ Revised</button></div>`}).join('');
+  liveTypeset(el);
+}
+async function markRevised(id){await sb.from('revise_items').update({done:true}).eq('id',id);const n=document.getElementById('rv-'+id);if(n)n.remove()}
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return (h>>>0).toString(36)}
+async function saveWrongToRevise(){   // called after every practice test
+  try{
+    const bad=[],good=[];
+    currentQuestions.forEach((q,i)=>{const g=userAnswers[i];if(!g)return;const ref='p:'+hashStr(q.question||'');
+      if(g===q.correct_answer)good.push(ref);
+      else bad.push({user_id:currentUser.id,source:'practice',ref,done:false,qdata:{format:'text',question:q.question,options:[q.option_a,q.option_b,q.option_c,q.option_d],correct:'ABCD'.indexOf(q.correct_answer),given:'ABCD'.indexOf(g),topic:(typeof currentChapterName!=='undefined'&&currentChapterName)||q.concept||'',exam:'Practice test'}})});
+    if(bad.length)await sb.from('revise_items').upsert(bad,{onConflict:'user_id,ref'});
+    if(good.length)await sb.from('revise_items').update({done:true}).eq('user_id',currentUser.id).in('ref',good);
+  }catch(e){console.warn('revise list',e)}
 }
 
 function switchMasterTab(tab) {
