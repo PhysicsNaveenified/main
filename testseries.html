@@ -3275,7 +3275,7 @@ async function uploadQuestion() {
   loadMasterQuestions();
 }
 // ═══ LIVE EXAMS (master) ═══
-let liveRows=[],liveExamId=null,liveExamTitle='',livePending=null;
+let liveRows=[],liveExamId=null,liveExamTitle='',liveExamStart=null,livePending=null;
 const liveEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const LSYM={a:'α',b:'β',c:'χ',d:'δ',e:'ε',f:'φ',g:'γ',h:'η',i:'ι',j:'ϕ',k:'κ',l:'λ',m:'μ',n:'ν',o:'ο',p:'π',q:'θ',r:'ρ',s:'σ',t:'τ',u:'υ',v:'ϖ',w:'ω',x:'ξ',y:'ψ',z:'ζ',
  A:'Α',B:'Β',C:'Χ',D:'Δ',E:'Ε',F:'Φ',G:'Γ',H:'Η',I:'Ι',J:'ϑ',K:'Κ',L:'Λ',M:'Μ',N:'Ν',O:'Ο',P:'Π',Q:'Θ',R:'Ρ',S:'Σ',T:'Τ',U:'Υ',V:'ς',W:'Ω',X:'Ξ',Y:'Ψ',Z:'Ζ',
@@ -3373,28 +3373,48 @@ async function liveCreateExam(){
   st.textContent=`✓ Exam created with ${data.questions} questions. Students open live.html.`;livePending=null;
   document.getElementById('lv-preview').style.display='none';await loadLiveExams();liveOpenResults(data.exam_id,title);
 }
+let liveExamMap={};
+// every server call from this panel goes through here: it never throws and never hangs silently
+function liveRpc(fn,args,ms){
+  return Promise.race([Promise.resolve(sb.rpc(fn,args)).catch(e=>({data:null,error:{message:String(e&&e.message||e)}})),
+    new Promise(res=>setTimeout(()=>res({data:null,error:{message:'The server did not respond in time. Refresh the page and try again.'}}),ms||15000))]);
+}
 async function loadLiveExams(){
-  const {data,error}=await sb.rpc('live_admin_exams'),el=document.getElementById('lv-list');
-  if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
+  const el=document.getElementById('lv-list'),{data,error}=await liveRpc('live_admin_exams');
+  if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+' <button class="btn-delete" data-lv-retry="1">Retry</button></p>';el.onclick=ev=>{if(ev.target.closest('[data-lv-retry]'))loadLiveExams()};return}
+  liveExamMap={};(data||[]).forEach(e=>liveExamMap[e.id]=e);
   el.innerHTML=(data&&data.length)?data.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.7rem 0;border-bottom:1px solid rgba(255,216,77,.1);">
     <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}${e.released?' · answers released':''}</div></div>
-    <div style="display:flex;gap:.4rem;"><button class="btn-delete" onclick="liveOpenResults('${e.id}','${liveEsc(e.title).replace(/'/g,'')}')">Open</button><button class="btn-delete" onclick="liveDelete('${e.id}')">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;"><button class="btn-delete" data-lv-open="${e.id}">Open</button><button class="btn-delete" data-lv-link="${e.id}">🔗 Student link</button><button class="btn-delete" data-lv-del="${e.id}">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
+  // event delegation: no inline JS strings, so odd characters in an exam title can never break the buttons
+  el.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;
+    if(b.dataset.lvOpen)liveOpenResults(b.dataset.lvOpen);else if(b.dataset.lvDel)liveDelete(b.dataset.lvDel);else if(b.dataset.lvLink)liveCopyLink(b.dataset.lvLink)};
+}
+function liveCopyLink(id){
+  const u=location.origin+location.pathname.replace(/[^\/]*$/,'')+'live.html?exam='+id;
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>alert('Student link copied:\n'+u)).catch(()=>prompt('Copy this student link:',u));
 }
 async function liveOpenResults(id,title){
-  liveExamId=id;liveExamTitle=title;document.getElementById('lv-res-wrap').style.display='block';
-  document.getElementById('lv-res-title').textContent='Results — '+title;await liveRefresh();liveAnalytics();
+  const m=liveExamMap[id]||{};liveExamId=id;liveExamTitle=title||m.title||'Exam';liveExamStart=m.start_at||null;
+  const w=document.getElementById('lv-res-wrap');w.style.display='block';
+  document.getElementById('lv-res-title').textContent='Results — '+liveExamTitle;
+  document.getElementById('lv-res').innerHTML='<p style="color:var(--muted);">Loading...</p>';document.getElementById('lv-an').innerHTML='';
+  w.scrollIntoView({behavior:'smooth',block:'start'});
+  await liveRefresh();liveAnalytics();
 }
 async function liveRefresh(){
   if(!liveExamId)return;
-  const {data}=await sb.rpc('live_admin_results',{p_exam:liveExamId});liveRows=data||[];
+  const {data,error}=await liveRpc('live_admin_results',{p_exam:liveExamId}),box=document.getElementById('lv-res');
+  if(error){box.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+'</p>';return}
+  liveRows=data||[];
   const sc=liveRows.filter(r=>r.submitted).map(r=>r.score);
-  document.getElementById('lv-res').innerHTML='<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th>Rank</th><th>Reg</th><th>Name</th><th>PIN</th><th>Status</th><th>Marks</th><th>%</th><th>Exits</th><th>Time</th></tr>'+
+  box.innerHTML='<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th>Rank</th><th>Reg</th><th>Name</th><th>PIN</th><th>Status</th><th>Marks</th><th>%</th><th>Exits</th><th>Time</th></tr>'+
    liveRows.map(r=>`<tr style="border-top:1px solid rgba(255,216,77,.1);"><td>${r.submitted?1+sc.filter(s=>s>r.score).length:''}</td><td>${liveEsc(r.reg)}</td><td>${liveEsc(r.name)}</td><td style="font-family:'Space Mono',monospace;">${r.pin}</td><td>${r.submitted?'✅ Submitted':r.joined?'⏳ In progress':'— Not joined'}</td><td>${r.submitted?r.score+'/'+r.total:''}</td><td>${r.submitted?r.percentage:''}</td><td style="color:${r.switches>2?'#ff6b6b':'inherit'}">${r.switches??''}</td><td>${r.submitted?'':`<button class="btn-delete" onclick="liveAddTime('${liveEsc(r.reg)}')">+min</button>`}${r.extra?' +'+r.extra:''}</td></tr>`).join('')+'</table>';
 }
 setInterval(()=>{const v=document.getElementById('master-view-live');if(v&&v.style.display!=='none'&&liveExamId)liveRefresh()},6000);
 async function liveAddTime(reg){const m=parseInt(prompt('Extra minutes for '+reg+' (also lets a late student join):','5'));if(!m)return;await sb.rpc('live_add_time',{p_exam:liveExamId,p_reg:reg,p_min:m});liveRefresh()}
 async function liveAnalytics(){
-  const el=document.getElementById('lv-an'),{data}=await sb.rpc('live_admin_analytics',{p_exam:liveExamId});
+  const el=document.getElementById('lv-an'),{data}=await liveRpc('live_admin_analytics',{p_exam:liveExamId});
   if(!data||!data.n){el.innerHTML='<p style="color:var(--muted);">No submissions yet.</p>';return}
   const mx=Math.max(...data.buckets,1),top=[...liveRows].filter(r=>r.submitted).sort((a,b)=>b.score-a.score).slice(0,5);
   el.innerHTML=`<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1rem;">${[['Submitted',data.n],['Average',data.avg+'%'],['Highest',data.high+'%'],['Lowest',data.low+'%']].map(x=>`<div><b style="font-size:1.4rem;color:var(--gold);">${x[1]}</b><br>${x[0]}</div>`).join('')}</div>
@@ -3430,9 +3450,9 @@ async function liveResponsesCSV(){
   liveDownload(liveExamTitle+' - responses.csv',[head,key,...data.rows.map(r=>[r.reg,liveQ(r.name),r.score,r.total,r.pct,r.switches,...data.keys.map(k=>L(r.answers[k.idx]))].join(','))].join('\n'));
 }
 function livePrintSlips(){
-  const w=window.open('','_blank');
+  const w=window.open('','_blank'),day=liveExamStart?new Date(liveExamStart).toLocaleDateString():'';
   w.document.write('<html><body style="font-family:sans-serif"><style>.s{display:inline-block;width:45%;border:1px dashed #000;padding:12px;margin:6px;font-size:14px}.p{font:700 28px monospace;letter-spacing:4px}</style>'+
-   liveRows.map(r=>`<div class="s"><b>${liveEsc(liveExamTitle)}</b><br>Reg: ${liveEsc(r.reg)}<br>${liveEsc(r.name)}<br>PIN: <span class="p">${r.pin}</span></div>`).join('')+'</body></html>');w.document.close();w.print();
+   liveRows.map(r=>`<div class="s"><b>${liveEsc(liveExamTitle)}</b><br>Reg: ${liveEsc(r.reg)}<br>${liveEsc(r.name)}<br>PIN: <span class="p">${r.pin}</span><br><small>Valid on ${day} for all exams that day</small></div>`).join('')+'</body></html>');w.document.close();w.print();
 }
 // ═══ STUDENT: live results, response sheet, revise list ═══
 const liveRich=(d,t)=>d&&d.format==='html'?t:liveEsc(t);
