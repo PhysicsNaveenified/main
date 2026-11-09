@@ -42,7 +42,7 @@ select option{background:var(--navy)}
   <p class="eyebrow">Naveenified · Live Test</p><h1>Enter your exam</h1>
   <div class="card">
     <div id="sebnote" style="font-size:.75rem;color:var(--muted)"></div>
-    <label>Exam</label><select id="exam"></select>
+    <label>Exam</label><select id="exam"></select><a href="#" onclick="loadExams();return false" style="font-size:.75rem;color:var(--gold)">↻ Refresh list</a>
     <label>Register number</label><input id="reg" autocomplete="off"/>
     <label>Your name</label><input id="nm" autocomplete="off"/>
     <label>6-digit PIN (on your slip)</label><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off"/>
@@ -62,7 +62,7 @@ select option{background:var(--navy)}
 <div id="s-exam" class="scr exam">
   <div class="bar"><div><span id="e-title" style="font-weight:600"></span><div style="font-size:.7rem;color:var(--muted)" id="e-who"></div></div>
     <div class="timer" id="e-timer">--:--</div>
-    <button class="btn" onclick="confirmSubmit()">Submit</button></div>
+    <span style="font-size:.7rem;color:var(--muted);max-width:170px;text-align:right">Your exam is submitted automatically when time ends</span></div>
   <div id="warn"></div>
   <p class="eyebrow" style="margin-top:1.4rem" id="e-num"></p>
   <div class="qtext" id="e-q"></div><div id="e-opts"></div>
@@ -76,7 +76,8 @@ select option{background:var(--navy)}
   <div class="ring" id="r-ring"><div id="r-pct"></div></div>
   <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--gold)" id="r-grade"></div>
   <div class="stats" id="r-stats"></div><div id="r-topics" style="margin-top:1.2rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center"></div>
-  <p style="color:var(--muted);font-size:.85rem;margin-top:1.4rem">This result will also appear in your Test Series dashboard → Live Exams (log in with Google using the same register number). Your teacher will release the answer sheet there; wrongly answered questions then go to “Revise Wrong Questions”.</p>
+  <p style="color:var(--muted);font-size:.85rem;margin-top:1.4rem">This result will also appear in your Test Series dashboard → Live Exams (log in with Google using the same register number). Wrongly answered questions are added to “Revise Wrong Questions” once your teacher releases the answers.</p>
+  <div id="r-sheet" style="text-align:left;margin-top:2rem"></div>
   <button class="btn ghost" style="margin-top:1rem" onclick="window.print()">Print</button>
 </div>
 
@@ -95,12 +96,23 @@ let S={},Q=[],cur=0,saveT=null,lastSw=0,running=false,exams=[];
 function show(id){document.querySelectorAll('.scr').forEach(e=>e.classList.remove('on'));$(id).classList.add('on');window.scrollTo(0,0)}
 const now=()=>Date.now()+S.offset;
 
-(async()=>{
-  $('sebnote').textContent=isSEB?'✓ Safe Exam Browser detected':(REQUIRE_SEB?'✗ This exam must be opened in Safe Exam Browser.':'');
-  const {data}=await sb.rpc('live_open_exams'); exams=data||[];
-  $('exam').innerHTML=exams.length?exams.map(e=>`<option value="${e.id}">${esc(e.title)} — ${new Date(e.start_at).toLocaleString()}</option>`).join(''):'<option value="">No live exam scheduled</option>';
-  const p=new URLSearchParams(location.search).get('exam'); if(p)$('exam').value=p;
-})();
+$('sebnote').textContent=isSEB?'✓ Safe Exam Browser detected':(REQUIRE_SEB?'✗ This exam must be opened in Safe Exam Browser.':'');
+async function loadExams(){
+  $('lmsg').textContent='';$('exam').innerHTML='<option value="">Loading exams...</option>';
+  let data=null;
+  for(let i=0;i<4&&!data;i++){
+    try{const r=await sb.rpc('live_open_exams');if(r.error)throw r.error;data=r.data||[]}
+    catch(e){await new Promise(x=>setTimeout(x,600+Math.random()*1800))}   // random gap so a whole lab doesn't retry together
+  }
+  const p=new URLSearchParams(location.search).get('exam');
+  if(!data){
+    $('exam').innerHTML=p?`<option value="${esc(p)}">Live exam (direct link)</option>`:'<option value="">Could not load exams</option>';
+    if(!p)$('lmsg').textContent='Could not reach the server. Check the network and press “Refresh list”.';return}
+  exams=data;
+  $('exam').innerHTML=exams.length?exams.map(e=>`<option value="${e.id}">${esc(e.title)} — ${new Date(e.start_at).toLocaleString()}</option>`).join(''):'<option value="">No live exam scheduled right now</option>';
+  if(p){if(!exams.some(e=>e.id===p))$('exam').innerHTML+=`<option value="${esc(p)}">Live exam (direct link)</option>`;$('exam').value=p}
+}
+loadExams();
 
 async function login(){
   const reg=$('reg').value.trim(),nm=$('nm').value.trim(),pin=$('pin').value.trim(),ex=$('exam').value;
@@ -159,7 +171,7 @@ function sessionLost(){running=false;document.body.innerHTML='<div style="paddin
 function confirmSubmit(){const n=Q.filter(q=>S.answers[q.id]==null).length,rv=Q.filter(q=>S.answers['r'+q.id]).length;if(confirm((n?`${n} question(s) unanswered. `:'')+(rv?`${rv} marked for review. `:'')+'Submit your exam now?'))submit(false)}
 async function submit(auto,why){
   if(!running)return;running=false;
-  let d;for(let i=0;i<5&&!(d&&d.ok);i++){const r=await sb.rpc('live_submit',{p_exam:S.examId,p_reg:S.reg,p_token:S.token,p_answers:S.answers,p_switches:S.switches});d=r.data;if(!(d&&d.ok))await new Promise(x=>setTimeout(x,1200))}
+  let d;for(let i=0;i<10&&!(d&&d.ok);i++){const r=await sb.rpc('live_submit',{p_exam:S.examId,p_reg:S.reg,p_token:S.token,p_answers:S.answers,p_switches:S.switches});d=r.data;if(!(d&&d.ok))await new Promise(x=>setTimeout(x,1200))}
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});$('ov').style.display='none';
   if(!d||!d.ok){document.body.innerHTML='<div style="padding:3rem;text-align:center"><h1>Could not submit</h1><p style="margin-top:1rem">Do not close this page. Call your teacher.</p></div>';return}
   const p=d.percentage,g=p>=90?'Outstanding':p>=75?'Excellent':p>=60?'Good':p>=40?'Needs practice':'Needs improvement';
@@ -168,7 +180,23 @@ async function submit(auto,why){
   const un=d.count-d.correct-d.wrong;
   $('r-stats').innerHTML=[['Marks',`${d.score} / ${d.total}`],['Correct',d.correct],['Wrong',d.wrong],['Unattempted',un],['Page exits',d.switches]].map(x=>`<div class="stat"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('');
   $('r-topics').innerHTML=Object.entries(d.topics||{}).map(([k,v])=>`<span style="border:1px solid var(--line);border-radius:20px;padding:.25rem .8rem;font-size:.75rem">${esc(k)} ${v[0]}/${v[1]}</span>`).join('');
-  show('s-res');
+  show('s-res');loadSheet();
+}
+function sheetHtml(items){
+  return '<p class="eyebrow">Response sheet</p>'+items.map(q=>{const sk=q.given==null,ok=q.given===q.correct;
+    return `<div style="margin-top:1rem;padding:1rem;border:1px solid ${sk?'rgba(255,255,255,.2)':ok?'var(--green)':'var(--red)'};border-radius:4px"><div class="qtext" style="margin:0 0 .6rem"><b>Q${q.n}.</b> ${q.q}</div>`+
+    q.opts.map((o,i)=>`<div class="opt" style="cursor:default;${i===q.correct?'background:rgba(95,211,141,.2);border-color:var(--green);':i===q.given?'background:rgba(255,107,107,.2);border-color:var(--red);':''}"><b>${'ABCD'[i]}</b><span>${o}${i===q.correct?' ✓':''}${i===q.given&&!ok?' ✗ your answer':''}</span></div>`).join('')+
+    `<small style="color:var(--muted)">${sk?'Not attempted':ok?'Correct (+'+q.marks+')':'Wrong'}${q.topic?' · '+esc(q.topic):''}</small></div>`}).join('');
+}
+async function loadSheet(){
+  const el=$('r-sheet');
+  for(let i=0;i<600;i++){
+    const {data}=await sb.rpc('live_review_token',{p_exam:S.examId,p_reg:S.reg,p_token:S.token});
+    if(data&&data.ok){el.innerHTML=sheetHtml(data.items);if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([el]).catch(()=>{});return}
+    if(data&&data.msg==='wait'){el.innerHTML=`<p style="color:var(--muted);text-align:center">Your response sheet opens when the exam time is over for everyone (in ${fmt(Date.parse(data.opens)-now())}).</p>`}
+    else if(data&&data.msg==='session'){el.innerHTML='<p style="color:var(--muted);text-align:center">Response sheet unavailable here — see your dashboard.</p>';return}
+    await new Promise(r=>setTimeout(r,3000));
+  }
 }
 /* light anti-cheat: logging + full-screen + no copy (real lock = Safe Exam Browser) */
 function flag(){
