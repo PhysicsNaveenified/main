@@ -713,12 +713,14 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
           <button class="type-tab active" onclick="switchChartType('Board',this)">Board</button>
           <button class="type-tab" onclick="switchChartType('CET',this)">CET/NEET</button>
           <button class="type-tab" onclick="switchChartType('JEE',this)">JEE</button>
+          <button class="type-tab" onclick="switchChartType('Live',this)">Live Test</button>
         </div>
         <div style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
           <div id="perf-chart-inner" style="min-width:320px;">
             <canvas id="perf-chart" height="100"></canvas>
           </div>
         </div>
+        <div id="live-chart-detail" style="display:none;margin-top:1rem;"></div>
       </div>
       <div class="recent-tests">
         <h3 class="recent-title">Recent Tests</h3>
@@ -2780,7 +2782,32 @@ async function loadBookmarks() {
       </div>`;
   }).join('') || '<p style="color:var(--muted);">No bookmarked questions yet.</p>';
 }
+let liveChartTok=0;
+async function renderLiveChart(){   // "Live Test" chip in Performance: graph + table of the student's live exams
+  const tok=liveChartTok,box=document.getElementById('live-chart-detail');
+  box.innerHTML='<p style="color:var(--muted);font-size:.85rem;">Loading live test results...</p>';
+  const {data,error}=await sb.rpc('live_my_results');
+  if(tok!==liveChartTok)return;   // student already switched to another chip
+  if(perfChart){perfChart.destroy();perfChart=null}
+  const rows=(!error&&data?data:[]).slice().reverse();   // oldest → newest
+  if(!rows.length){box.innerHTML='<p style="color:var(--muted);font-size:.85rem;">No live test results yet. They appear here once you finish a live exam and the register number in your profile matches the one you used in it.</p>';return}
+  const colors=rows.map(r=>r.percentage>=75?'rgba(255,216,77,0.8)':r.percentage>=50?'rgba(90,175,255,0.8)':'rgba(255,107,107,0.8)');
+  perfChart=new Chart(document.getElementById('perf-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels:rows.map(r=>r.title.length>18?r.title.slice(0,17)+'…':r.title),datasets:[{label:'Score %',data:rows.map(r=>r.percentage),backgroundColor:colors,borderRadius:3,borderWidth:0}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>rows[i[0].dataIndex].title,label:i=>{const r=rows[i.dataIndex];return `${r.score}/${r.total} (${r.percentage}%)`}},
+      backgroundColor:'rgba(11,19,48,0.95)',titleColor:'#ffd84d',bodyColor:'#faf8f2',borderColor:'rgba(255,216,77,0.2)',borderWidth:1}},
+      scales:{y:{min:0,max:100,ticks:{color:'rgba(250,248,242,0.6)'},grid:{color:'rgba(255,255,255,0.06)'}},x:{ticks:{color:'rgba(250,248,242,0.6)'},grid:{display:false}}}}
+  });
+  box.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;font-size:.82rem;border-collapse:collapse;"><tr style="text-align:left;color:var(--gold);"><th style="padding:.4rem;">Exam</th><th>Date</th><th>Marks</th><th>%</th><th>Correct</th><th>Wrong</th><th>Rank</th></tr>'+
+    rows.slice().reverse().map(r=>`<tr style="border-top:1px solid rgba(255,216,77,.1);"><td style="padding:.4rem;">${liveEsc(r.title)}</td><td>${new Date(r.start_at).toLocaleDateString()}</td><td>${r.score}/${r.total}</td><td style="color:var(--gold);">${r.percentage}%</td><td>${r.correct}</td><td>${r.wrong}</td><td>${r.rank?r.rank+'/'+r.of_n:'—'}</td></tr>`).join('')+
+    '</table></div><p style="font-size:.72rem;color:var(--muted);margin-top:.6rem;">Open the “Live Exams” tab for response sheets and topic-wise breakdown.</p>';
+}
+
 function renderChart(type) {
+  liveChartTok++;
+  const ld = document.getElementById('live-chart-detail'); if (ld) ld.style.display = type === 'Live' ? 'block' : 'none';
+  if (type === 'Live') { renderLiveChart(); return; }
   const chapters = getActiveClass() === '11' ? CLASS11_CHAPTERS : CLASS12_CHAPTERS;
   const filtered = allResults.filter(r => r.test_type === type);
 
