@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/><title>Live Test Reports</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@300;400;500;600&display=swap');
+:root{--gold:#ffd84d;--blue:#5aafff;--navy:#0b1330;--white:#faf8f2;--muted:rgba(250,248,242,.62);--line:rgba(255,216,77,.2);--red:#ff6b6b;--green:#5fd38d}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--navy);color:var(--white);font-family:Inter,sans-serif;font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:1.4rem 5vw 4rem}.narrow{max-width:420px;padding-top:12vh}
+h1{font-family:'Cormorant Garamond',serif;color:var(--gold);font-size:2.2rem}h2{font-family:'Cormorant Garamond',serif;color:var(--gold);font-size:1.5rem;margin:1.6rem 0 .6rem}
+.card{background:rgba(255,216,77,.05);border:1px solid var(--line);border-radius:6px;padding:1.2rem;margin-top:1rem}
+input,select,textarea{width:100%;padding:.65rem;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:3px;color:var(--white);font:inherit}select option{background:var(--navy)}
+label{display:block;font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .3rem}
+.btn{padding:.6rem 1.1rem;background:var(--gold);color:var(--navy);border:0;border-radius:3px;font:600 .75rem Inter;letter-spacing:.5px;cursor:pointer}.btn.g{background:transparent;color:var(--gold);border:1px solid var(--line)}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin:1rem 0;border-bottom:1px solid var(--line);padding-bottom:.6rem}.tabs button{background:none;border:1px solid var(--line);color:var(--white);padding:.5rem 1rem;border-radius:3px;cursor:pointer;font:inherit}.tabs button.on{background:var(--gold);color:var(--navy);font-weight:600}
+.bar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end;margin:.8rem 0}.bar>div{min-width:140px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin:1rem 0}.k{border:1px solid var(--line);border-radius:6px;padding:.9rem;text-align:center}.k b{display:block;font-size:1.7rem;color:var(--gold)}.k span{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}th{text-align:left;color:var(--gold);font-size:.68rem;letter-spacing:1px;text-transform:uppercase;padding:.5rem .4rem;white-space:nowrap}td{padding:.5rem .4rem;border-top:1px solid rgba(255,216,77,.1);vertical-align:top}tr.c{cursor:pointer}tr.c:hover{background:rgba(255,255,255,.04)}
+.sc{overflow-x:auto}.lnk{color:var(--blue);cursor:pointer;text-decoration:underline}.pill{display:inline-block;padding:.05rem .5rem;border-radius:10px;font-size:.68rem;font-weight:600;color:#000}
+.hb{display:flex;align-items:flex-end;gap:5px;height:120px;margin-top:.6rem}.hb div{flex:1;background:var(--gold);min-height:2px;position:relative;border-radius:2px 2px 0 0}.hb i{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:.65rem;font-style:normal;color:var(--muted)}
+.tb{background:rgba(255,255,255,.08);border-radius:3px;height:14px;min-width:90px}.tb div{height:100%;border-radius:3px}
+ul.n{list-style:none}ul.n li{padding:.35rem 0 .35rem 1.2rem;position:relative}ul.n li:before{content:'▸';position:absolute;left:0;color:var(--gold)}
+.msg{color:var(--red);font-size:.85rem;margin-top:.8rem;min-height:1.2em}.mut{color:var(--muted);font-size:.78rem}
+@media print{body{background:#fff;color:#000}.tabs,.bar,header button,.noprint{display:none!important}.card,.k{border-color:#bbb;background:#fff}h1,h2,th,.k b{color:#000}td{border-color:#ddd}.sec{display:block!important}}
+</style></head><body>
+<div id="login" class="wrap narrow"><h1>Live Test Reports</h1><p class="mut">Authorised school staff only.</p>
+  <div class="card"><label>User ID</label><input id="u" autocomplete="username"/><label>Password</label><input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+  <div class="msg" id="lmsg"></div><button class="btn" id="lbtn" onclick="doLogin()" style="margin-top:.6rem">Sign in</button></div></div>
+
+<div id="app" style="display:none"><div class="wrap">
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap"><div><h1>Live Test Reports</h1><p class="mut" id="who"></p></div>
+    <div style="display:flex;gap:.5rem"><button class="btn g" onclick="window.print()">Print / Save PDF</button><button class="btn g" onclick="logout()">Sign out</button></div></header>
+  <div class="tabs"><button id="b-over" class="on" onclick="tab('over')">Overview</button><button id="b-test" onclick="tab('test')">Test analysis</button><button id="b-topics" onclick="tab('topics')">Topic analysis</button><button id="b-stud" onclick="tab('stud')">Students</button></div>
+  <div class="bar noprint" id="flt"><div id="f-cls-w"><label>Class</label><select id="f-cls" onchange="refresh()"></select></div><div><label>From</label><input type="date" id="f-from" onchange="refresh()"/></div><div><label>To</label><input type="date" id="f-to" onchange="refresh()"/></div><div style="flex:1"><label>Search test</label><input id="f-q" oninput="refresh()" placeholder="Test name"/></div></div>
+
+  <section id="v-over" class="sec"><div class="cards" id="o-cards"></div>
+    <div class="card"><b>Class average trend</b> <span class="mut">— gold line: average %, blue dashed: pass % (≥40%). Click a point to open that test.</span><div class="sc" id="o-trend"></div></div>
+    <h2>All tests</h2><p class="mut noprint">Tick 2–4 tests and press Compare. Click a test name for its full analysis.</p>
+    <div class="card sc" id="o-table"></div><div id="cmp"></div></section>
+
+  <section id="v-test" class="sec" style="display:none"><div class="bar noprint"><div style="flex:1"><label>Choose test</label><select id="t-sel" onchange="openExam(this.value)"></select></div></div><div id="t-body"></div></section>
+  <section id="v-topics" class="sec" style="display:none"><h2>Topic-wise accuracy across tests</h2><p class="mut">% of questions answered correctly by the class, per topic. Weakest topics first.</p><div class="card sc" id="tp-body"></div></section>
+  <section id="v-stud" class="sec" style="display:none"><div class="bar noprint"><div style="flex:1"><label>Search student</label><input id="s-q" oninput="rStud()" placeholder="Name or register number"/></div><div style="flex:0"><label>&nbsp;</label><label style="display:flex;gap:.4rem;align-items:center;text-transform:none;letter-spacing:0;color:var(--white)"><input type="checkbox" id="s-att" style="width:auto" onchange="rStud()"/> Needs attention only</label></div></div><div class="card sc" id="s-body"></div></section>
+</div></div>
+
+<script>
+const SB_URL='https://cyynkucowogcetrsuvzb.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5eW5rdWNvd29nY2V0cnN1dnpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjQyMjEsImV4cCI6MjA5ODkwMDIyMX0.nF6UKi9icYOBYkgrCdnqQvmDB1b3978NSE5VHBbUHVA',PASS=40;
+let T=sessionStorage.getItem('rt'),D={exams:[],topics:[],students:[],names:true,label:''},X=null,sel=new Set();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const un=s=>String(s==null?'':s).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+const pc=v=>v==null?'–':(Math.round(v*10)/10)+'%';
+const col=p=>p>=75?'#5fd38d':p>=50?'#5aafff':p>=PASS?'#ffd84d':'#ff6b6b';
+const fd=d=>new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const L='ABCD';
+async function rpc(fn,args){
+  const r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})});
+  const j=await r.json().catch(()=>null);
+  if(!r.ok){const m=(j&&j.message)||'Request failed';if(/unauthorized/i.test(m))logout(true);throw new Error(m)}
+  return j;
+}
+async function doLogin(){
+  $('lmsg').textContent='';$('lbtn').disabled=true;
+  try{const r=await rpc('live_report_login',{p_user:$('u').value,p_password:$('p').value});
+    if(!r.ok){$('lmsg').textContent=r.msg;return}
+    T=r.token;sessionStorage.setItem('rt',T);$('p').value='';await boot();
+  }catch(e){$('lmsg').textContent='Could not connect. Please check the internet and try again.'}
+  $('lbtn').disabled=false;
+}
+function logout(expired){
+  T=null;sessionStorage.removeItem('rt');$('app').style.display='none';$('login').style.display='block';
+  $('lmsg').textContent=expired===true?'Your session has ended. Please sign in again.':'';
+}
+async function boot(){
+  try{const [o,t,s]=await Promise.all([rpc('live_report_overview',{p_token:T}),rpc('live_report_topics',{p_token:T}),rpc('live_report_students',{p_token:T})]);
+    D={exams:o.exams||[],names:o.names,label:o.label,topics:t||[],students:s||[]};
+    $('who').textContent='Signed in as '+D.label;$('login').style.display='none';$('app').style.display='block';
+    const cl=[...new Set(D.exams.map(e=>e.class).filter(Boolean))].sort();
+    $('f-cls').innerHTML='<option value="">All classes</option>'+cl.map(c=>`<option>${esc(c)}</option>`).join('');$('f-cls-w').style.display=cl.length>1?'':'none';
+    $('b-stud').style.display=D.names?'':'none';refresh();
+  }catch(e){if(T)$('lmsg').textContent=e.message}
+}
+function tab(n){['over','test','topics','stud'].forEach(k=>{$('v-'+k).style.display=k===n?'block':'none';$('b-'+k).classList.toggle('on',k===n)});$('flt').style.display=n==='test'?'none':'';}
+function exs(){
+  const c=$('f-cls').value,f=$('f-from').value,t=$('f-to').value,q=$('f-q').value.trim().toLowerCase();
+  return D.exams.filter(e=>(!c||e.class===c)&&(!f||e.start_at.slice(0,10)>=f)&&(!t||e.start_at.slice(0,10)<=t)&&(!q||e.title.toLowerCase().includes(q)));
+}
+function refresh(){
+  const E=exs().slice().reverse();
+  $('t-sel').innerHTML=E.length?E.map(e=>`<option value="${e.id}">${esc(e.title)} — ${fd(e.start_at)}</option>`).join(''):'<option value="">No tests</option>';
+  if(X&&E.some(e=>e.id===X.id))$('t-sel').value=X.id;
+  rOver();rTopics();if(D.names)rStud();
+}
+/* ---------- overview ---------- */
+function rOver(){
+  const E=exs(),n=E.reduce((s,e)=>s+e.n,0),ro=E.reduce((s,e)=>s+e.rostered,0),ps=E.reduce((s,e)=>s+e.pass,0),av=n?E.reduce((s,e)=>s+(e.avg||0)*e.n,0)/n:null;
+  $('o-cards').innerHTML=[[E.length,'Tests conducted'],[n,'Attempts'],[ro?Math.round(n/ro*100)+'%':'–','Attendance'],[pc(av),'Overall average'],[n?Math.round(ps/n*100)+'%':'–','Pass rate (≥'+PASS+'%)']].map(x=>`<div class="k"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+  const P=E.filter(e=>e.n>0),W=760,H=190,m=P.length,x=i=>m>1?50+i*(W-80)/(m-1):W/2,y=v=>160-v/100*140;
+  $('o-trend').innerHTML=m?`<svg viewBox="0 0 ${W} ${H}" style="min-width:${Math.max(520,m*70)}px;width:100%">${[0,50,100].map(v=>`<line x1="40" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.12)"/><text x="4" y="${y(v)+4}" fill="#999" font-size="10">${v}%</text>`).join('')}
+    <polyline fill="none" stroke="#5aafff" stroke-dasharray="4 3" stroke-width="2" points="${P.map((e,i)=>x(i)+','+y(e.pass/e.n*100)).join(' ')}"/>
+    <polyline fill="none" stroke="#ffd84d" stroke-width="2.5" points="${P.map((e,i)=>x(i)+','+y(e.avg)).join(' ')}"/>
+    ${P.map((e,i)=>`<circle cx="${x(i)}" cy="${y(e.avg)}" r="5" fill="#ffd84d" style="cursor:pointer" onclick="openExam('${e.id}')"><title>${esc(e.title)}: avg ${e.avg}%</title></circle><text x="${x(i)}" y="${y(e.avg)-9}" fill="#fff" font-size="10" text-anchor="middle">${e.avg}</text><text x="${x(i)}" y="182" fill="#999" font-size="9" text-anchor="middle">${new Date(e.start_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</text>`).join('')}</svg>`:'<p class="mut" style="padding:1rem">No completed tests in this selection.</p>';
+  const R=E.slice().reverse();
+  $('o-table').innerHTML=`<table><tr><th></th><th>Test</th><th>Date</th><th>Class</th><th>Attended</th><th>Avg</th><th>Median</th><th>High</th><th>Low</th><th>Pass</th></tr>`+
+    R.map(e=>`<tr><td><input type="checkbox" style="width:auto" data-c="${e.id}" ${sel.has(e.id)?'checked':''}/></td><td><span class="lnk" data-o="${e.id}">${esc(e.title)}</span></td><td>${fd(e.start_at)}</td><td>${esc(e.class)}</td><td>${e.n}/${e.rostered}</td><td><span class="pill" style="background:${col(e.avg)}">${pc(e.avg)}</span></td><td>${pc(e.median)}</td><td>${pc(e.high)}</td><td>${pc(e.low)}</td><td>${e.n?Math.round(e.pass/e.n*100)+'%':'–'}</td></tr>`).join('')+
+    `</table><div class="noprint" style="margin-top:.8rem"><button class="btn" onclick="compare()">Compare selected</button></div>`;
+  $('o-table').onclick=ev=>{const o=ev.target.closest('[data-o]');if(o)return openExam(o.dataset.o);const c=ev.target.closest('[data-c]');if(c){c.checked?sel.add(c.dataset.c):sel.delete(c.dataset.c)}};
+}
+function compare(){
+  const E=D.exams.filter(e=>sel.has(e.id)).slice(0,4);if(E.length<2){$('cmp').innerHTML='<div class="card mut">Tick at least two tests to compare.</div>';return}
+  const rows=[['Attendance',e=>e.rostered?Math.round(e.n/e.rostered*100):null],['Average %',e=>e.avg],['Median %',e=>e.median],['Highest %',e=>e.high],['Lowest %',e=>e.low],['Pass rate %',e=>e.n?Math.round(e.pass/e.n*100):null]];
+  const tp={};D.topics.filter(t=>sel.has(t.exam_id)).forEach(t=>{(tp[t.topic]=tp[t.topic]||{})[t.exam_id]=t.c/t.t*100});
+  $('cmp').innerHTML=`<h2>Comparison</h2><div class="card sc"><table><tr><th>Measure</th>${E.map(e=>`<th>${esc(e.title)}<br><span class="mut">${fd(e.start_at)}</span></th>`).join('')}</tr>`+
+    rows.map(r=>`<tr><td>${r[0]}</td>${E.map(e=>{const v=r[1](e);return `<td style="color:${v==null?'inherit':col(v)}">${v==null?'–':pc(v)}</td>`}).join('')}</tr>`).join('')+
+    Object.entries(tp).map(([k,o])=>`<tr><td>Topic: ${esc(k)}</td>${E.map(e=>`<td style="color:${o[e.id]==null?'inherit':col(o[e.id])}">${o[e.id]==null?'–':pc(o[e.id])}</td>`).join('')}</tr>`).join('')+'</table></div>';
+  $('cmp').scrollIntoView({behavior:'smooth'});
+}
+/* ---------- single test ---------- */
+async function openExam(id){
+  if(!id)return;tab('test');$('t-sel').value=id;$('t-body').innerHTML='<p class="mut" style="padding:1rem">Loading...</p>';
+  try{X=await rpc('live_report_exam',{p_token:T,p_exam:id});X.id=id;rTest()}catch(e){$('t-body').innerHTML='<p class="msg">'+esc(e.message)+'</p>'}
+}
+function notes(e,Y){
+  const s=Y.stats,n=s.n,o=[];if(!n)return['No student has submitted this test yet.'];
+  const lvl=s.avg>=75?'excellent':s.avg>=60?'good':s.avg>=PASS?'average':'weak';
+  o.push(`Attendance: ${n} of ${s.rostered} students (${Math.round(n/s.rostered*100)}%) attempted the test.`);
+  o.push(`Overall performance is <b>${lvl}</b>: class average ${pc(s.avg)}, median ${pc(s.median)}, highest ${pc(s.high)}, lowest ${pc(s.low)}.`);
+  o.push(`${s.pass} student(s) (${Math.round(s.pass/n*100)}%) scored ${PASS}% or more; ${n-s.pass} scored below ${PASS}%.`);
+  o.push(s.sd>=22?`Scores are widely spread (SD ${s.sd}) — a mixed-ability group, so differentiated support will help.`:`Scores are fairly consistent across the class (SD ${s.sd}).`);
+  const pv=D.exams.filter(x=>x.start_at<e.start_at&&x.n>0&&x.class===e.class).pop();
+  if(pv){const d=Math.round((s.avg-pv.avg)*10)/10;o.push(`Compared with the previous test (“${esc(pv.title)}”, ${pc(pv.avg)}), the class average ${d>0?'improved by '+d:d<0?'dropped by '+Math.abs(d):'is unchanged'}${d?' points':''}.`)}
+  const tps=Y.topics.filter(t=>t.t>=3&&!/^general$/i.test(t.topic)).map(t=>({k:t.topic,p:t.c/t.t*100})).sort((a,b)=>a.p-b.p);
+  if(tps.length>1){const w=tps[0],b=tps[tps.length-1],low=tps.filter(t=>t.p<50);
+    o.push(`${b.p<60?'Relatively strongest topic':'Strongest topic'}: <b>${esc(b.k)}</b> (${pc(b.p)}). Weakest: <b>${esc(w.k)}</b> (${pc(w.p)})${low.length?' — recommend re-teaching: '+low.map(t=>esc(t.k)).join(', ')+'.':'.'}`)}
+  if(Y.finished&&Y.questions.length){
+    const q=Y.questions.map(x=>({...x,p:x.n?x.right/x.n*100:0})),hard=q.filter(x=>x.p<40),easy=q.filter(x=>x.p>=85);
+    if(hard.length)o.push(`${hard.length} question(s) were difficult (under 40% correct): Q${hard.map(x=>x.idx).join(', Q')}.`);
+    if(easy.length)o.push(`${easy.length} question(s) were answered correctly by 85% or more of the class.`);
+    hard.sort((a,b)=>a.p-b.p).slice(0,2).forEach(x=>{const w=x.opts.map((c,i)=>i===x.correct?-1:c),mx=Math.max(...w),i=w.indexOf(mx);
+      if(x.n&&mx/x.n>=.3)o.push(`In Q${x.idx}, ${Math.round(mx/x.n*100)}% chose option ${L[i]} instead of ${L[x.correct]} — a likely common misconception worth revisiting.`)});
+  }
+  if(s.flagged)o.push(`${s.flagged} student(s) left the exam page more than twice — worth a quiet check.`);
+  if(n-s.pass>0)o.push(`<b>Suggested follow-up:</b> remedial practice for the ${n-s.pass} student(s) below ${PASS}%${tps.length?', and a short revision of the weakest topics':''}.`);
+  return o;
+}
+function rTest(){
+  const e=D.exams.find(x=>x.id===X.id),s=X.stats,n=s.n;
+  let h=`<h2 style="margin-top:.6rem">${esc(e.title)}</h2><p class="mut">${fd(e.start_at)} · Class ${esc(e.class)} · ${e.duration_min} minutes</p>`;
+  h+=`<div class="card"><b>Comment on this test</b>${e.remark?`<p style="margin:.6rem 0;padding:.7rem;border-left:3px solid var(--gold);background:rgba(255,216,77,.07)"><span class="mut">Teacher’s remark:</span><br>${esc(e.remark).replace(/\n/g,'<br>')}</p>`:''}<ul class="n" style="margin-top:.5rem">${notes(e,X).map(t=>`<li>${t}</li>`).join('')}</ul></div>`;
+  if(!n)return $('t-body').innerHTML=h;
+  h+=`<div class="cards">${[[n+'/'+s.rostered,'Attended'],[pc(s.avg),'Average'],[pc(s.median),'Median'],[pc(s.high),'Highest'],[pc(s.low),'Lowest'],[Math.round(s.pass/n*100)+'%','Pass rate'],[s.sd,'Std. deviation']].map(x=>`<div class="k"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div>`;
+  const mx=Math.max(...X.buckets,1);
+  h+=`<div class="card"><b>Score distribution</b><div class="hb">${X.buckets.map((b,i)=>`<div style="height:${b/mx*100}%;background:${col(i*10+5)}" title="${i*10}–${i*10+10}%"><i>${b||''}</i></div>`).join('')}</div><div style="display:flex;gap:5px;margin-top:4px">${X.buckets.map((b,i)=>`<span style="flex:1;text-align:center;font-size:.62rem;color:var(--muted)">${i*10}</span>`).join('')}</div></div>`;
+  if(X.topics.length){h+=`<div class="card"><b>Topic-wise accuracy</b><table style="margin-top:.5rem">${X.topics.map(t=>({k:t.topic,p:t.c/t.t*100})).sort((a,b)=>a.p-b.p).map(t=>`<tr><td style="width:34%">${esc(t.k)}</td><td><div class="tb"><div style="width:${t.p}%;background:${col(t.p)}"></div></div></td><td style="width:60px">${pc(t.p)}</td></tr>`).join('')}</table></div>`}
+  h+=`<div class="card"><b>Question-wise analysis</b>`;
+  h+=X.finished?`<div class="noprint" style="margin:.6rem 0;display:flex;gap:.4rem;flex-wrap:wrap">${[['all','All'],['hard','Difficult'],['med','Medium'],['easy','Easy']].map(f=>`<button class="btn g" onclick="qfil('${f[0]}')">${f[1]}</button>`).join('')}<button class="btn g" onclick="qsort()">Sort: weakest first / paper order</button></div><div class="sc" id="t-q"></div>`:`<p class="mut" style="margin-top:.5rem">Question-wise details appear a few minutes after the test has ended for everyone.</p>`;
+  h+='</div>';
+  if(D.names){h+=`<div class="card"><b>Student results</b><div class="noprint" style="margin:.5rem 0"><input id="t-sq" oninput="rTS()" placeholder="Search student" style="max-width:240px"/></div><div class="sc" id="t-st"></div></div>`}
+  else h+='<p class="mut" style="margin-top:1rem">Individual student names are not shown for this access.</p>';
+  $('t-body').innerHTML=h;QF='all';QS=false;if(X.finished)rQ();if(D.names)rTS();
+}
+let QF='all',QS=false;
+function qfil(f){QF=f;rQ()}function qsort(){QS=!QS;rQ()}
+function rQ(){
+  let q=X.questions.map(x=>({...x,p:x.n?x.right/x.n*100:0}));
+  q=q.filter(x=>QF==='all'||(QF==='hard'&&x.p<40)||(QF==='med'&&x.p>=40&&x.p<70)||(QF==='easy'&&x.p>=70));if(QS)q.sort((a,b)=>a.p-b.p);
+  $('t-q').innerHTML=`<table><tr><th>Q</th><th>Question</th><th>Topic</th><th>% correct</th><th>Level</th><th>Options chosen (A B C D)</th></tr>`+q.map(x=>{
+    const lv=x.p<40?['Difficult','#ff6b6b']:x.p<70?['Medium','#ffd84d']:['Easy','#5fd38d'],w=x.opts.map((c,i)=>i===x.correct?-1:c),mx=Math.max(...w);
+    return `<tr><td>${x.idx}</td><td style="max-width:340px">${esc(un(x.text))}</td><td>${esc(x.topic||'')}</td><td style="min-width:120px"><div class="tb"><div style="width:${x.p}%;background:${col(x.p)}"></div></div>${pc(x.p)}</td><td><span class="pill" style="background:${lv[1]}">${lv[0]}</span></td>
+    <td style="white-space:nowrap">${x.opts.map((c,i)=>`<span style="display:inline-block;min-width:44px;text-align:center;margin-right:2px;padding:1px 3px;border-radius:3px;border:1px solid ${i===x.correct?'#5fd38d':c===mx&&c>0?'#ff6b6b':'transparent'}">${L[i]} ${x.n?Math.round(c/x.n*100):0}%</span>`).join('')}</td></tr>`}).join('')+'</table><p class="mut" style="margin-top:.5rem">Green box = correct option. Red box = most popular wrong option.</p>';
+}
+function rTS(){
+  const q=($('t-sq')?$('t-sq').value:'').trim().toLowerCase(),r=X.students.filter(s=>!q||(s.reg+' '+(s.name||'')).toLowerCase().includes(q));
+  $('t-st').innerHTML=`<table><tr><th>Rank</th><th>Reg no</th><th>Name</th><th>Marks</th><th>%</th><th>Page exits</th></tr>`+r.map(s=>`<tr><td>${s.rank}</td><td>${esc(s.reg)}</td><td>${esc(s.name||'')}</td><td>${s.score}/${s.total}</td><td><span class="pill" style="background:${col(s.pct)}">${pc(s.pct)}</span></td><td>${s.switches>2?'⚠ '+s.switches:s.switches||0}</td></tr>`).join('')+'</table>'+
+    (X.absent.length&&!q?`<p style="margin-top:.8rem"><b>Did not attempt (${X.absent.length}):</b> <span class="mut">${X.absent.map(a=>esc((a.name||'')+' ('+a.reg+')')).join(', ')}</span></p>`:'');
+}
+/* ---------- topics across tests ---------- */
+function rTopics(){
+  const E=exs().filter(e=>e.n>0),ids=new Set(E.map(e=>e.id)),M={};
+  D.topics.filter(t=>ids.has(t.exam_id)).forEach(t=>{(M[t.topic]=M[t.topic]||{})[t.exam_id]=t});
+  const cols=E.filter(e=>D.topics.some(t=>t.exam_id===e.id)),rows=Object.entries(M).map(([k,o])=>{const c=Object.values(o).reduce((s,x)=>s+x.c,0),t=Object.values(o).reduce((s,x)=>s+x.t,0);return {k,o,p:t?c/t*100:0}}).sort((a,b)=>a.p-b.p);
+  $('tp-body').innerHTML=rows.length?`<table><tr><th>Topic</th>${cols.map(e=>`<th><span class="lnk" data-o="${e.id}">${esc(e.title)}</span></th>`).join('')}<th>Overall</th></tr>`+rows.map(r=>`<tr><td>${esc(r.k)}</td>${cols.map(e=>{const x=r.o[e.id];const p=x?x.c/x.t*100:null;return `<td style="${p==null?'':'background:'+col(p)+'33;color:'+col(p)}">${p==null?'–':pc(p)}</td>`}).join('')}<td><b style="color:${col(r.p)}">${pc(r.p)}</b></td></tr>`).join('')+'</table>':'<p class="mut">No topic data yet. Topic names come from the answer key (e.g. “1. B - Kinematics”).</p>';
+  $('tp-body').onclick=ev=>{const o=ev.target.closest('[data-o]');if(o)openExam(o.dataset.o)};
+}
+/* ---------- students ---------- */
+function rStud(){
+  const ids=new Set(exs().map(e=>e.id)),G={};
+  D.students.filter(s=>ids.has(s.exam_id)).forEach(s=>{const g=G[s.reg]=G[s.reg]||{reg:s.reg,name:s.name,rows:[]};g.rows.push(s)});
+  const q=$('s-q').value.trim().toLowerCase(),att=$('s-att').checked;
+  const R=Object.values(G).map(g=>{const sub=g.rows.filter(r=>r.sub);return {...g,sub:sub.length,tot:g.rows.length,avg:sub.length?sub.reduce((s,r)=>s+r.pct,0)/sub.length:null}})
+    .filter(g=>(!q||(g.reg+' '+(g.name||'')).toLowerCase().includes(q))&&(!att||g.avg==null||g.avg<PASS||g.sub/g.tot<.6)).sort((a,b)=>(a.avg==null)-(b.avg==null)||a.avg-b.avg);
+  $('s-body').innerHTML=`<table><tr><th>Reg no</th><th>Name</th><th>Attended</th><th>Average</th><th>Flag</th></tr>`+R.map(g=>`<tr class="c" data-r="${esc(g.reg)}"><td>${esc(g.reg)}</td><td>${esc(g.name||'')}</td><td>${g.sub}/${g.tot}</td><td><span class="pill" style="background:${col(g.avg)}">${pc(g.avg)}</span></td><td>${g.avg!=null&&g.avg<PASS?'Low scores ':''}${g.sub/g.tot<.6?'Low attendance':''}</td></tr>`).join('')+'</table>';
+  $('s-body').onclick=ev=>{const tr=ev.target.closest('tr[data-r]');if(!tr)return;const nx=tr.nextElementSibling;if(nx&&nx.classList.contains('dt')){nx.remove();return}
+    const g=R.find(x=>x.reg===tr.dataset.r),ex=Object.fromEntries(D.exams.map(e=>[e.id,e]));
+    tr.insertAdjacentHTML('afterend',`<tr class="dt"><td colspan="5" style="background:rgba(255,255,255,.03)"><table>${g.rows.sort((a,b)=>ex[a.exam_id].start_at.localeCompare(ex[b.exam_id].start_at)).map(r=>`<tr><td>${esc(ex[r.exam_id].title)}</td><td>${fd(ex[r.exam_id].start_at)}</td><td>${r.sub?`${r.score}/${r.total} (${pc(r.pct)}) · rank ${r.rank}`:'<span style="color:var(--red)">Absent</span>'}</td></tr>`).join('')}</table></td></tr>`)};
+}
+if(T)boot();
+</script></body></html>
