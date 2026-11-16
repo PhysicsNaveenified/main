@@ -155,7 +155,7 @@ function rTest(){
   h+=X.finished?`<div class="noprint" style="margin:.6rem 0;display:flex;gap:.4rem;flex-wrap:wrap">${[['all','All'],['hard','Difficult'],['med','Medium'],['easy','Easy']].map(f=>`<button class="btn g" onclick="qfil('${f[0]}')">${f[1]}</button>`).join('')}<button class="btn g" onclick="qsort()">Sort: weakest first / paper order</button></div><div class="sc" id="t-q"></div>`:`<p class="mut" style="margin-top:.5rem">Question-wise details appear a few minutes after the test has ended for everyone.</p>`;
   h+='</div>';
   if(D.names){h+=`<div class="card"><b>Student results</b><div class="noprint" style="margin:.5rem 0"><input id="t-sq" oninput="rTS()" placeholder="Search student" style="max-width:240px"/></div><div class="sc" id="t-st"></div></div>`}
-  else h+='<p class="mut" style="margin-top:1rem">Individual student names are not shown for this access.</p>';
+  else h+='<p class="mut" style="margin-top:1rem"></p>';
   $('t-body').innerHTML=h;QF='all';QS=false;if(X.finished)rQ();if(D.names)rTS();
 }
 let QF='all',QS=false;
