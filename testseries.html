@@ -803,6 +803,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <input id="lv-neg" type="number" step="0.25" class="form-input" style="flex:1;min-width:110px;" placeholder="Negative/wrong" value="0"/>
     </div>
     <select id="lv-pinmode" class="form-input" style="margin-top:.6rem;"><option value="daily">PIN: one PIN per student per day (same PIN for every exam that day)</option><option value="unique">PIN: generate a different PIN for this exam</option><option value="none">PIN: disabled (register number only)</option></select>
+    <select id="lv-early" data-hint="When can students submit?" class="form-input" style="margin-top:.6rem;"><option value="0">Submit only after the time is over (default)</option><option value="1">Students may submit early (a Submit button shows during the exam)</option></select>
     <textarea id="lv-ins" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Instructions shown to students before the exam starts"></textarea>
     <textarea id="lv-roster" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Students — one per line:  register number, name&#10;e.g.  21001, Anita Rao"></textarea>
     <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">Questions file (.docx)</p><input type="file" id="lv-qf" accept=".docx"/>
@@ -839,6 +840,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <button class="btn-delete" onclick="liveRelease(true)">👁 Release answers</button>
       <button class="btn-delete" onclick="liveRelease(false)">🙈 Hide answers</button>
       <button class="btn-delete" onclick="liveRetest()">🔁 Re-test</button>
+      <button class="btn-delete" onclick="liveExtendAll()">⏱ Extend time (whole class)</button>
       <button class="btn-delete" onclick="liveEditRemark()">📝 Comment for report</button>
     </div>
     <div id="lv-res" style="overflow-x:auto;"></div>
@@ -3428,7 +3430,7 @@ async function liveCreateExam(){
   const title=document.getElementById('lv-title').value.trim();
   const {data,error}=await sb.rpc('live_create_exam',{p_title:title,p_class:document.getElementById('lv-class').value,
     p_start:new Date(document.getElementById('lv-start').value).toISOString(),p_dur:parseInt(document.getElementById('lv-dur').value)||40,
-    p_instr:document.getElementById('lv-ins').value,p_neg:parseFloat(document.getElementById('lv-neg').value)||0,p_questions:livePending,p_roster:roster,p_pin_mode:document.getElementById('lv-pinmode').value});
+    p_instr:document.getElementById('lv-ins').value,p_neg:parseFloat(document.getElementById('lv-neg').value)||0,p_questions:livePending,p_roster:roster,p_pin_mode:document.getElementById('lv-pinmode').value,p_allow_early:document.getElementById('lv-early').value==='1'});
   if(error){st.textContent='Error: '+error.message+' (if the paper has many large pictures, split it into two exams)';return}
   st.textContent=`✓ Exam created with ${data.questions} questions. Students open live.html.`;livePending=null;
   document.getElementById('lv-preview').style.display='none';await loadLiveExams();liveOpenResults(data.exam_id,title);
@@ -3444,7 +3446,7 @@ async function loadLiveExams(){
   if(error){el.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+' <button class="btn-delete" data-lv-retry="1">Retry</button></p>';el.onclick=ev=>{if(ev.target.closest('[data-lv-retry]'))loadLiveExams()};return}
   liveExamMap={};(data||[]).forEach(e=>liveExamMap[e.id]=e);
   el.innerHTML=(data&&data.length)?data.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.7rem 0;border-bottom:1px solid rgba(255,216,77,.1);">
-    <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}${e.released?' · answers released':''}${e.pin_mode==='none'?' · no PIN':e.pin_mode==='unique'?' · exam-only PIN':''}</div></div>
+    <div><b>${liveEsc(e.title)}</b><div style="font-size:.72rem;color:var(--muted);">Class ${liveEsc(e.class)} · ${new Date(e.start_at).toLocaleString()} · ${e.duration_min} min · ${e.submitted}/${e.students} submitted${e.finalized?' · finalized':''}${e.released?' · answers released':''}${e.pin_mode==='none'?' · no PIN':e.pin_mode==='unique'?' · exam-only PIN':''}${e.allow_early?' · early submit allowed':''}</div></div>
     <div style="display:flex;gap:.4rem;flex-wrap:wrap;"><button class="btn-delete" data-lv-open="${e.id}">Open</button><button class="btn-delete" data-lv-link="${e.id}">🔗 Student link</button><button class="btn-delete" data-lv-del="${e.id}">🗑</button></div></div>`).join(''):'<p style="color:var(--muted);">No live exams yet.</p>';
   // event delegation: no inline JS strings, so odd characters in an exam title can never break the buttons
   el.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;
@@ -3499,6 +3501,14 @@ async function liveAdminSubmit(reg,fromModal){
   await liveRefresh();liveAnalytics();loadLiveExams();if(fromModal)liveShowStudent(reg);
 }
 setInterval(()=>{const v=document.getElementById('master-view-live');if(v&&v.style.display!=='none'&&liveExamId)liveRefresh()},6000);
+async function liveExtendAll(){
+  const m=parseInt(prompt('Add how many minutes for the WHOLE class?\n\nStudents who are writing get the extra time within about 20 seconds, so do this before the time runs out.','5'));
+  if(!m||m<1)return;
+  if(!confirm('Add '+m+' minutes for every student in "'+liveExamTitle+'"?'))return;
+  const {data,error}=await liveRpc('live_extend_exam',{p_exam:liveExamId,p_min:m});
+  if(error){alert(error.message);return}
+  alert('Done. This exam is now '+data.duration_min+' minutes long for everyone.');await loadLiveExams();
+}
 async function liveAddTime(reg){const m=parseInt(prompt('Extra minutes for '+reg+' (also lets a late student join):','5'));if(!m)return;await sb.rpc('live_add_time',{p_exam:liveExamId,p_reg:reg,p_min:m});liveRefresh()}
 async function liveAnalytics(){
   const el=document.getElementById('lv-an'),{data}=await liveRpc('live_admin_analytics',{p_exam:liveExamId});
