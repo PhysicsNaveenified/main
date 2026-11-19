@@ -796,7 +796,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Questions .docx may contain pictures, diagrams, Word equations (Insert → Equation), Greek letters, symbols, subscripts and superscripts. Answer key format: <code>1. B - Topic name</code> (the topic after “-” powers the topic-wise report card).</p>
     <input id="lv-title" class="form-input" placeholder="Exam title (e.g. Unit Test 1 — Thermodynamics)"/>
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem;align-items:flex-end;">
-      <select id="lv-class" data-hint="Class for this exam" class="form-input" style="flex:1;min-width:120px;"><option>11</option><option>12</option></select>
+      <select id="lv-class" data-hint="Class for this exam" onchange="liveClassChanged()" class="form-input" style="flex:1;min-width:120px;"><option>11</option><option>12</option></select>
       <input id="lv-start" type="datetime-local" placeholder="Exam start date and time" class="form-input" style="flex:2;min-width:200px;"/>
       <input id="lv-dur" type="number" class="form-input" style="flex:1;min-width:110px;" placeholder="Minutes" value="40"/>
       <input id="lv-marks" type="number" step="0.5" class="form-input" style="flex:1;min-width:110px;" placeholder="Marks/Q" value="1"/>
@@ -805,6 +805,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     <select id="lv-pinmode" class="form-input" style="margin-top:.6rem;"><option value="daily">PIN: one PIN per student per day (same PIN for every exam that day)</option><option value="unique">PIN: generate a different PIN for this exam</option><option value="none">PIN: disabled (register number only)</option></select>
     <select id="lv-early" data-hint="When can students submit?" class="form-input" style="margin-top:.6rem;"><option value="0">Submit only after the time is over (default)</option><option value="1">Students may submit early (a Submit button shows during the exam)</option></select>
     <textarea id="lv-ins" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Instructions shown to students before the exam starts"></textarea>
+    <div style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;"><span style="font-size:.8rem;color:var(--muted);">Fill the students from a saved class list:</span><button type="button" class="btn-delete" id="lv-load11" onclick="liveLoadClass('11')">Class 11</button><button type="button" class="btn-delete" id="lv-load12" onclick="liveLoadClass('12')">Class 12</button><span id="lv-load-note" style="font-size:.75rem;color:var(--muted);"></span></div>
     <textarea id="lv-roster" class="form-input" rows="5" style="margin-top:.6rem;" placeholder="Students — one per line:  register number, name&#10;e.g.  21001, Anita Rao"></textarea>
     <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">Questions file (.docx)</p><input type="file" id="lv-qf" accept=".docx"/>
     <p style="font-size:.7rem;color:var(--muted);margin-top:.6rem;">Answer key file (.docx / .txt)</p><input type="file" id="lv-kf" accept=".docx,.txt"/>
@@ -814,6 +815,19 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <div id="lv-prev-body" style="max-height:420px;overflow:auto;border:1px solid rgba(255,216,77,.2);border-radius:4px;padding:1rem;"></div>
       <button class="btn-primary" style="margin-top:1rem;" onclick="liveCreateExam()">2. Looks good — create exam &amp; generate PINs</button>
     </div>
+  </div>
+  <div class="upload-section" style="margin-top:1.5rem;">
+    <h3 class="upload-title">Class student lists</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;">Save each class list once. When creating an exam, press “Class 11” or “Class 12” to fill the students automatically. Upload a .csv, .txt or Excel (.xlsx) file, or paste the list: one student per line.</p>
+    <p id="cl-counts" style="font-size:.8rem;color:var(--gold);margin-bottom:.8rem;"></p>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;">
+      <select id="cl-class" data-hint="Save this list for class" class="form-input" style="flex:1;min-width:130px;"><option>11</option><option>12</option></select>
+      <select id="cl-order" data-hint="Columns in your file / pasted text" class="form-input" style="flex:2;min-width:220px;"><option value="rn">Register number, then Name</option><option value="nr">Name, then Register number</option></select>
+    </div>
+    <p style="font-size:.7rem;color:var(--muted);margin-top:.8rem;">File (.csv, .txt, .xlsx)</p><input type="file" id="cl-file" accept=".csv,.txt,.xlsx,.xls" onchange="classFileChosen()"/>
+    <textarea id="cl-text" class="form-input" rows="6" style="margin-top:.6rem;" placeholder="Or paste the list here — one student per line:  register number, name&#10;e.g.  21001, Anita Rao"></textarea>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem;"><button class="btn-primary" onclick="classListSave()">Save list</button><button class="btn-delete" onclick="classListPreview()">Check list</button><button class="btn-delete" onclick="classListLoad()">Load saved list to edit</button></div>
+    <p id="cl-preview" style="font-size:.8rem;color:var(--muted);margin-top:.6rem;"></p>
   </div>
   <div class="upload-section" style="margin-top:1.5rem;"><h3 class="upload-title">Live Exams</h3><div id="lv-list"><p style="color:var(--muted);">Loading...</p></div></div>
   <div class="upload-section" style="margin-top:1.5rem;">
@@ -3630,9 +3644,13 @@ async function reportAct(action,id,names){
   let pw=null;
   if(action==='reset'){pw=prompt('New password (6+ characters):');if(!pw||pw.length<6)return}
   if(action==='delete'&&!confirm('Delete this dashboard login?'))return;
-  if(action==='names'&&!confirm((names?'Show student names and register numbers':'Hide student names and register numbers')+' for this login?\nThey will be signed out and must sign in again.'))return;
+  if(action==='names'&&!confirm((names?'Show':'Hide')+' student names and register numbers for this login?\nAn open dashboard picks up the change within about 30 seconds.'))return;
   const {data,error}=await liveRpc('live_report_admin',{p_action:action,p_id:id,p_password:pw,p_names:names});
-  if(error){alert(error.message);return}reportRender(data);if(action==='reset')alert('Password changed. Give the new password to the person.');if(action==='names')alert(names?'Names and register numbers are now visible to this login.':'Names and register numbers are now hidden for this login.');
+  if(error){alert(error.message);return}
+  reportRender(data);
+  if(action==='reset')alert('Password changed. Give the new password to the person.');
+  if(action==='names'){const a=(data||[]).find(x=>x.id===id);
+    alert(a&&a.names===names?(names?'Names and register numbers are now visible to this login.':'Names and register numbers are now hidden for this login.'):'The setting did not change. Run live_upgrade9.sql in Supabase (SQL Editor), then try again.')}
 }
 function liveEditRemark(){
   const m=document.getElementById('lv-modal'),b=document.getElementById('lv-modal-body'),cur=(liveExamMap[liveExamId]||{}).remark||'';
@@ -3647,6 +3665,66 @@ async function liveSaveRemark(){
   if(liveExamMap[liveExamId])liveExamMap[liveExamId].remark=v.trim()||null;
   document.getElementById('lv-modal').style.display='none';alert('Comment saved.');
 }
+// ═══ CLASS STUDENT LISTS (master): upload once, reuse in every exam ═══
+function csvSplit(line){const o=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){c+='"';i++}else q=!q}else if(ch===','&&!q){o.push(c);c=''}else c+=ch}o.push(c);return o.map(x=>x.trim())}
+function parseStudentLines(text,order){   // order: 'rn' = register no first, 'nr' = name first
+  const out=[],seen=new Set();
+  String(text).split(/\r?\n/).forEach(raw=>{
+    const l=raw.trim();if(!l)return;
+    let cells=l.includes('\t')?l.split('\t').map(x=>x.trim()):l.includes(',')?csvSplit(l):l.includes(';')?l.split(';').map(x=>x.trim()):null;
+    if(!cells){const m=order==='nr'?l.match(/^(.+)\s+(\S+)$/):l.match(/^(\S+)\s+(.+)$/);cells=m?[m[1],m[2]]:[l]}
+    cells=cells.filter(x=>x!=='');if(!cells.length)return;
+    let reg=order==='nr'&&cells.length>1?cells[1]:cells[0],name=order==='nr'&&cells.length>1?cells[0]:(cells[1]||'');
+    if(!out.length&&/^(reg|register|roll|s\.?\s*no|sl|sr|name)/i.test(reg+' '+name)&&/(reg|roll|name)/i.test(l)&&!/\d{3}/.test(l))return;   // header row
+    reg=reg.replace(/\s+/g,'').toUpperCase();if(!reg||seen.has(reg))return;seen.add(reg);out.push({reg,name:name.trim()});
+  });
+  return out;
+}
+function loadXlsxLib(){return new Promise((ok,no)=>{if(window.XLSX)return ok();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=()=>no(new Error('Could not load the Excel reader. Save the sheet as CSV and upload that, or paste the list.'));document.head.appendChild(s)})}
+async function classFileChosen(){
+  const f=document.getElementById('cl-file').files[0],box=document.getElementById('cl-text'),pv=document.getElementById('cl-preview');if(!f)return;
+  try{
+    let text;
+    if(/\.xlsx?$/i.test(f.name)){await loadXlsxLib();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});text=XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]])}
+    else text=await f.text();
+    const rows=parseStudentLines(text,document.getElementById('cl-order').value);
+    box.value=rows.map(r=>r.reg+', '+r.name).join('\n');document.getElementById('cl-order').value='rn';
+    pv.textContent=rows.length?`Read ${rows.length} students from the file. Check the list below, then press “Save list”.`:'No students found in that file — check the column order or paste the list instead.';
+  }catch(e){pv.textContent='Error: '+e.message}
+}
+function classListPreview(){
+  const rows=parseStudentLines(document.getElementById('cl-text').value,document.getElementById('cl-order').value);
+  document.getElementById('cl-preview').innerHTML=rows.length?`${rows.length} students found. First rows: <b>${rows.slice(0,3).map(r=>liveEsc(r.reg+' — '+(r.name||'(no name)'))).join(' · ')}</b>`:'No students found.';
+}
+async function classListSave(){
+  const c=document.getElementById('cl-class').value,rows=parseStudentLines(document.getElementById('cl-text').value,document.getElementById('cl-order').value);
+  if(!rows.length){alert('There are no students to save.');return}
+  if(!confirm(`Save ${rows.length} students as the Class ${c} list? This replaces any list saved earlier for Class ${c}.`))return;
+  const {data,error}=await liveRpc('live_roster_save',{p_class:c,p_students:rows});
+  if(error){alert(error.message+(/function|exist/i.test(error.message)?'\n\nRun live_upgrade9.sql in Supabase first.':''));return}
+  document.getElementById('cl-preview').textContent=`Saved ${data.saved} students for Class ${c}.`;loadClassCounts();
+}
+async function classListLoad(){
+  const c=document.getElementById('cl-class').value,{data,error}=await liveRpc('live_roster_get',{p_class:c});
+  if(error){alert(error.message);return}
+  document.getElementById('cl-text').value=(data||[]).map(s=>s.reg+', '+(s.name||'')).join('\n');document.getElementById('cl-order').value='rn';
+  document.getElementById('cl-preview').textContent=(data||[]).length?`Loaded the saved Class ${c} list (${data.length}). Edit it and press “Save list” to update.`:`No saved list for Class ${c} yet.`;
+}
+async function loadClassCounts(){
+  const {data,error}=await liveRpc('live_roster_counts');if(error||!data)return;
+  ['11','12'].forEach(c=>{const b=document.getElementById('lv-load'+c);if(b)b.textContent='Class '+c+' ('+(data[c]||0)+')'});
+  const el=document.getElementById('cl-counts');if(el)el.textContent='Saved lists: Class 11 — '+(data['11']||0)+' students · Class 12 — '+(data['12']||0)+' students';
+}
+async function liveLoadClass(c,quiet){
+  const ta=document.getElementById('lv-roster');
+  if(!quiet&&ta.value.trim()&&!confirm('Replace the students currently in the box with the saved Class '+c+' list?'))return;
+  const {data,error}=await liveRpc('live_roster_get',{p_class:c});
+  if(error){if(!quiet)alert(error.message);return}
+  if(!data||!data.length){if(!quiet)alert('No saved list for Class '+c+' yet. Upload it in “Class student lists” below, or paste the students in the box.');return}
+  ta.value=data.map(s=>s.reg+', '+(s.name||'')).join('\n');document.getElementById('lv-class').value=c;
+  document.getElementById('lv-load-note').textContent='Loaded '+data.length+' students from the Class '+c+' list. You can still edit the box.';
+}
+function liveClassChanged(){if(!document.getElementById('lv-roster').value.trim())liveLoadClass(document.getElementById('lv-class').value,true)}
 // ═══ STUDENT: live results, response sheet, revise list ═══
 const liveRich=(d,t)=>d&&d.format==='html'?t:liveEsc(t);
 function liveTypeset(el){if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([el]).catch(()=>{})}
@@ -3714,7 +3792,7 @@ function switchMasterTab(tab) {
   if (tab === 'feedback') loadFeedbackList();
   if (tab === 'insights') loadInsights();
   if (tab === 'boardqa') loadQAManageList();
-  if (tab === 'live') { loadLiveExams(); loadReportAccess(); }
+  if (tab === 'live') { loadLiveExams(); loadReportAccess(); loadClassCounts(); }
   if (tab === 'students') loadLiveDashboard();
 }
 
