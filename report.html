@@ -24,6 +24,7 @@ ul.n{list-style:none}ul.n li{padding:.35rem 0 .35rem 1.2rem;position:relative}ul
 </style></head><body>
 <div id="login" class="wrap narrow"><h1>Live Test Reports</h1><p class="mut">LOGIN HERE TO VIEW EXAM REPORTS.</p>
   <div class="card"><label>User ID</label><input id="u" autocomplete="username"/><label>Password</label><input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+  <label style="display:flex;gap:.45rem;align-items:center;text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--white);cursor:pointer"><input type="checkbox" id="showpw" style="width:auto" onchange="$('p').type=this.checked?'text':'password'"/> Show password</label>
   <div class="msg" id="lmsg"></div><button class="btn" id="lbtn" onclick="doLogin()" style="margin-top:.6rem">Sign in</button></div></div>
 
 <div id="app" style="display:none"><div class="wrap">
@@ -37,7 +38,7 @@ ul.n{list-style:none}ul.n li{padding:.35rem 0 .35rem 1.2rem;position:relative}ul
     <h2>All tests</h2><p class="mut noprint">Tick 2–4 tests and press Compare. Click a test name for its full analysis.</p>
     <div class="card sc" id="o-table"></div><div id="cmp"></div></section>
 
-  <section id="v-test" class="sec" style="display:none"><div class="bar noprint"><div style="flex:1"><label>Choose test</label><select id="t-sel" onchange="openExam(this.value)"></select></div></div><div id="t-body"></div></section>
+  <section id="v-test" class="sec" style="display:none"><div class="bar noprint"><div style="flex:1"><label>Choose test</label><select id="t-sel" onchange="openExam(this.value)"></select></div></div><div id="t-body"><p class="mut" style="padding:1rem">Choose a test from the list above to see its analysis.</p></div></section>
   <section id="v-topics" class="sec" style="display:none"><h2>Topic-wise accuracy across tests</h2><p class="mut">% of questions answered correctly by the class, per topic. Weakest topics first.</p><div class="card sc" id="tp-body"></div></section>
   <section id="v-stud" class="sec" style="display:none"><div class="bar noprint"><div style="flex:1"><label>Search student</label><input id="s-q" oninput="rStud()" placeholder="Name or register number"/></div><div style="flex:0"><label>&nbsp;</label><label style="display:flex;gap:.4rem;align-items:center;text-transform:none;letter-spacing:0;color:var(--white)"><input type="checkbox" id="s-att" style="width:auto" onchange="rStud()"/> Needs attention only</label></div></div><div class="card sc" id="s-body"></div></section>
 </div></div>
@@ -62,7 +63,7 @@ async function doLogin(){
   $('lmsg').textContent='';$('lbtn').disabled=true;
   try{const r=await rpc('live_report_login',{p_user:$('u').value,p_password:$('p').value});
     if(!r.ok){$('lmsg').textContent=r.msg;return}
-    T=r.token;sessionStorage.setItem('rt',T);$('p').value='';await boot();
+    T=r.token;sessionStorage.setItem('rt',T);$('p').value='';$('p').type='password';$('showpw').checked=false;await boot();
   }catch(e){$('lmsg').textContent='Could not connect. Please check the internet and try again.'}
   $('lbtn').disabled=false;
 }
@@ -86,8 +87,8 @@ function exs(){
 }
 function refresh(){
   const E=exs().slice().reverse();
-  $('t-sel').innerHTML=E.length?E.map(e=>`<option value="${e.id}">${esc(e.title)} — ${fd(e.start_at)}</option>`).join(''):'<option value="">No tests</option>';
-  if(X&&E.some(e=>e.id===X.id))$('t-sel').value=X.id;
+  $('t-sel').innerHTML='<option value="">Choose test</option>'+E.map(e=>`<option value="${e.id}">${esc(e.title)} — ${fd(e.start_at)}</option>`).join('');
+  if(X&&E.some(e=>e.id===X.id))$('t-sel').value=X.id;else if(X){X=null;$('t-body').innerHTML='<p class="mut" style="padding:1rem">Choose a test from the list above to see its analysis.</p>'}
   rOver();rTopics();if(D.names)rStud();
 }
 /* ---------- overview ---------- */
@@ -116,7 +117,7 @@ function compare(){
 }
 /* ---------- single test ---------- */
 async function openExam(id){
-  if(!id)return;tab('test');$('t-sel').value=id;$('t-body').innerHTML='<p class="mut" style="padding:1rem">Loading...</p>';
+  if(!id){X=null;$('t-body').innerHTML='<p class="mut" style="padding:1rem">Choose a test from the list above to see its analysis.</p>';return}tab('test');$('t-sel').value=id;$('t-body').innerHTML='<p class="mut" style="padding:1rem">Loading...</p>';
   try{X=await rpc('live_report_exam',{p_token:T,p_exam:id});X.id=id;rTest()}catch(e){$('t-body').innerHTML='<p class="msg">'+esc(e.message)+'</p>'}
 }
 function notes(e,Y){
@@ -193,5 +194,12 @@ function rStud(){
     const g=R.find(x=>x.reg===tr.dataset.r),ex=Object.fromEntries(D.exams.map(e=>[e.id,e]));
     tr.insertAdjacentHTML('afterend',`<tr class="dt"><td colspan="5" style="background:rgba(255,255,255,.03)"><table>${g.rows.sort((a,b)=>ex[a.exam_id].start_at.localeCompare(ex[b.exam_id].start_at)).map(r=>`<tr><td>${esc(ex[r.exam_id].title)}</td><td>${fd(ex[r.exam_id].start_at)}</td><td>${r.sub?`${r.score}/${r.total} (${pc(r.pct)}) · rank ${r.rank}`:'<span style="color:var(--red)">Absent</span>'}</td></tr>`).join('')}</table></td></tr>`)};
 }
+/* keeps the dashboard in step with the master's "Show / Hide names" switch (no re-login needed) */
+async function softCheck(){
+  if(!T||$('app').style.display==='none')return;
+  try{const o=await rpc('live_report_overview',{p_token:T});
+    if(o.names!==D.names){const cur=X&&X.id;await boot();if(cur&&D.names!==undefined&&$('v-test').style.display!=='none')openExam(cur)}}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)softCheck()});setInterval(softCheck,30000);
 if(T)boot();
 </script></body></html>
