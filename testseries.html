@@ -498,12 +498,13 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     <div class="profile-card">
       <p class="form-eyebrow">Welcome!</p>
       <h2 class="form-title">Complete Your Profile</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin:-0.4rem 0 1.2rem;">All fields marked * are required.</p>
       <div class="form-group">
-        <label class="form-label">Full Name</label>
+        <label class="form-label">Full Name *</label>
         <input id="p-name" class="form-input" type="text" placeholder="Enter your full name"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Class</label>
+        <label class="form-label">Class *</label>
         <select id="p-class" class="form-select">
           <option value="">Select Class</option>
           <option value="11">Class XI</option>
@@ -511,7 +512,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Group</label>
+        <label class="form-label">Group *</label>
         <select id="p-group" class="form-select">
           <option value="">Select Group</option>
           <option value="PCMB">PCMB</option>
@@ -789,6 +790,7 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
       <button class="type-tab" id="master-tab-insights" onclick="switchMasterTab('insights')">Insights</button>
       <button class="type-tab" id="master-tab-boardqa" onclick="switchMasterTab('boardqa')">Board Q&amp;A Upload</button>
       <button class="type-tab" id="master-tab-live" onclick="switchMasterTab('live')">Live Exams</button>
+      <button class="type-tab" id="master-tab-activity" onclick="switchMasterTab('activity')">Recent Activity</button>
     </div>
 <div id="master-view-live" style="display:none;">
   <div class="upload-section">
@@ -861,6 +863,21 @@ body{padding-top:calc(var(--nav-h,64px) + 36px);}
     <h3 class="upload-title" style="margin-top:1.5rem;">Class analytics <button class="btn-delete" onclick="liveAnalytics()">Refresh</button></h3>
     <div id="lv-an" style="font-size:.8rem;"></div>
   </div>
+</div>
+<div id="master-view-activity" style="display:none;">
+  <div class="upload-section">
+    <h3 class="upload-title">Recent Activity</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.8rem;">What students did on the site: tests attempted, live exams, documents opened, visits and doubts. Document openings and “started” tests are recorded from the day this update goes live.</p>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;">
+      <select id="act-period" data-hint="Period" class="form-input" onchange="actPeriodChanged()" style="flex:1;min-width:150px;"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="date">Pick a date</option></select>
+      <div id="act-date-w" style="flex:1;min-width:150px;display:none;"><div class="field-hint">Date</div><input id="act-date" type="date" class="form-input" onchange="loadActivity()"/></div>
+      <select id="act-class" data-hint="Class" class="form-input" onchange="actRender()" style="flex:1;min-width:130px;"><option value="">All classes</option><option>11</option><option>12</option></select>
+      <input id="act-q" class="form-input" placeholder="Search student name or register no." oninput="actRender()" style="flex:2;min-width:200px;"/>
+      <button class="btn-primary" onclick="loadActivity()">Refresh</button>
+    </div>
+  </div>
+  <div class="dash-summary" id="act-cards" style="margin-top:1rem;"></div>
+  <div id="act-body"></div>
 </div>
 <div id="lv-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,9,25,.88);overflow:auto;padding:2rem 1rem;" onclick="if(event.target===this)this.style.display='none'">
   <div style="max-width:860px;margin:0 auto;background:#0b1330;border:1px solid rgba(255,216,77,.3);border-radius:6px;padding:1.5rem;position:relative;">
@@ -1835,6 +1852,7 @@ function openNumericals() {
   };
   const url = urls[getActiveClass()];
   if (url && !url.includes('REPLACE')) {
+    logActivity('document', 'Numericals (Class ' + getActiveClass() + ')');
     window.open(url, '_blank');
   } else {
     alert('Class 11 Numericals link coming soon!');
@@ -1850,6 +1868,7 @@ function openTheoryQuestions() {
   };
   const url = urls[getActiveClass()];
   if (url) {
+    logActivity('document', 'Theory Questions (Class ' + getActiveClass() + ')');
     window.open(url, '_blank');
   } else {
     alert('Theory Questions link coming soon!');
@@ -1858,6 +1877,7 @@ function openTheoryQuestions() {
 
 async function openQAList(category) {
   const cls = getActiveClass();
+  logActivity('document', (category === 'theory' ? 'Theory Q&A list' : 'Numericals Q&A list') + ' (Class ' + cls + ')');
   document.getElementById('qalist-breadcrumb').textContent = 'Board Exams';
   document.getElementById('qalist-eyebrow').textContent = `Class ${cls} · Board Exams`;
   document.getElementById('qalist-title').innerHTML =
@@ -2226,6 +2246,7 @@ function exitTest() {
   goToChapters(currentTestType);
 }
 async function startTest(chapter, chapterName) {
+  logActivity('test_start', chapterName + ' (' + currentTestType + ')');
   currentChapter = chapter;
   currentChapterName = chapterName;
   userAnswers = {};
@@ -3725,6 +3746,72 @@ async function liveLoadClass(c,quiet){
   document.getElementById('lv-load-note').textContent='Loaded '+data.length+' students from the Class '+c+' list. You can still edit the box.';
 }
 function liveClassChanged(){if(!document.getElementById('lv-roster').value.trim())liveLoadClass(document.getElementById('lv-class').value,true)}
+// ═══ RECENT ACTIVITY ═══
+function logActivity(kind,label){   // records a document opening / test start; shown in the master "Recent Activity" tab
+  try{if(!currentUser)return;Promise.resolve(sb.from('activity_log').insert({user_id:currentUser.id,kind:kind,label:String(label).slice(0,190),class:(typeof getActiveClass==='function'?getActiveClass():null)})).catch(()=>{})}catch(e){}
+}
+let actData=null,actMulti=false;
+function actPeriodChanged(){document.getElementById('act-date-w').style.display=document.getElementById('act-period').value==='date'?'block':'none';loadActivity()}
+function actRange(){
+  const p=document.getElementById('act-period').value,d0=new Date();d0.setHours(0,0,0,0);
+  let from=new Date(d0),to=new Date(d0);to.setDate(to.getDate()+1);
+  if(p==='yesterday'){from.setDate(from.getDate()-1);to=new Date(d0)}
+  else if(p==='7')from.setDate(from.getDate()-6);
+  else if(p==='30')from.setDate(from.getDate()-29);
+  else if(p==='date'){const v=document.getElementById('act-date').value;if(v){from=new Date(v+'T00:00:00');to=new Date(from);to.setDate(to.getDate()+1)}}
+  const last=new Date(to);last.setDate(last.getDate()-1),day=x=>x.toLocaleDateString('en-CA');
+  return {from:from,to:to,fromDay:day(from),toDay:day(last)};
+}
+async function loadActivity(silent){
+  const r=actRange(),body=document.getElementById('act-body');actMulti=(r.to-r.from)>86400000*1.5;
+  if(!silent)body.innerHTML='<p style="color:var(--muted);">Loading...</p>';
+  const {data,error}=await liveRpc('admin_recent_activity',{p_from:r.from.toISOString(),p_to:r.to.toISOString(),p_from_day:r.fromDay,p_to_day:r.toDay});
+  if(error){body.innerHTML='<p style="color:#ff6b6b;">'+liveEsc(error.message)+(/function|exist|schema/i.test(error.message)?' — run live_upgrade10.sql in Supabase first.':'')+'</p>';return}
+  actData=data;actRender();
+}
+setInterval(()=>{const v=document.getElementById('master-view-activity');if(v&&v.style.display!=='none')loadActivity(true)},60000);
+function actRender(){
+  const d=actData;if(!d)return;
+  const cls=document.getElementById('act-class').value,q=(document.getElementById('act-q').value||'').trim().toLowerCase();
+  const ok=r=>(!cls||String(r.cls||r.tcls||'')===cls)&&(!q||((r.name||'')+' '+(r.reg||'')).toLowerCase().includes(q));
+  const T=d.tests.filter(ok),Lv=d.live.filter(ok),Dc=d.docs.filter(ok),St=d.started.filter(ok),Vs=d.visits.filter(ok),Db=d.doubts.filter(ok);
+  const nm=r=>liveEsc(r.name||'(unknown)')+(r.reg?' <span style="color:var(--muted)">('+liveEsc(r.reg)+')</span>':'');
+  const tm=t=>(actMulti?new Date(t).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' ':'')+new Date(t).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const pcol=p=>p>=75?'#5fd38d':p>=50?'#5aafff':p>=40?'#ffd84d':'#ff6b6b';
+  const grp=(arr,kf)=>{const m=new Map();arr.forEach(r=>{const k=kf(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)});return [...m.entries()]};
+  const uniq=a=>new Set(a.map(r=>r.uid||r.reg||r.name)).size;
+  const sec=(title,inner)=>'<div class="upload-section" style="margin-top:1rem;"><h3 class="upload-title">'+title+'</h3>'+inner+'</div>';
+  const none='<p style="color:var(--muted);font-size:.85rem;">Nothing in this period.</p>';
+  const th='style="text-align:left;color:var(--gold);padding:.3rem .5rem;"',td='style="padding:.4rem .5rem;border-top:1px solid rgba(255,216,77,.1);"';
+  const tbl=(heads,rows)=>'<table style="width:100%;font-size:.8rem;border-collapse:collapse;"><tr>'+heads.map(h=>'<th '+th+'>'+h+'</th>').join('')+'</tr>'+rows.join('')+'</table>';
+  const active=new Set(T.concat(Dc,St,Vs,Db,Lv).map(r=>r.uid).filter(Boolean));
+  document.getElementById('act-cards').innerHTML=[['gold',active.size,'Students active'],['gold',T.length,'Tests completed'],['blue',Lv.length,'Live exam attempts'],['blue',Dc.length,'Documents opened'],['gold',Db.length,'Doubts sent']].map(x=>`<div class="ds-card ${x[0]}"><p class="ds-num">${x[1]}</p><p class="ds-label">${x[2]}</p></div>`).join('');
+  let h='';
+  // tests completed, grouped by test
+  h+=sec('Tests attempted (practice)',T.length?grp(T,r=>(r.chapter_name||'Test')+' · '+(r.test_type||'')+' · Class '+(r.tcls||'')).sort((a,b)=>b[1].length-a[1].length).map(([k,rows])=>
+    `<div style="margin:1rem 0 .3rem;"><b>${liveEsc(k)}</b> <span style="color:var(--muted);font-size:.8rem;">— ${uniq(rows)} student(s), ${rows.length} attempt(s)</span></div>`+
+    tbl(['Student','Score','Attempt','Time'],rows.map(r=>`<tr><td ${td}>${nm(r)}</td><td ${td}><b style="color:${pcol(r.pct)}">${r.score}/${r.total} (${Math.round(r.pct)}%)</b></td><td ${td}>#${r.attempt||1}</td><td ${td}>${tm(r.ts)}</td></tr>`))).join(''):none);
+  // live exams, grouped by exam
+  h+=sec('Live exams',Lv.length?grp(Lv,r=>r.title+' · Class '+r.cls).map(([k,rows])=>
+    `<div style="margin:1rem 0 .3rem;"><b>${liveEsc(k)}</b> <span style="color:var(--muted);font-size:.8rem;">— ${rows.length} student(s)</span></div>`+
+    tbl(['Student','Result','Joined'],rows.map(r=>`<tr><td ${td}>${nm(r)}</td><td ${td}>${r.done?`<b style="color:${pcol(r.pct)}">${r.score}/${r.total} (${Math.round(r.pct)}%)</b>`:'<span style="color:var(--muted)">In progress / not submitted</span>'}</td><td ${td}>${tm(r.ts)}</td></tr>`))).join(''):none);
+  // documents opened
+  h+=sec('Documents opened',Dc.length?grp(Dc,r=>r.label).sort((a,b)=>b[1].length-a[1].length).map(([k,rows])=>
+    `<div style="margin:1rem 0 .3rem;"><b>${liveEsc(k)}</b> <span style="color:var(--muted);font-size:.8rem;">— ${uniq(rows)} student(s)</span></div><div style="font-size:.82rem;line-height:1.9;">`+
+    grp(rows,r=>r.uid||r.name).map(([u,rs])=>nm(rs[0])+' <span style="color:var(--muted)">'+tm(rs[0].ts)+(rs.length>1?' ×'+rs.length:'')+'</span>').join(' &nbsp;·&nbsp; ')+'</div>').join(''):none);
+  // started but not completed
+  const done=new Set(T.map(r=>r.uid+'|'+(r.chapter_name||'')+' ('+(r.test_type||'')+')')),sn=St.filter(r=>!done.has(r.uid+'|'+r.label));
+  h+=sec('Started a test but did not finish',sn.length?tbl(['Student','Test','Started'],sn.map(r=>`<tr><td ${td}>${nm(r)}</td><td ${td}>${liveEsc(r.label)}</td><td ${td}>${tm(r.ts)}</td></tr>`)):none);
+  // doubts
+  h+=sec('Doubts / feedback sent',Db.length?tbl(['Student','Type','Message','Time'],Db.map(r=>`<tr><td ${td}>${nm(r)}</td><td ${td}>${liveEsc(r.type||'')}</td><td ${td}>${liveEsc(r.msg||'')}</td><td ${td}>${tm(r.ts)}</td></tr>`)):none);
+  // visits
+  const vv=grp(Vs,r=>r.uid);
+  h+=sec('Visited the website ('+vv.length+')',vv.length?'<div style="font-size:.82rem;line-height:1.9;">'+vv.map(([u,rs])=>nm(rs[0])+(rs.length>1?' <span style="color:var(--muted)">× '+rs.length+' days</span>':'')).join(' &nbsp;·&nbsp; ')+'</div>':none);
+  // no activity
+  const idle=(d.students||[]).filter(s=>!active.has(s.uid)&&ok(s));
+  h+=sec('No activity in this period ('+idle.length+')',idle.length?'<details><summary style="cursor:pointer;color:var(--blue);">Show names</summary><div style="font-size:.82rem;line-height:1.9;margin-top:.5rem;">'+idle.map(s=>nm(s)+(s.cls?' <span style="color:var(--muted)">Cl '+liveEsc(s.cls)+'</span>':'')).join(' &nbsp;·&nbsp; ')+'</div></details>':'<p style="color:var(--muted);font-size:.85rem;">Every student was active.</p>');
+  document.getElementById('act-body').innerHTML=h;
+}
 // ═══ STUDENT: live results, response sheet, revise list ═══
 const liveRich=(d,t)=>d&&d.format==='html'?t:liveEsc(t);
 function liveTypeset(el){if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([el]).catch(()=>{})}
@@ -3783,6 +3870,8 @@ function switchMasterTab(tab) {
   document.getElementById('master-tab-boardqa').classList.toggle('active', tab === 'boardqa');
   document.getElementById('master-tab-live').classList.toggle('active', tab === 'live');
   document.getElementById('master-view-live').style.display = tab === 'live' ? 'block' : 'none';
+  document.getElementById('master-tab-activity').classList.toggle('active', tab === 'activity');
+  document.getElementById('master-view-activity').style.display = tab === 'activity' ? 'block' : 'none';
   document.getElementById('master-view-questions').style.display = tab === 'questions' ? 'block' : 'none';
   document.getElementById('master-view-students').style.display = tab === 'students' ? 'block' : 'none';
   document.getElementById('master-view-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
@@ -3794,6 +3883,7 @@ function switchMasterTab(tab) {
   if (tab === 'boardqa') loadQAManageList();
   if (tab === 'live') { loadLiveExams(); loadReportAccess(); loadClassCounts(); }
   if (tab === 'students') loadLiveDashboard();
+  if (tab === 'activity') loadActivity();
 }
 
 // Groups the visits table by day, showing unique anonymous vs logged-in
